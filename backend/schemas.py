@@ -76,6 +76,49 @@ class DerivedMetrics(BaseModel):
     roe: float | None = None   # return on equity (latest year, fraction)
 
 
+# --------------------------------------------------------------------------- #
+# Recommendation
+# --------------------------------------------------------------------------- #
+
+
+class FactorOut(BaseModel):
+    """One scored factor: raw value + cross-sectional percentile score."""
+
+    name: str
+    value: float | None = None
+    score: float | None = None   # 0-100 percentile (higher = better)
+    label: str = ""              # human-readable value
+
+
+class CategoryOut(BaseModel):
+    """A weighted group of factors."""
+
+    name: str
+    weight: float
+    score: float | None = None
+
+
+class RecommendationOut(BaseModel):
+    """Full buy-signal breakdown for one ticker."""
+
+    ticker: str
+    score: float                 # 0-100 composite
+    rating: str                  # Strong Buy / Buy / Hold / Reduce / Avoid
+    strength: str                # Weak / Moderate / Strong / Very Strong
+    coverage: float              # fraction of factors with data
+    categories: list[CategoryOut] = []
+    reasons: list[str] = []
+    disclaimer: str = ""
+
+
+class RecommendationSummary(BaseModel):
+    """Compact form attached to watchlist rows."""
+
+    score: float
+    rating: str
+    strength: str
+
+
 class WatchlistItemOut(StockBase):
     """A watchlist row: stock + latest price + latest fundamentals + ratios."""
 
@@ -86,6 +129,7 @@ class WatchlistItemOut(StockBase):
     change_percent: float | None = None
     fundamental: FundamentalOut | None = None
     metrics: DerivedMetrics = DerivedMetrics()
+    recommendation: RecommendationSummary | None = None
 
 
 class FundamentalsResponse(BaseModel):

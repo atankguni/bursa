@@ -10,12 +10,14 @@ from schemas import (
     FundamentalOut,
     FundamentalsResponse,
     PricePoint,
+    RecommendationOut,
     StockHistory,
     StockOut,
 )
 from services.fundamentals import is_stale, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily
+from services.recommendation import compute_universe
 
 router = APIRouter(prefix="/api", tags=["stocks"])
 
@@ -162,3 +164,29 @@ async def stock_fundamentals(
         latest=FundamentalOut.model_validate(latest_row) if latest_row else None,
         metrics=derive_metrics(price, latest_row),
     )
+
+
+@router.get("/stocks/{ticker}/recommendation", response_model=RecommendationOut)
+async def stock_recommendation(
+    ticker: str,
+    session: AsyncSession = Depends(get_session),
+) -> RecommendationOut:
+    """
+    Buy-signal score for one ticker.
+
+    Scores are relative to the tracked universe, so we score everyone and return
+    the requested ticker.
+    """
+    stock = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
+
+    recommendations = await compute_universe(session)
+    rec = recommendations.get(ticker)
+    if rec is None:
+        raise HTTPException(
+            status_code=404, detail=f"No recommendation available for {ticker}"
+        )
+    return rec

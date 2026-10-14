@@ -5,4 +5,5 @@ export const queryKeys = {
   watchlist: ['watchlist'] as const,
   history: (ticker: string, range: string) => ['history', ticker, range] as const,
   fundamentals: (ticker: string) => ['fundamentals', ticker] as const,
+  recommendation: (ticker: string) => ['recommendation', ticker] as const,
 }

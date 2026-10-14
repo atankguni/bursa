@@ -23,5 +23,27 @@ class Settings(BaseSettings):
     fundamentals_stale_hours: int = 24
     fx_cache_hours: int = 6
 
+    # Recommendation engine -------------------------------------------------
+    # Category weights (must sum to ~1.0). Tune here; no code changes needed.
+    recommendation_weights: dict[str, float] = {
+        "quality": 0.30,
+        "valuation": 0.30,
+        "growth": 0.20,
+        "momentum": 0.10,
+        "health": 0.10,
+    }
+    # Composite score (0-100) -> rating label. Highest threshold that is met wins.
+    recommendation_ratings: list[tuple[str, int]] = [
+        ("Strong Buy", 80),
+        ("Buy", 65),
+        ("Hold", 45),
+        ("Reduce", 30),
+        ("Avoid", 0),
+    ]
+    # Conviction blend: magnitude (distance from neutral), agreement, coverage.
+    conviction_very_strong: float = 0.75
+    conviction_strong: float = 0.55
+    conviction_moderate: float = 0.35
+
 
 settings = Settings()

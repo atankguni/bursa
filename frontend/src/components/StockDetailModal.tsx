@@ -9,9 +9,16 @@ import {
   X,
 } from 'lucide-react'
 import { addToWatchlist, fetchFundamentals, removeFromWatchlist } from '../api'
-import { queryKeys, useFundamentals, useHistory, useWatchlist } from '../hooks'
+import {
+  queryKeys,
+  useFundamentals,
+  useHistory,
+  useRecommendation,
+  useWatchlist,
+} from '../hooks'
 import { fmtChange, fmtPct, fmtPrice } from '../lib/format'
 import FundamentalsPanel from './FundamentalsPanel'
+import RecommendationPanel from './RecommendationPanel'
 
 // lightweight-charts is heavy; load it only when a chart is actually shown.
 const StockChart = lazy(() => import('./StockChart'))
@@ -26,7 +33,7 @@ export interface StockLike {
   change_percent?: number | null
 }
 
-type Tab = 'chart' | 'fundamentals'
+type Tab = 'chart' | 'fundamentals' | 'recommendation'
 
 export default function StockDetailModal({
   stock,
@@ -52,6 +59,9 @@ export default function StockDetailModal({
     onSuccess: (data) =>
       queryClient.setQueryData(queryKeys.fundamentals(stock.ticker), data),
   })
+
+  // --- Recommendation (cross-sectional score) -------------------------------
+  const recommendation = useRecommendation(stock.ticker, tab === 'recommendation')
 
   // --- Watchlist toggle (self-contained) ------------------------------------
   const watchlist = useWatchlist()
@@ -146,6 +156,12 @@ export default function StockDetailModal({
             >
               Fundamentals
             </button>
+            <button
+              onClick={() => setTab('recommendation')}
+              className={seg(tab === 'recommendation')}
+            >
+              Signal
+            </button>
           </div>
         </div>
 
@@ -213,6 +229,17 @@ export default function StockDetailModal({
               isError={fundamentals.isError}
               onRefresh={() => refreshFundamentals.mutate()}
               isRefreshing={refreshFundamentals.isPending}
+            />
+          </div>
+        )}
+
+        {/* Recommendation tab */}
+        {tab === 'recommendation' && (
+          <div className="mt-3">
+            <RecommendationPanel
+              data={recommendation.data}
+              isLoading={recommendation.isLoading}
+              isError={recommendation.isError}
             />
           </div>
         )}

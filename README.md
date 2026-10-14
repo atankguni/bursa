@@ -14,6 +14,9 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 - **Live prices** — batched Yahoo Finance fetch, anti rate-limit, refreshed every 3 minutes.
 - **Watchlist** — add/remove stocks; yearly figures (shares, revenue, net income, assets,
   liabilities, equity) with derived **PBV** and **RoE**.
+- **Recommendation** — an explainable, cross-sectional **factor score** (Quality, Valuation,
+  Growth, Momentum, Health) → rating (Strong Buy → Avoid) + conviction, with a factor
+  breakdown and plain-language reasons. Heuristic, not financial advice.
 - **Charts** — candlestick or line, daily (1d) and intraday (1m), via Lightweight Charts.
 - **Theme** — light / dark / **follow system** (toggle in the top bar).
 
@@ -125,6 +128,7 @@ bursa/
 | GET    | `/api/stocks?index=LQ45&index=IDX30` | Stocks (AND across indices) + latest price/change |
 | GET    | `/api/stocks/{ticker}/history?interval=1d\|1m` | OHLCV bars for charts |
 | GET    | `/api/stocks/{ticker}/fundamentals` | Yearly fundamentals + PBV/RoE |
+| GET    | `/api/stocks/{ticker}/recommendation` | Buy-signal score + rating + conviction + factors |
 | GET    | `/api/watchlist` | Watchlist with price + fundamentals + ratios |
 | POST   | `/api/watchlist/{ticker}` | Add a ticker (fetches fundamentals) |
 | DELETE | `/api/watchlist/{ticker}` | Remove a ticker |
@@ -148,7 +152,8 @@ bursa/
 
 - **Ports / DB path / API URL** — see `docker-compose.yml` (`DATABASE_URL`, `VITE_API_URL`).
 - **Tracked stocks & indices** — edit `backend/market/tickers.py`.
-- **Backend settings** (retention days, staleness, CORS, tz) — `backend/config.py`.
+- **Backend settings** (retention days, staleness, CORS, tz, **recommendation weights
+  & rating thresholds**) — `backend/config.py`.
 
 ## Development commands
 

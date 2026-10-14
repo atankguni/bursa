@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from market.tickers import INDEX_ORDER
-from models import Fundamental, StockIndex, StockPrice
+from models import Fundamental, StockIndex, StockPrice, StockProfile
 
 
 async def indices_map(
@@ -85,3 +85,55 @@ async def latest_fundamentals(
         if cur is None or f.fiscal_year > cur.fiscal_year:
             best[f.ticker] = f
     return best
+
+
+async def daily_closes(
+    session: AsyncSession, tickers: list[str]
+) -> dict[str, list[float]]:
+    """Ascending list of daily closes per ticker (for momentum/technicals)."""
+    if not tickers:
+        return {}
+    rows = (
+        await session.execute(
+            select(StockPrice.ticker, StockPrice.close)
+            .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
+            .order_by(StockPrice.ticker, StockPrice.timestamp)
+        )
+    ).all()
+    series: dict[str, list[float]] = {}
+    for ticker, close in rows:
+        series.setdefault(ticker, []).append(close)
+    return series
+
+
+async def fundamental_series(
+    session: AsyncSession, tickers: list[str]
+) -> dict[str, list[Fundamental]]:
+    """All fiscal-year rows per ticker, ascending (for growth calculations)."""
+    if not tickers:
+        return {}
+    rows = (
+        await session.execute(
+            select(Fundamental)
+            .where(Fundamental.ticker.in_(tickers))
+            .order_by(Fundamental.ticker, Fundamental.fiscal_year)
+        )
+    ).scalars().all()
+    series: dict[str, list[Fundamental]] = {}
+    for f in rows:
+        series.setdefault(f.ticker, []).append(f)
+    return series
+
+
+async def profiles(
+    session: AsyncSession, tickers: list[str]
+) -> dict[str, StockProfile]:
+    """Map each ticker to its StockProfile (info-derived metrics)."""
+    if not tickers:
+        return {}
+    rows = (
+        await session.execute(
+            select(StockProfile).where(StockProfile.ticker.in_(tickers))
+        )
+    ).scalars().all()
+    return {p.ticker: p for p in rows}

@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { FundamentalsResponse, Stock, StockHistory } from './types'
+import type { FundamentalsResponse, Recommendation, Stock, StockHistory } from './types'
 
 export async function fetchIndexes(): Promise<string[]> {
   const { data } = await api.get<string[]>('/api/indexes')
@@ -32,5 +32,10 @@ export async function fetchFundamentals(
     `/api/stocks/${ticker}/fundamentals`,
     { params: refresh ? { refresh: true } : undefined },
   )
+  return data
+}
+
+export async function fetchRecommendation(ticker: string): Promise<Recommendation> {
+  const { data } = await api.get<Recommendation>(`/api/stocks/${ticker}/recommendation`)
   return data
 }

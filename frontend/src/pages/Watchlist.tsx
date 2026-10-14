@@ -6,6 +6,13 @@ import { useWatchlist } from '../hooks'
 import { fmtCompact, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import StockDetailModal from '../components/StockDetailModal'
 
+const signalTone = (rating: string) =>
+  rating === 'Strong Buy' || rating === 'Buy'
+    ? 'text-bull'
+    : rating === 'Reduce' || rating === 'Avoid'
+      ? 'text-bear'
+      : 'text-muted'
+
 export default function Watchlist() {
   const [selected, setSelected] = useState<WatchlistItem | null>(null)
   const queryClient = useQueryClient()
@@ -57,6 +64,7 @@ export default function Watchlist() {
             <tr>
               <th className="px-3 py-2">Ticker</th>
               <th className="px-3 py-2">Name</th>
+              <th className="px-3 py-2">Signal</th>
               <th className="px-3 py-2 text-right">Price</th>
               <th className="px-3 py-2 text-right">Chg %</th>
               <th className="px-3 py-2 text-right">Shares</th>
@@ -74,14 +82,14 @@ export default function Watchlist() {
           <tbody className="divide-y divide-line">
             {isLoading && (
               <tr>
-                <td colSpan={14} className="px-3 py-8 text-center text-subtle">
+                <td colSpan={15} className="px-3 py-8 text-center text-subtle">
                   Loading watchlist…
                 </td>
               </tr>
             )}
             {!isLoading && items.length === 0 && (
               <tr>
-                <td colSpan={14} className="px-3 py-8 text-center text-subtle">
+                <td colSpan={15} className="px-3 py-8 text-center text-subtle">
                   Watchlist is empty — add stocks from the Home page.
                 </td>
               </tr>
@@ -115,6 +123,22 @@ export default function Watchlist() {
                     </span>
                   </td>
                   <td className="px-3 py-1.5 text-muted">{it.name}</td>
+                  <td className="px-3 py-1.5">
+                    {it.recommendation ? (
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className={`font-medium ${signalTone(it.recommendation.rating)}`}
+                        >
+                          {it.recommendation.rating}
+                        </span>
+                        <span className="text-[10px] text-subtle">
+                          {it.recommendation.strength}
+                        </span>
+                      </span>
+                    ) : (
+                      <span className="text-subtle">—</span>
+                    )}
+                  </td>
                   <td className="px-3 py-1.5 text-right font-medium">
                     {fmtPrice(it.last_price)}
                   </td>

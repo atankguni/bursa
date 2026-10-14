@@ -148,3 +148,31 @@ class Fundamental(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Fundamental {self.ticker} {self.fiscal_year}>"
+
+
+class StockProfile(Base):
+    """
+    Point-in-time market metrics from yfinance `.info` (one row per ticker).
+
+    Used as fallbacks/convenience for the recommendation engine and for display.
+    """
+
+    __tablename__ = "stock_profiles"
+
+    ticker: Mapped[str] = mapped_column(
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"),
+        primary_key=True, nullable=False,
+    )
+    sector: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    trailing_pe: Mapped[float | None] = mapped_column(Float, nullable=True)
+    profit_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
+    revenue_growth: Mapped[float | None] = mapped_column(Float, nullable=True)
+    earnings_growth: Mapped[float | None] = mapped_column(Float, nullable=True)
+    dividend_yield: Mapped[float | None] = mapped_column(Float, nullable=True)
+    beta: Mapped[float | None] = mapped_column(Float, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<StockProfile {self.ticker} ({self.sector})>"

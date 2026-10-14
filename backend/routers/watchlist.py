@@ -7,10 +7,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
 from models import Stock, Watchlist
-from schemas import FundamentalOut, WatchlistItemOut
+from schemas import FundamentalOut, RecommendationSummary, WatchlistItemOut
 from services.fundamentals import sync_many, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily, latest_fundamentals
+from services.recommendation import compute_universe
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 
@@ -31,6 +32,7 @@ async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
     index_map = await indices_map(session, tickers)
     price_map = await latest_daily(session, tickers)
     fund_map = await latest_fundamentals(session, tickers)
+    rec_map = await compute_universe(session)  # cross-sectional -> score everyone
 
     items: list[WatchlistItemOut] = []
     for link in links:
@@ -46,6 +48,7 @@ async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
             else None
         )
         f = fund_map.get(link.ticker)
+        rec = rec_map.get(link.ticker)
         items.append(
             WatchlistItemOut(
                 id=stock.id,
@@ -57,6 +60,13 @@ async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
                 change_percent=change_pct,
                 fundamental=FundamentalOut.model_validate(f) if f else None,
                 metrics=derive_metrics(last, f),
+                recommendation=(
+                    RecommendationSummary(
+                        score=rec.score, rating=rec.rating, strength=rec.strength
+                    )
+                    if rec
+                    else None
+                ),
             )
         )
     return items

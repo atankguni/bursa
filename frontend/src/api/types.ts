@@ -58,6 +58,7 @@ export interface WatchlistItem {
   change_percent: number | null
   fundamental: Fundamental | null
   metrics: DerivedMetrics
+  recommendation: RecommendationSummary | null
 }
 
 export interface FundamentalsResponse {
@@ -66,4 +67,29 @@ export interface FundamentalsResponse {
   yearly: Fundamental[]
   latest: Fundamental | null
   metrics: DerivedMetrics
+}
+
+// --- Recommendation --------------------------------------------------------
+
+export interface Category {
+  name: string
+  weight: number
+  score: number | null
+}
+
+export interface RecommendationSummary {
+  score: number
+  rating: string
+  strength: string
+}
+
+export interface Recommendation {
+  ticker: string
+  score: number
+  rating: string
+  strength: string
+  coverage: number
+  categories: Category[]
+  reasons: string[]
+  disclaimer: string
 }

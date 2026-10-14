@@ -23,7 +23,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from config import settings
 from database import AsyncSessionLocal
-from models import Fundamental
+from models import Fundamental, StockProfile
 
 log = logging.getLogger("bursa.fundamentals")
 
@@ -117,8 +117,24 @@ def is_stale(rows: list[Fundamental]) -> bool:
     return datetime.utcnow() - max(times) > ttl
 
 
-def fetch_rows(ticker: str) -> list[dict]:
-    """Blocking fetch + parse of one ticker's yearly fundamentals (to IDR)."""
+def _profile_from_info(info: dict) -> dict | None:
+    """Extract optional info-derived metrics (may all be None)."""
+    keys = {
+        "sector": info.get("sector"),
+        "trailing_pe": info.get("trailingPE"),
+        "profit_margin": info.get("profitMargins"),
+        "revenue_growth": info.get("revenueGrowth"),
+        "earnings_growth": info.get("earningsGrowth"),
+        "dividend_yield": info.get("dividendYield"),
+        "beta": info.get("beta"),
+    }
+    if all(v is None for v in keys.values()):
+        return None
+    return keys
+
+
+def fetch(ticker: str) -> tuple[list[dict], dict | None]:
+    """Blocking fetch + parse of one ticker's fundamentals (to IDR) + profile."""
     try:
         t = yf.Ticker(ticker)
         income = t.income_stmt
@@ -126,7 +142,9 @@ def fetch_rows(ticker: str) -> list[dict]:
         info = t.info
     except Exception as exc:  # noqa: BLE001 - network / parse failure
         log.warning("Fundamentals fetch failed for %s: %s", ticker, exc)
-        return []
+        return [], None
+
+    profile = _profile_from_info(info)
 
     # Reporting currency vs the trading currency. Statements in a foreign
     # currency (e.g. PGAS reports in USD) must be converted before any ratio
@@ -138,7 +156,7 @@ def fetch_rows(ticker: str) -> list[dict]:
             "Skipping %s: no FX rate %s->%s (statements cannot be converted)",
             ticker, currency, PRICE_CURRENCY,
         )
-        return []
+        return [], profile
 
     # Shares outstanding (yfinance .info can be flaky -> fall back to BS).
     shares: float | None = info.get("sharesOutstanding")
@@ -176,31 +194,52 @@ def fetch_rows(ticker: str) -> list[dict]:
                 "updated_at": datetime.utcnow(),
             }
         )
-    return rows
+    return rows, profile
 
 
 async def sync_ticker(ticker: str) -> int:
-    """Fetch and upsert one ticker's fundamentals. Returns rows written."""
-    rows = await asyncio.to_thread(fetch_rows, ticker)
-    if not rows:
+    """Fetch and upsert one ticker's fundamentals + profile. Returns rows written."""
+    rows, profile = await asyncio.to_thread(fetch, ticker)
+    if not rows and profile is None:
         return 0
 
     async with AsyncSessionLocal() as session:
-        stmt = sqlite_insert(Fundamental).values(rows)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["ticker", "fiscal_year"],
-            set_={
-                "financial_currency": stmt.excluded.financial_currency,
-                "total_shares": stmt.excluded.total_shares,
-                "revenue": stmt.excluded.revenue,
-                "net_income": stmt.excluded.net_income,
-                "total_assets": stmt.excluded.total_assets,
-                "total_liabilities": stmt.excluded.total_liabilities,
-                "equity": stmt.excluded.equity,
-                "updated_at": stmt.excluded.updated_at,
-            },
-        )
-        await session.execute(stmt)
+        if rows:
+            stmt = sqlite_insert(Fundamental).values(rows)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=["ticker", "fiscal_year"],
+                set_={
+                    "financial_currency": stmt.excluded.financial_currency,
+                    "total_shares": stmt.excluded.total_shares,
+                    "revenue": stmt.excluded.revenue,
+                    "net_income": stmt.excluded.net_income,
+                    "total_assets": stmt.excluded.total_assets,
+                    "total_liabilities": stmt.excluded.total_liabilities,
+                    "equity": stmt.excluded.equity,
+                    "updated_at": stmt.excluded.updated_at,
+                },
+            )
+            await session.execute(stmt)
+
+        if profile is not None:
+            prof = sqlite_insert(StockProfile).values(
+                ticker=ticker, updated_at=datetime.utcnow(), **profile
+            )
+            prof = prof.on_conflict_do_update(
+                index_elements=["ticker"],
+                set_={
+                    "sector": prof.excluded.sector,
+                    "trailing_pe": prof.excluded.trailing_pe,
+                    "profit_margin": prof.excluded.profit_margin,
+                    "revenue_growth": prof.excluded.revenue_growth,
+                    "earnings_growth": prof.excluded.earnings_growth,
+                    "dividend_yield": prof.excluded.dividend_yield,
+                    "beta": prof.excluded.beta,
+                    "updated_at": prof.excluded.updated_at,
+                },
+            )
+            await session.execute(prof)
+
         await session.commit()
     return len(rows)
 
