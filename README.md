@@ -85,24 +85,31 @@ backend on `:8000` (CORS is already allowed for `localhost:5173`).
 bursa/
 ├── docker-compose.yml
 ├── backend/
-│   ├── main.py            # FastAPI app + endpoints
+│   ├── main.py            # app factory: settings, middleware, lifespan, routers
+│   ├── config.py          # Settings (env-driven)
+│   ├── deps.py            # FastAPI dependencies (get_session)
 │   ├── database.py        # async engine, WAL, light migrations
 │   ├── models.py          # Stock, StockIndex, StockPrice, Watchlist, Fundamental
 │   ├── schemas.py         # Pydantic response models
-│   ├── scheduler.py       # APScheduler jobs (prices + fundamentals)
-│   ├── fundamentals.py    # yfinance statements -> IDR-normalized rows
-│   ├── tickers.py         # index universe + constituents
-│   ├── requirements.txt
+│   ├── routers/           # meta, stocks, watchlist endpoints
+│   ├── services/          # metrics (PBV/RoE), prices, fundamentals, bootstrap
+│   ├── market/            # tickers + batched yfinance sync
+│   ├── scheduler.py       # APScheduler jobs (prices + fundamentals + retention)
+│   ├── tests/             # pytest smoke + unit tests
+│   ├── pyproject.toml     # ruff + pytest config
+│   ├── requirements.txt · requirements-dev.txt
 │   └── Dockerfile
 └── frontend/
     ├── index.html
     ├── src/
     │   ├── App.tsx            # shell + routes
     │   ├── pages/             # Home, Watchlist
-    │   ├── components/        # NavBar, chart, modal, index selector
-    │   ├── api.ts             # typed API client
+    │   ├── components/        # NavBar, chart, modal, panels
+    │   ├── api/               # client, types, stocks, watchlist (barrel)
+    │   ├── hooks/             # React Query hooks + keys
     │   └── lib/               # formatting + theme
     ├── public/                # favicons, manifest
+    ├── .prettierrc.json
     ├── package.json
     └── Dockerfile
 ```
@@ -140,7 +147,31 @@ bursa/
 ## Configuration
 
 - **Ports / DB path / API URL** — see `docker-compose.yml` (`DATABASE_URL`, `VITE_API_URL`).
-- **Tracked stocks & indices** — edit `backend/tickers.py`.
+- **Tracked stocks & indices** — edit `backend/market/tickers.py`.
+- **Backend settings** (retention days, staleness, CORS, tz) — `backend/config.py`.
+
+## Development commands
+
+Backend (see "Development" above for the dev servers):
+
+```bash
+cd backend
+pip install -r requirements-dev.txt
+ruff check .            # lint
+python -m pytest -q     # tests
+```
+
+Frontend:
+
+```bash
+cd frontend
+npm run dev             # Vite HMR
+npm run typecheck       # tsc --noEmit
+npm run format          # prettier --write .
+```
+
+> Note: ESLint is intentionally not used — the TypeScript 7 native compiler is not
+> yet supported by `typescript-eslint`, so type checking is done by `tsc`.
 
 ## Limitations
 

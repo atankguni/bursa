@@ -3,8 +3,7 @@
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 
 /** Plain price/number with thousands separators. */
-export const fmtPrice = (v: number | null | undefined) =>
-  v == null ? '—' : nf.format(v)
+export const fmtPrice = (v: number | null | undefined) => (v == null ? '—' : nf.format(v))
 
 /** Compact large magnitudes: T / B / M / K. */
 export const fmtCompact = (v: number | null | undefined) => {

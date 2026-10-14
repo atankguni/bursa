@@ -1,6 +1,6 @@
 """
-fundamentals.py
----------------
+services/fundamentals.py
+------------------------
 Yearly fundamentals ingestion via yfinance.
 
 For each ticker we pull:
@@ -8,8 +8,9 @@ For each ticker we pull:
   * balance sheet     -> Total Assets, Total Liabilities, Equity  (yearly)
   * info              -> sharesOutstanding (fallback: shares issued)
 
-Numbers are stored raw (IDR). yfinance has no true batch endpoint for
-statements, so calls are per-ticker and throttled when syncing many symbols.
+Statements may be filed in a foreign currency (e.g. PGAS reports in USD); all
+monetary values are converted to IDR so ratios vs the IDR market cap are valid.
+yfinance has no batch endpoint for statements, so calls are per-ticker.
 """
 
 import asyncio
@@ -20,6 +21,7 @@ import pandas as pd
 import yfinance as yf
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
+from config import settings
 from database import AsyncSessionLocal
 from models import Fundamental
 
@@ -29,7 +31,6 @@ log = logging.getLogger("bursa.fundamentals")
 PRICE_CURRENCY = "IDR"
 
 # Cache FX rates (currency -> (rate, fetched_at)) to avoid a call per ticker.
-_FX_TTL = timedelta(hours=6)
 _fx_cache: dict[str, tuple[float, datetime]] = {}
 
 # Candidate row labels across the various Yahoo statement layouts.
@@ -62,8 +63,9 @@ def _fx_rate(currency: str) -> float | None:
         return 1.0
 
     now = datetime.utcnow()
+    ttl = timedelta(hours=settings.fx_cache_hours)
     cached = _fx_cache.get(currency)
-    if cached and now - cached[1] < _FX_TTL:
+    if cached and now - cached[1] < ttl:
         return cached[0]
 
     try:
@@ -102,6 +104,17 @@ def _col_for_year(df: pd.DataFrame | None, year: int):
         if getattr(c, "year", None) == year:
             return c
     return None
+
+
+def is_stale(rows: list[Fundamental]) -> bool:
+    """True if we have no cached rows or the newest one is older than the TTL."""
+    if not rows:
+        return True
+    times = [r.updated_at for r in rows if r.updated_at is not None]
+    if not times:
+        return True
+    ttl = timedelta(hours=settings.fundamentals_stale_hours)
+    return datetime.utcnow() - max(times) > ttl
 
 
 def fetch_rows(ticker: str) -> list[dict]:

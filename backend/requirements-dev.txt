@@ -1,0 +1,6 @@
+# Development / test dependencies (not installed in the production image).
+-r requirements.txt
+pytest
+pytest-asyncio
+httpx
+ruff

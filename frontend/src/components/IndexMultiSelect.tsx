@@ -34,8 +34,7 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
     }
   }
 
-  const label =
-    selected.length <= 2 ? selected.join(', ') : `${selected.length} indices`
+  const label = selected.length <= 2 ? selected.join(', ') : `${selected.length} indices`
 
   return (
     <div ref={ref} className="relative">

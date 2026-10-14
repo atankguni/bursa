@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -8,13 +8,8 @@ import {
   Star,
   X,
 } from 'lucide-react'
-import {
-  addToWatchlist,
-  fetchFundamentals,
-  fetchHistory,
-  fetchWatchlist,
-  removeFromWatchlist,
-} from '../api'
+import { addToWatchlist, fetchFundamentals, removeFromWatchlist } from '../api'
+import { queryKeys, useFundamentals, useHistory, useWatchlist } from '../hooks'
 import { fmtChange, fmtPct, fmtPrice } from '../lib/format'
 import FundamentalsPanel from './FundamentalsPanel'
 
@@ -48,29 +43,20 @@ export default function StockDetailModal({
   const queryClient = useQueryClient()
 
   // --- Chart data -----------------------------------------------------------
-  const history = useQuery({
-    queryKey: ['history', stock.ticker, range],
-    queryFn: () => fetchHistory(stock.ticker, range),
-    enabled: tab === 'chart',
-  })
+  const history = useHistory(stock.ticker, range, tab === 'chart')
 
   // --- Fundamentals (fetched on demand, cached) -----------------------------
-  const fundamentals = useQuery({
-    queryKey: ['fundamentals', stock.ticker],
-    queryFn: () => fetchFundamentals(stock.ticker),
-    enabled: tab === 'fundamentals',
-  })
+  const fundamentals = useFundamentals(stock.ticker, tab === 'fundamentals')
   const refreshFundamentals = useMutation({
     mutationFn: () => fetchFundamentals(stock.ticker, true),
     onSuccess: (data) =>
-      queryClient.setQueryData(['fundamentals', stock.ticker], data),
+      queryClient.setQueryData(queryKeys.fundamentals(stock.ticker), data),
   })
 
   // --- Watchlist toggle (self-contained) ------------------------------------
-  const watchlist = useQuery({ queryKey: ['watchlist'], queryFn: fetchWatchlist })
+  const watchlist = useWatchlist()
   const watched = (watchlist.data ?? []).some((w) => w.ticker === stock.ticker)
-  const invalidateWatch = () =>
-    queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+  const invalidateWatch = () => queryClient.invalidateQueries({ queryKey: ['watchlist'] })
   const add = useMutation({
     mutationFn: () => addToWatchlist(stock.ticker),
     onSuccess: invalidateWatch,
@@ -117,8 +103,8 @@ export default function StockDetailModal({
               {stock.change_percent != null && (
                 <span className={`flex items-center text-xs font-medium ${tone}`}>
                   {up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
-                  {stock.change != null && <>{fmtChange(stock.change)} </>}
-                  ({fmtPct(stock.change_percent)})
+                  {stock.change != null && <>{fmtChange(stock.change)} </>}(
+                  {fmtPct(stock.change_percent)})
                 </span>
               )}
             </div>
@@ -169,7 +155,11 @@ export default function StockDetailModal({
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
                 {(['1d', '1m'] as const).map((i) => (
-                  <button key={i} onClick={() => setRange(i)} className={seg(range === i)}>
+                  <button
+                    key={i}
+                    onClick={() => setRange(i)}
+                    className={seg(range === i)}
+                  >
                     {i === '1d' ? 'Daily' : '1-Min'}
                   </button>
                 ))}

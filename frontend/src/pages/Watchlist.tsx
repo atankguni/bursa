@@ -1,12 +1,8 @@
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Info, RefreshCw, Trash2 } from 'lucide-react'
-import {
-  fetchWatchlist,
-  refreshWatchlist,
-  removeFromWatchlist,
-  type WatchlistItem,
-} from '../api'
+import { refreshWatchlist, removeFromWatchlist, type WatchlistItem } from '../api'
+import { useWatchlist } from '../hooks'
 import { fmtCompact, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import StockDetailModal from '../components/StockDetailModal'
 
@@ -14,11 +10,7 @@ export default function Watchlist() {
   const [selected, setSelected] = useState<WatchlistItem | null>(null)
   const queryClient = useQueryClient()
 
-  const { data: items = [], isLoading, isFetching } = useQuery({
-    queryKey: ['watchlist'],
-    queryFn: fetchWatchlist,
-    refetchInterval: 60_000,
-  })
+  const { data: items = [], isLoading, isFetching } = useWatchlist({ poll: true })
 
   const remove = useMutation({
     mutationFn: (ticker: string) => removeFromWatchlist(ticker),
@@ -54,7 +46,8 @@ export default function Watchlist() {
 
       {refresh.isSuccess && (
         <div className="mb-2 flex items-center gap-1.5 rounded-lg bg-bull/10 px-2.5 py-1.5 text-[11px] text-bull">
-          <Info size={13} /> Updated {refresh.data.tickers} tickers ({refresh.data.rows} rows).
+          <Info size={13} /> Updated {refresh.data.tickers} tickers ({refresh.data.rows}{' '}
+          rows).
         </div>
       )}
 
@@ -176,8 +169,8 @@ export default function Watchlist() {
       </div>
 
       <p className="mt-2 text-[11px] text-subtle">
-        Figures are normalized to IDR (foreign-currency filers converted). PBV =
-        market cap ÷ book value. RoE = net income ÷ equity.
+        Figures are normalized to IDR (foreign-currency filers converted). PBV = market
+        cap ÷ book value. RoE = net income ÷ equity.
       </p>
 
       {selected && (

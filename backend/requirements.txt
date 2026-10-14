@@ -11,6 +11,7 @@ yfinance==1.7.0
 curl_cffi==0.16.3
 apscheduler==3.11.3
 pydantic==2.14.1
+pydantic-settings==2.7.0
 pandas==3.0.6
 # Async SQLAlchemy runtime dependency (kept explicit for cp314 wheels).
 greenlet==3.5.6

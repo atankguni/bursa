@@ -1,10 +1,4 @@
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-  type ReactNode,
-} from 'react'
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
 type Resolved = 'light' | 'dark'
@@ -39,8 +33,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
     const apply = () => {
       // "system" tracks the OS setting; pinned choices win.
-      const dark =
-        theme === 'dark' || (theme === 'system' && mq.matches)
+      const dark = theme === 'dark' || (theme === 'system' && mq.matches)
       document.documentElement.classList.toggle('dark', dark)
       setResolved(dark ? 'dark' : 'light')
     }

@@ -20,9 +20,7 @@ export default function ThemeToggle() {
           title={label}
           aria-label={`${label} theme`}
           className={`px-2 py-1.5 transition ${
-            theme === value
-              ? 'bg-active text-ink'
-              : 'text-muted hover:text-ink'
+            theme === value ? 'bg-active text-ink' : 'text-muted hover:text-ink'
           }`}
         >
           <Icon size={15} />

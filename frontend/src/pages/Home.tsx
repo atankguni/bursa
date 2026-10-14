@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -10,14 +10,8 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
-import {
-  DEFAULT_INDEXES,
-  addToWatchlist,
-  fetchIndexes,
-  fetchStocks,
-  fetchWatchlist,
-  type Stock,
-} from '../api'
+import { DEFAULT_INDEXES, addToWatchlist, type Stock } from '../api'
+import { useIndexes, useStocks, useWatchlist } from '../hooks'
 import { fmtChange, fmtDateTime, fmtPct, fmtPrice, fmtVolume } from '../lib/format'
 import IndexMultiSelect from '../components/IndexMultiSelect'
 import StockDetailModal from '../components/StockDetailModal'
@@ -35,33 +29,15 @@ export default function Home() {
     setDetailTab(tab)
   }
 
-  const { data: serverIndexes } = useQuery({
-    queryKey: ['indexes'],
-    queryFn: fetchIndexes,
-  })
+  const { data: serverIndexes } = useIndexes()
   const indexOptions =
     serverIndexes && serverIndexes.length > 0 ? serverIndexes : DEFAULT_INDEXES
 
-  const {
-    data: stocks = [],
-    isLoading,
-    isFetching,
-    refetch,
-  } = useQuery({
-    queryKey: ['stocks', selectedIndexes],
-    queryFn: () => fetchStocks(selectedIndexes),
-    refetchInterval: 60_000,
-  })
+  const { data: stocks = [], isLoading, isFetching, refetch } = useStocks(selectedIndexes)
 
   // Which tickers are already on the watchlist (for the add button state).
-  const { data: watchlist = [] } = useQuery({
-    queryKey: ['watchlist'],
-    queryFn: fetchWatchlist,
-  })
-  const watchSet = useMemo(
-    () => new Set(watchlist.map((w) => w.ticker)),
-    [watchlist],
-  )
+  const { data: watchlist = [] } = useWatchlist()
+  const watchSet = useMemo(() => new Set(watchlist.map((w) => w.ticker)), [watchlist])
 
   const add = useMutation({
     mutationFn: (ticker: string) => addToWatchlist(ticker),
@@ -185,7 +161,9 @@ export default function Home() {
                   <td className="px-3 py-1.5 text-right font-medium">
                     {fmtPrice(s.last_price)}
                   </td>
-                  <td className={`px-3 py-1.5 text-right ${tone}`}>{fmtChange(s.change)}</td>
+                  <td className={`px-3 py-1.5 text-right ${tone}`}>
+                    {fmtChange(s.change)}
+                  </td>
                   <td className={`px-3 py-1.5 text-right font-medium ${tone}`}>
                     <span className="inline-flex items-center justify-end gap-1">
                       {s.change != null &&

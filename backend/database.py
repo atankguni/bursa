@@ -21,12 +21,11 @@ from sqlalchemy.ext.asyncio import (
 )
 from sqlalchemy.orm import DeclarativeBase
 
+from config import settings
+
 # Allow the DB path to be overridden by the environment (Docker sets this).
 # Default resolves to ./data/bursa.db relative to the backend working dir.
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "sqlite+aiosqlite:///./data/bursa.db",
-)
+DATABASE_URL = settings.database_url
 
 # Ensure the local data directory exists (no-op for the Docker volume mount).
 if DATABASE_URL.startswith("sqlite+aiosqlite:///"):
@@ -67,12 +66,6 @@ AsyncSessionLocal = async_sessionmaker(
 
 class Base(DeclarativeBase):
     """Declarative base shared by all ORM models."""
-
-
-async def get_session() -> AsyncSession:
-    """FastAPI dependency that yields a scoped async session."""
-    async with AsyncSessionLocal() as session:
-        yield session
 
 
 async def init_db() -> None:

@@ -162,7 +162,9 @@ export default function FundamentalsPanel({
                   <td className="px-3 py-1.5 text-right text-subtle">
                     {fmtCompact(y.equity)}
                   </td>
-                  <td className="px-3 py-1.5 text-right text-muted">{fmtPercent(roeOf(y))}</td>
+                  <td className="px-3 py-1.5 text-right text-muted">
+                    {fmtPercent(roeOf(y))}
+                  </td>
                 </tr>
               ))}
             </tbody>
