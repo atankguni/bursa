@@ -25,6 +25,7 @@ Startup
 import asyncio
 import logging
 from contextlib import asynccontextmanager
+from datetime import datetime, timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -386,28 +387,58 @@ async def stock_history(
     )
 
 
+# Fundamentals change slowly; refresh a cached row if it is older than this.
+_FUNDAMENTALS_STALE_AFTER = timedelta(hours=24)
+
+
+def _fundamentals_stale(rows: list[Fundamental]) -> bool:
+    """True if we have no cached rows or the newest one is older than the TTL."""
+    if not rows:
+        return True
+    times = [r.updated_at for r in rows if r.updated_at is not None]
+    if not times:
+        return True
+    return datetime.utcnow() - max(times) > _FUNDAMENTALS_STALE_AFTER
+
+
 @app.get(
     "/api/stocks/{ticker}/fundamentals",
     response_model=FundamentalsResponse,
 )
 async def stock_fundamentals(
     ticker: str,
+    refresh: bool = Query(False, description="Force a re-fetch from yfinance"),
     session: AsyncSession = Depends(get_session),
 ) -> FundamentalsResponse:
-    """Yearly fundamentals for one ticker plus PBV/RoE vs the latest price."""
+    """
+    Yearly fundamentals for one ticker plus PBV/RoE vs the latest price.
+
+    Works for ANY tracked stock, not just watchlist members: if nothing is
+    cached (or the cache is stale, or ``refresh=true``) the data is fetched
+    from yfinance on demand and cached for subsequent requests.
+    """
     stock = (
         await session.execute(select(Stock).where(Stock.ticker == ticker))
     ).scalar_one_or_none()
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
 
-    rows = (
-        await session.execute(
+    async def load() -> list[Fundamental]:
+        result = await session.execute(
             select(Fundamental)
             .where(Fundamental.ticker == ticker)
             .order_by(Fundamental.fiscal_year)
         )
-    ).scalars().all()
+        return list(result.scalars().all())
+
+    rows = await load()
+
+    if refresh or _fundamentals_stale(rows):
+        # sync_ticker writes via its own session; end ours so the re-read
+        # observes the committed rows rather than a stale snapshot.
+        await sync_ticker(ticker)
+        await session.commit()
+        rows = await load()
 
     price_map = await _latest_daily(session, [ticker])
     price = price_map.get(ticker, {}).get("close")

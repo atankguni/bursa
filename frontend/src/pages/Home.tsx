@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
   ArrowUpRight,
+  BarChart3,
   Check,
   Plus,
   RefreshCw,
@@ -25,7 +26,14 @@ export default function Home() {
   // Default selection on every load is LQ45; user can toggle more indices.
   const [selectedIndexes, setSelectedIndexes] = useState<string[]>(['LQ45'])
   const [selected, setSelected] = useState<Stock | null>(null)
+  // Which tab the detail modal opens on (row click -> chart, button -> fundamentals).
+  const [detailTab, setDetailTab] = useState<'chart' | 'fundamentals'>('chart')
   const queryClient = useQueryClient()
+
+  const openDetail = (stock: Stock, tab: 'chart' | 'fundamentals') => {
+    setSelected(stock)
+    setDetailTab(tab)
+  }
 
   const { data: serverIndexes } = useQuery({
     queryKey: ['indexes'],
@@ -128,7 +136,7 @@ export default function Home() {
               <th className="px-3 py-2 text-right">Change</th>
               <th className="px-3 py-2 text-right">%</th>
               <th className="px-3 py-2 text-right">Volume</th>
-              <th className="px-3 py-2 text-center">Watch</th>
+              <th className="px-3 py-2 text-center">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -154,7 +162,7 @@ export default function Home() {
               return (
                 <tr
                   key={s.id}
-                  onClick={() => setSelected(s)}
+                  onClick={() => openDetail(s, 'chart')}
                   className="cursor-pointer bg-panel transition hover:bg-panelalt"
                 >
                   <td className="px-3 py-1.5 font-semibold">
@@ -188,21 +196,33 @@ export default function Home() {
                     {fmtVolume(s.volume)}
                   </td>
                   <td className="px-3 py-1.5 text-center">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        if (!watched) add.mutate(s.ticker)
-                      }}
-                      disabled={watched || add.isPending}
-                      title={watched ? 'On watchlist' : 'Add to watchlist'}
-                      className={`inline-flex items-center justify-center rounded-md p-1 transition ${
-                        watched
-                          ? 'cursor-default text-bull'
-                          : 'text-muted ring-1 ring-line hover:bg-active hover:text-ink'
-                      }`}
-                    >
-                      {watched ? <Check size={13} /> : <Plus size={13} />}
-                    </button>
+                    <div className="flex items-center justify-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          openDetail(s, 'fundamentals')
+                        }}
+                        title="View fundamentals"
+                        className="inline-flex items-center justify-center rounded-md p-1 text-muted ring-1 ring-line transition hover:bg-active hover:text-ink"
+                      >
+                        <BarChart3 size={13} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          if (!watched) add.mutate(s.ticker)
+                        }}
+                        disabled={watched || add.isPending}
+                        title={watched ? 'On watchlist' : 'Add to watchlist'}
+                        className={`inline-flex items-center justify-center rounded-md p-1 transition ${
+                          watched
+                            ? 'cursor-default text-bull'
+                            : 'text-muted ring-1 ring-line hover:bg-active hover:text-ink'
+                        }`}
+                      >
+                        {watched ? <Check size={13} /> : <Plus size={13} />}
+                      </button>
+                    </div>
                   </td>
                 </tr>
               )
@@ -217,7 +237,11 @@ export default function Home() {
       )}
 
       {selected && (
-        <StockDetailModal stock={selected} onClose={() => setSelected(null)} />
+        <StockDetailModal
+          stock={selected}
+          onClose={() => setSelected(null)}
+          initialTab={detailTab}
+        />
       )}
     </main>
   )

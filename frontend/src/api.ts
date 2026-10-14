@@ -135,9 +135,11 @@ export async function refreshWatchlist(): Promise<{ tickers: number; rows: numbe
 
 export async function fetchFundamentals(
   ticker: string,
+  refresh = false,
 ): Promise<FundamentalsResponse> {
   const { data } = await api.get<FundamentalsResponse>(
     `/api/stocks/${ticker}/fundamentals`,
+    { params: refresh ? { refresh: true } : undefined },
   )
   return data
 }

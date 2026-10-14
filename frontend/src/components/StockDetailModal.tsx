@@ -1,15 +1,23 @@
 import { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
   ArrowUpRight,
   CandlestickChart,
   LineChart,
+  Star,
   X,
 } from 'lucide-react'
-import { fetchHistory } from '../api'
+import {
+  addToWatchlist,
+  fetchFundamentals,
+  fetchHistory,
+  fetchWatchlist,
+  removeFromWatchlist,
+} from '../api'
 import { fmtChange, fmtPct, fmtPrice } from '../lib/format'
 import StockChart from './StockChart'
+import FundamentalsPanel from './FundamentalsPanel'
 
 // Minimal shape needed to render the modal — both Stock and WatchlistItem fit.
 export interface StockLike {
@@ -21,20 +29,55 @@ export interface StockLike {
   change_percent?: number | null
 }
 
+type Tab = 'chart' | 'fundamentals'
+
 export default function StockDetailModal({
   stock,
   onClose,
+  initialTab = 'chart',
 }: {
   stock: StockLike
   onClose: () => void
+  initialTab?: Tab
 }) {
+  const [tab, setTab] = useState<Tab>(initialTab)
   const [range, setRange] = useState<'1d' | '1m'>('1d')
   const [chartType, setChartType] = useState<'candle' | 'line'>('candle')
+  const queryClient = useQueryClient()
 
-  const { data, isLoading } = useQuery({
+  // --- Chart data -----------------------------------------------------------
+  const history = useQuery({
     queryKey: ['history', stock.ticker, range],
     queryFn: () => fetchHistory(stock.ticker, range),
+    enabled: tab === 'chart',
   })
+
+  // --- Fundamentals (fetched on demand, cached) -----------------------------
+  const fundamentals = useQuery({
+    queryKey: ['fundamentals', stock.ticker],
+    queryFn: () => fetchFundamentals(stock.ticker),
+    enabled: tab === 'fundamentals',
+  })
+  const refreshFundamentals = useMutation({
+    mutationFn: () => fetchFundamentals(stock.ticker, true),
+    onSuccess: (data) =>
+      queryClient.setQueryData(['fundamentals', stock.ticker], data),
+  })
+
+  // --- Watchlist toggle (self-contained) ------------------------------------
+  const watchlist = useQuery({ queryKey: ['watchlist'], queryFn: fetchWatchlist })
+  const watched = (watchlist.data ?? []).some((w) => w.ticker === stock.ticker)
+  const invalidateWatch = () =>
+    queryClient.invalidateQueries({ queryKey: ['watchlist'] })
+  const add = useMutation({
+    mutationFn: () => addToWatchlist(stock.ticker),
+    onSuccess: invalidateWatch,
+  })
+  const remove = useMutation({
+    mutationFn: () => removeFromWatchlist(stock.ticker),
+    onSuccess: invalidateWatch,
+  })
+  const watchPending = add.isPending || remove.isPending
 
   const up = (stock.change ?? stock.change_percent ?? 0) >= 0
   const tone = up ? 'text-bull' : 'text-bear'
@@ -49,9 +92,10 @@ export default function StockDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl rounded-xl bg-panel p-5 shadow-2xl ring-1 ring-line"
+        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-panel p-5 shadow-2xl ring-1 ring-line"
         onClick={(e) => e.stopPropagation()}
       >
+        {/* Header */}
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
@@ -77,52 +121,101 @@ export default function StockDetailModal({
               )}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-lg p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2">
-          <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
-            {(['1d', '1m'] as const).map((i) => (
-              <button key={i} onClick={() => setRange(i)} className={seg(range === i)}>
-                {i === '1d' ? 'Daily' : '1-Min'}
-              </button>
-            ))}
-          </div>
-          <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => setChartType('candle')}
-              className={`flex items-center gap-1 ${seg(chartType === 'candle')}`}
+              onClick={() => (watched ? remove.mutate() : add.mutate())}
+              disabled={watchPending}
+              title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-50 ${
+                watched
+                  ? 'text-bull ring-bull/40 hover:bg-bull/10'
+                  : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
+              }`}
             >
-              <CandlestickChart size={13} /> Candle
+              <Star size={14} className={watched ? 'fill-current' : ''} />
+              {watched ? 'Watching' : 'Watch'}
             </button>
             <button
-              onClick={() => setChartType('line')}
-              className={`flex items-center gap-1 ${seg(chartType === 'line')}`}
+              onClick={onClose}
+              className="rounded-lg p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
+              aria-label="Close"
             >
-              <LineChart size={13} /> Line
+              <X size={18} />
             </button>
           </div>
         </div>
 
+        {/* Tabs */}
         <div className="mt-3">
-          {isLoading ? (
-            <div className="flex h-[400px] items-center justify-center text-muted">
-              Loading chart…
-            </div>
-          ) : data && data.points.length > 0 ? (
-            <StockChart data={data.points} chartType={chartType} />
-          ) : (
-            <div className="flex h-[400px] items-center justify-center text-muted">
-              No price data yet for this interval.
-            </div>
-          )}
+          <div className="flex w-fit overflow-hidden rounded-lg ring-1 ring-line">
+            <button onClick={() => setTab('chart')} className={seg(tab === 'chart')}>
+              Chart
+            </button>
+            <button
+              onClick={() => setTab('fundamentals')}
+              className={seg(tab === 'fundamentals')}
+            >
+              Fundamentals
+            </button>
+          </div>
         </div>
+
+        {/* Chart tab */}
+        {tab === 'chart' && (
+          <>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
+                {(['1d', '1m'] as const).map((i) => (
+                  <button key={i} onClick={() => setRange(i)} className={seg(range === i)}>
+                    {i === '1d' ? 'Daily' : '1-Min'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
+                <button
+                  onClick={() => setChartType('candle')}
+                  className={`flex items-center gap-1 ${seg(chartType === 'candle')}`}
+                >
+                  <CandlestickChart size={13} /> Candle
+                </button>
+                <button
+                  onClick={() => setChartType('line')}
+                  className={`flex items-center gap-1 ${seg(chartType === 'line')}`}
+                >
+                  <LineChart size={13} /> Line
+                </button>
+              </div>
+            </div>
+
+            <div className="mt-3">
+              {history.isLoading ? (
+                <div className="flex h-[400px] items-center justify-center text-muted">
+                  Loading chart…
+                </div>
+              ) : history.data && history.data.points.length > 0 ? (
+                <StockChart data={history.data.points} chartType={chartType} />
+              ) : (
+                <div className="flex h-[400px] items-center justify-center text-muted">
+                  No price data yet for this interval.
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* Fundamentals tab */}
+        {tab === 'fundamentals' && (
+          <div className="mt-3">
+            <FundamentalsPanel
+              data={fundamentals.data}
+              isLoading={fundamentals.isLoading}
+              isError={fundamentals.isError}
+              onRefresh={() => refreshFundamentals.mutate()}
+              isRefreshing={refreshFundamentals.isPending}
+            />
+          </div>
+        )}
       </div>
     </div>
   )
