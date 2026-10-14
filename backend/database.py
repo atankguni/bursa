@@ -51,6 +51,8 @@ def _set_sqlite_pragmas(dbapi_connection, connection_record):
     cursor.execute("PRAGMA foreign_keys=ON;")
     # Wait up to 5s for a lock instead of failing instantly.
     cursor.execute("PRAGMA busy_timeout=5000;")
+    # Checkpoint the WAL every ~1000 pages so the -wal file stays small.
+    cursor.execute("PRAGMA wal_autocheckpoint=1000;")
     cursor.close()
 
 
@@ -96,3 +98,17 @@ def _apply_light_migrations(conn) -> None:
         conn.exec_driver_sql(
             "ALTER TABLE fundamentals ADD COLUMN financial_currency VARCHAR(8)"
         )
+
+
+async def wal_checkpoint(truncate: bool = True) -> None:
+    """Fold the WAL back into the main DB file (TRUNCATE keeps -wal tiny)."""
+    mode = "TRUNCATE" if truncate else "PASSIVE"
+    async with engine.connect() as conn:
+        await conn.exec_driver_sql(f"PRAGMA wal_checkpoint({mode});")
+
+
+async def vacuum() -> None:
+    """Reclaim free pages. Must run outside a transaction (AUTOCOMMIT)."""
+    ac_engine = engine.execution_options(isolation_level="AUTOCOMMIT")
+    async with ac_engine.connect() as conn:
+        await conn.exec_driver_sql("VACUUM;")

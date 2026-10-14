@@ -20,16 +20,17 @@ returned whenever more than one symbol is requested.
 
 import asyncio
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 import yfinance as yf
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
+from sqlalchemy import delete
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
-from database import AsyncSessionLocal
+from database import AsyncSessionLocal, vacuum, wal_checkpoint
 from models import StockPrice
 from tickers import all_tickers
 
@@ -38,8 +39,13 @@ log = logging.getLogger("bursa.scheduler")
 # Flat, de-duplicated ticker list used for the batched downloads.
 TICKERS: list[str] = all_tickers()
 
+WIB = ZoneInfo("Asia/Jakarta")
+
 INTRADAY_INTERVAL = "1m"
 DAILY_INTERVAL = "1d"
+
+# Drop 1m bars older than this to keep the DB small (daily bars are kept).
+INTRADAY_RETENTION_DAYS = 5
 
 # --------------------------------------------------------------------------- #
 # yfinance helpers
@@ -188,9 +194,41 @@ async def backfill_daily() -> None:
     await _sync(TICKERS, period="1y", interval=DAILY_INTERVAL)
 
 
+def _market_open(now: datetime | None = None) -> bool:
+    """True during IDX trading hours (Mon-Fri 09:00-16:00 WIB)."""
+    now = now or datetime.now(WIB)
+    if now.weekday() >= 5:  # Saturday / Sunday
+        return False
+    return time(9, 0) <= now.time() <= time(16, 0)
+
+
 async def sync_intraday() -> None:
-    """Fetch intraday 1-minute candles (last trading day) for the whole universe."""
+    """Fetch intraday 1-minute candles for the whole universe (market hours only)."""
+    if not _market_open():
+        log.debug("Market closed — skipping intraday sync")
+        return
     await _sync(TICKERS, period="1d", interval=INTRADAY_INTERVAL)
+
+
+async def prune_intraday() -> None:
+    """Delete old 1m bars, then checkpoint the WAL. Keeps the DB from growing."""
+    cutoff = datetime.utcnow() - timedelta(days=INTRADAY_RETENTION_DAYS)
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            delete(StockPrice).where(
+                StockPrice.interval == INTRADAY_INTERVAL,
+                StockPrice.timestamp < cutoff,
+            )
+        )
+        await session.commit()
+    await wal_checkpoint()
+    log.info("Pruned %d old intraday rows (>= %d days)", result.rowcount, INTRADAY_RETENTION_DAYS)
+
+
+async def compact_db() -> None:
+    """Weekly VACUUM to reclaim disk space."""
+    await vacuum()
+    log.info("VACUUM complete")
 
 
 async def sync_watchlist_fundamentals() -> None:
@@ -234,15 +272,14 @@ def start_scheduler() -> None:
         coalesce=True,
     )
 
-    # Intraday quotes every 3 minutes (anti rate-limit: batched single call).
+    # Intraday quotes every 3 min, market hours only (Mon-Fri, 09:00-15:57 WIB).
     scheduler.add_job(
         sync_intraday,
-        trigger=IntervalTrigger(minutes=3),
+        trigger=CronTrigger(day_of_week="mon-fri", hour="9-15", minute="*/3"),
         id="sync_intraday",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
-        jitter=10,  # spread load slightly to avoid thundering herd
     )
 
     # Fundamentals: once per weekday evening (~18:00 WIB).
@@ -250,6 +287,26 @@ def start_scheduler() -> None:
         sync_watchlist_fundamentals,
         trigger=CronTrigger(day_of_week="mon-fri", hour=18, minute=0),
         id="sync_fundamentals",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Retention: prune old 1m bars every day at 17:00 WIB.
+    scheduler.add_job(
+        prune_intraday,
+        trigger=CronTrigger(hour=17, minute=0),
+        id="prune_intraday",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Weekly VACUUM (Sunday 03:00 WIB).
+    scheduler.add_job(
+        compact_db,
+        trigger=CronTrigger(day_of_week="sun", hour=3, minute=0),
+        id="compact_db",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

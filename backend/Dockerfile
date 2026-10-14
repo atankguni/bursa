@@ -26,5 +26,6 @@ RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-# --reload enables hot-reloading when the source is bind-mounted in compose.
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+# Production server (no --reload). For hot-reload during development, run
+# uvicorn directly with the source mounted (see README "Development").
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]

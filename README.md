@@ -21,14 +21,14 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 
 | Layer    | Stack |
 |----------|-------|
-| Backend  | Python 3.11, FastAPI, SQLAlchemy 2.0 (async) + aiosqlite, APScheduler, yfinance |
+| Backend  | Python 3.14, FastAPI, SQLAlchemy 2.0 (async) + aiosqlite, APScheduler, yfinance |
 | Database | SQLite (WAL mode), persisted on the host |
-| Frontend | React + Vite, TypeScript, Tailwind CSS, TanStack Query, lightweight-charts, lucide-react |
-| Infra    | Docker Compose |
+| Frontend | React 19 + Vite, TypeScript, Tailwind CSS, TanStack Query, lightweight-charts, lucide-react |
+| Infra    | Docker Compose (single stack) + nginx |
 
 ---
 
-## Quick Start
+## Run
 
 ```bash
 docker compose up --build
@@ -36,7 +36,7 @@ docker compose up --build
 
 | Service  | URL |
 |----------|-----|
-| Frontend | http://localhost:5173 |
+| Frontend | http://localhost:5173 (nginx, serves the built SPA) |
 | Backend  | http://localhost:8000 (docs at `/docs`) |
 
 The SQLite database lives at `./backend/data/bursa.db` and survives container restarts.
@@ -48,6 +48,34 @@ To reset all data, delete the database files and restart:
 rm -f backend/data/bursa.db*
 docker compose up --build
 ```
+
+## Development (hot reload)
+
+The image above is the optimized runtime. For live-reload while coding, run the
+dev servers directly (no separate compose file needed):
+
+```bash
+# Backend (auto-reload)
+cd backend
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+
+# Frontend (Vite HMR) — in another terminal
+cd frontend
+npm install
+VITE_API_URL=http://localhost:8000 npm run dev
+```
+
+Vite serves on http://localhost:5173 and, with `VITE_API_URL` set, talks to the
+backend on `:8000` (CORS is already allowed for `localhost:5173`).
+
+## Notes
+
+- The frontend is a static build served by nginx (gzipped, immutable caching,
+  `/api` reverse-proxied). The chart library and the Watchlist route are
+  code-split and loaded on demand.
+- Intraday (1m) data is synced **only during market hours** (Mon–Fri 09:00–16:00 WIB)
+  and pruned after 5 days; the WAL is auto-checkpointed and VACUUMed weekly.
 
 ---
 

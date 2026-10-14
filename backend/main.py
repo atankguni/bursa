@@ -29,6 +29,7 @@ from datetime import datetime, timedelta
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import Response
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -161,6 +162,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Compress JSON responses (saves bandwidth on the price tables).
+app.add_middleware(GZipMiddleware, minimum_size=500)
 
 
 # --------------------------------------------------------------------------- #

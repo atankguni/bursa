@@ -17,6 +17,7 @@ export default function Watchlist() {
   const { data: items = [], isLoading, isFetching } = useQuery({
     queryKey: ['watchlist'],
     queryFn: fetchWatchlist,
+    refetchInterval: 60_000,
   })
 
   const remove = useMutation({

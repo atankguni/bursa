@@ -1,19 +1,30 @@
-# Development image for Vite + React (Node 26 = newest, LTS on 2026-10-28).
-# The source is bind-mounted by docker-compose so HMR works out of the box;
-# node_modules is kept inside the container via an anonymous volume.
-FROM node:26-alpine
+# Bursa frontend — single multi-stage image: build the SPA, serve it with nginx.
+#
+#   Stage 1 (build): compiles the Vite/React app to static assets.
+#   Stage 2 (serve): tiny nginx image serving `dist/`, gzipped, with /api
+#                    reverse-proxied to the backend (same-origin -> no CORS).
+#
+# Local development does NOT use this image; run `npm run dev` (Vite HMR)
+# instead. See README "Development".
 
+# --- Stage 1: build -------------------------------------------------------
+FROM node:26-alpine AS build
 WORKDIR /app
 
-# Copy manifests first for better layer caching, then install deps.
-COPY package.json ./
-RUN npm install
+COPY package.json package-lock.json ./
+RUN npm ci
 
-# Copy the rest of the source (overridden by the compose bind mount in dev).
 COPY . .
 
-EXPOSE 5173
+# Empty base URL -> the client calls the API on its own origin (nginx proxied).
+ARG VITE_API_URL=""
+ENV VITE_API_URL=$VITE_API_URL
+RUN npm run build
 
-# Re-sync deps on start (the node_modules volume can outlive package.json
-# changes), then run the dev server reachable from outside the container.
-CMD ["sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173"]
+# --- Stage 2: serve -------------------------------------------------------
+FROM nginx:alpine-slim
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY --from=build /app/dist /usr/share/nginx/html
+
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]

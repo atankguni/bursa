@@ -50,6 +50,7 @@ export default function Home() {
   } = useQuery({
     queryKey: ['stocks', selectedIndexes],
     queryFn: () => fetchStocks(selectedIndexes),
+    refetchInterval: 60_000,
   })
 
   // Which tickers are already on the watchlist (for the add button state).

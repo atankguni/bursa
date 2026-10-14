@@ -6,12 +6,11 @@ import App from './App'
 import { ThemeProvider } from './lib/theme'
 import './index.css'
 
-// Single shared React Query client; refetch every 60s to mirror the
-// backend's 3-minute sync cadence without hammering the API.
+// Single shared React Query client. Polling is opt-in per query (see the
+// Home/Watchlist pages) so unfocused or static queries don't hit the API.
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      refetchInterval: 60_000,
       staleTime: 30_000,
       retry: 1,
       refetchOnWindowFocus: false,

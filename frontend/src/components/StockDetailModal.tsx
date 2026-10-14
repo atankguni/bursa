@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
@@ -16,8 +16,10 @@ import {
   removeFromWatchlist,
 } from '../api'
 import { fmtChange, fmtPct, fmtPrice } from '../lib/format'
-import StockChart from './StockChart'
 import FundamentalsPanel from './FundamentalsPanel'
+
+// lightweight-charts is heavy; load it only when a chart is actually shown.
+const StockChart = lazy(() => import('./StockChart'))
 
 // Minimal shape needed to render the modal — both Stock and WatchlistItem fit.
 export interface StockLike {
@@ -194,7 +196,15 @@ export default function StockDetailModal({
                   Loading chart…
                 </div>
               ) : history.data && history.data.points.length > 0 ? (
-                <StockChart data={history.data.points} chartType={chartType} />
+                <Suspense
+                  fallback={
+                    <div className="flex h-[400px] items-center justify-center text-muted">
+                      Loading chart…
+                    </div>
+                  }
+                >
+                  <StockChart data={history.data.points} chartType={chartType} />
+                </Suspense>
               ) : (
                 <div className="flex h-[400px] items-center justify-center text-muted">
                   No price data yet for this interval.

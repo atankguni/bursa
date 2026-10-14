@@ -1,36 +1,37 @@
-# Bursa — full stack in one file.
+# Bursa — single, production-grade stack.
 #
 #   docker compose up --build
 #
-# Backend  : http://localhost:8000  (FastAPI + docs at /docs)
-# Frontend : http://localhost:5173  (Vite + React)
+# Backend  : FastAPI      -> http://localhost:8000  (docs at /docs)
+# Frontend : nginx static -> http://localhost:5173  (proxies /api to backend)
 # SQLite   : ./backend/data/bursa.db (persisted on the host, WAL mode)
 #
-# Both services bind-mount their source for hot-reloading.
+# The frontend image builds the SPA and serves it with nginx; the backend runs
+# without hot-reload. For live-reload while coding, run the dev servers locally
+# (see README "Development") — no separate compose file needed.
 
 services:
   backend:
+    image: bursa-backend
     build: ./backend
-    ports:
-      - "8000:8000"
-    volumes:
-      # Bind-mount source -> uvicorn --reload picks up edits.
-      # The same mount keeps /app/data on the host, so the DB survives restarts.
-      - ./backend:/app
     environment:
       - DATABASE_URL=sqlite+aiosqlite:////app/data/bursa.db
+    volumes:
+      # Persist only the database.
+      - ./backend/data:/app/data
+    ports:
+      - "8000:8000"
     restart: unless-stopped
 
   frontend:
-    build: ./frontend
+    image: bursa-frontend
+    build:
+      context: ./frontend
+      args:
+        # Empty -> the client calls /api on its own origin (nginx-proxied).
+        VITE_API_URL: ""
     ports:
-      - "5173:5173"
-    volumes:
-      # Bind-mount source for HMR; keep node_modules inside the container.
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - VITE_API_URL=http://localhost:8000
+      - "5173:80"
     depends_on:
       - backend
     restart: unless-stopped
