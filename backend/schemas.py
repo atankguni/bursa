@@ -319,6 +319,17 @@ class StockOut(StockBase):
     recommendation: RecommendationSummary | None = None
 
 
+class CatalogRow(BaseModel):
+    """A row in the full IDX catalog browse list."""
+
+    ticker: str
+    name: str
+    tracked: bool = False
+    indices: list[str] = []
+    last_price: float | None = None
+    change_percent: float | None = None
+
+
 class PricePoint(BaseModel):
     """A single OHLCV bar for charting."""
 

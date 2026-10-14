@@ -1,12 +1,13 @@
 """Stock listing, price history and fundamentals endpoints."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
 from models import Fundamental, Stock, StockIndex, StockPrice, StockProfile
 from schemas import (
+    CatalogRow,
     CompanyOut,
     DividendOut,
     DividendSummary,
@@ -374,3 +375,78 @@ async def stock_company(
         phone=profile.phone if profile else None,
         officers=officers,
     )
+
+
+@router.get("/catalog", response_model=list[CatalogRow])
+async def catalog(
+    q: str | None = Query(None, max_length=40),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    session: AsyncSession = Depends(get_session),
+) -> list[CatalogRow]:
+    """Browse the full IDX catalog (search by ticker or name)."""
+    stmt = select(Stock)
+    term = (q or "").strip()
+    if term:
+        like = f"%{term}%"
+        stmt = stmt.where(or_(Stock.ticker.ilike(like), Stock.name.ilike(like)))
+    stmt = stmt.order_by(Stock.ticker).limit(limit).offset(offset)
+    stocks = (await session.execute(stmt)).scalars().all()
+
+    tickers = [s.ticker for s in stocks]
+    price_map = await latest_daily(session, tickers)
+    index_map = await indices_map(session, tickers)
+
+    rows: list[CatalogRow] = []
+    for s in stocks:
+        info = price_map.get(s.ticker, {})
+        last = info.get("close")
+        prev = info.get("prev_close")
+        chg = (
+            round((last - prev) / prev * 100, 2)
+            if last is not None and prev not in (None, 0)
+            else None
+        )
+        rows.append(
+            CatalogRow(
+                ticker=s.ticker,
+                name=s.name,
+                tracked=s.tracked,
+                indices=index_map.get(s.ticker, []),
+                last_price=last,
+                change_percent=chg,
+            )
+        )
+    return rows
+
+
+@router.post("/stocks/{ticker}/track", response_model=CatalogRow)
+async def track_symbol(
+    ticker: str,
+    session: AsyncSession = Depends(get_session),
+) -> CatalogRow:
+    """Add a symbol to the high-frequency (intraday) sync set."""
+    stock = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
+    stock.tracked = True
+    await session.commit()
+    return CatalogRow(ticker=stock.ticker, name=stock.name, tracked=True)
+
+
+@router.delete("/stocks/{ticker}/track", response_model=CatalogRow)
+async def untrack_symbol(
+    ticker: str,
+    session: AsyncSession = Depends(get_session),
+) -> CatalogRow:
+    """Remove a symbol from the high-frequency sync set."""
+    stock = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
+    stock.tracked = False
+    await session.commit()
+    return CatalogRow(ticker=stock.ticker, name=stock.name, tracked=False)

@@ -10,6 +10,7 @@ const Portfolio = lazy(() => import('./pages/Portfolio'))
 const Screener = lazy(() => import('./pages/Screener'))
 const Market = lazy(() => import('./pages/Market'))
 const Alerts = lazy(() => import('./pages/Alerts'))
+const Browse = lazy(() => import('./pages/Browse'))
 
 // App shell: persistent top nav + footer, routed pages (full-width layout).
 export default function App() {
@@ -27,6 +28,7 @@ export default function App() {
             <Route path="/screener" element={<Screener />} />
             <Route path="/market" element={<Market />} />
             <Route path="/alerts" element={<Alerts />} />
+            <Route path="/browse" element={<Browse />} />
           </Routes>
         </Suspense>
       </div>

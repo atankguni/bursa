@@ -48,7 +48,10 @@ _BS_SHARES = ["Ordinary Shares Number", "Share Issued"]
 # Price parsing helpers (module-level so they are easy to unit-test)
 # --------------------------------------------------------------------------- #
 def _download_batch(tickers: list[str], period: str, interval: str) -> pd.DataFrame:
-    """Blocking batched download — one HTTP call for every symbol."""
+    """
+    Blocking grouped download. NOTE: yfinance still issues ~one HTTP request per
+    symbol internally, so callers must pass reasonably sized chunks.
+    """
     return yf.download(
         tickers=tickers,
         period=period,

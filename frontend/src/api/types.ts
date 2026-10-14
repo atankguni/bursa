@@ -199,6 +199,15 @@ export interface SyncStatus {
   last_error: string | null
 }
 
+export interface CatalogRow {
+  ticker: string
+  name: string
+  tracked: boolean
+  indices: string[]
+  last_price: number | null
+  change_percent: number | null
+}
+
 export interface SearchResult {
   symbol: string
   name: string

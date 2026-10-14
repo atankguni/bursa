@@ -45,6 +45,8 @@ class Stock(Base):
         String(20), unique=True, index=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
+    # User-pinned symbols added to the high-frequency (intraday) sync set.
+    tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )

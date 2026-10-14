@@ -25,16 +25,46 @@ from config import settings
 from database import AsyncSessionLocal, vacuum, wal_checkpoint
 from market.sync import sync_batch
 from market.tickers import all_tickers
-from models import StockPrice, Watchlist
+from models import Stock, StockIndex, StockPrice, Transaction, Watchlist
 from services.market_clock import is_open
 
 log = logging.getLogger("bursa.scheduler")
 
-# Flat, de-duplicated ticker list used for the batched downloads.
+# Full IDX catalog (daily sync target).
 TICKERS: list[str] = all_tickers()
 
 INTRADAY_INTERVAL = "1m"
 DAILY_INTERVAL = "1d"
+
+
+async def active_tickers() -> list[str]:
+    """
+    Symbols polled at high frequency: index constituents, watchlist, portfolio
+    holdings, and user-tracked symbols — capped by `intraday_max_symbols`.
+    """
+    active: set[str] = set()
+    async with AsyncSessionLocal() as session:
+        active.update(
+            (await session.execute(select(StockIndex.ticker))).scalars().all()
+        )
+        active.update(
+            (await session.execute(select(Watchlist.ticker))).scalars().all()
+        )
+        active.update(
+            (await session.execute(select(Transaction.ticker).distinct()))
+            .scalars()
+            .all()
+        )
+        active.update(
+            (
+                await session.execute(
+                    select(Stock.ticker).where(Stock.tracked.is_(True))
+                )
+            )
+            .scalars()
+            .all()
+        )
+    return sorted(active)[: settings.intraday_max_symbols]
 
 
 # --------------------------------------------------------------------------- #
@@ -43,16 +73,21 @@ DAILY_INTERVAL = "1d"
 
 
 async def backfill_daily() -> None:
-    """Fetch one year of daily candles for the whole universe."""
+    """Fetch one year of daily candles for the ENTIRE IDX catalog."""
     await sync_batch(TICKERS, period="1y", interval=DAILY_INTERVAL)
 
 
+async def backfill_active() -> None:
+    """Fast startup backfill for just the high-frequency set."""
+    await sync_batch(await active_tickers(), period="1y", interval=DAILY_INTERVAL)
+
+
 async def sync_intraday() -> None:
-    """Fetch intraday 1-minute candles for the whole universe (market hours only)."""
+    """Fetch intraday 1-minute candles for the active set (market hours only)."""
     if not is_open():
         log.debug("Market closed — skipping intraday sync")
         return
-    await sync_batch(TICKERS, period="1d", interval=INTRADAY_INTERVAL)
+    await sync_batch(await active_tickers(), period="1d", interval=INTRADAY_INTERVAL)
     # Evaluate alert rules against the freshly synced prices.
     from services.alerts import evaluate_alerts
 

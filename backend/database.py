@@ -92,6 +92,13 @@ def _apply_light_migrations(conn) -> None:
             "ALTER TABLE fundamentals ADD COLUMN financial_currency VARCHAR(8)"
         )
 
+    # User-pinned flag added to stocks after the table existed.
+    stocks = columns("stocks")
+    if stocks and "tracked" not in stocks:
+        conn.exec_driver_sql(
+            "ALTER TABLE stocks ADD COLUMN tracked BOOLEAN NOT NULL DEFAULT 0"
+        )
+
     # Company-info columns added to stock_profiles after the table existed.
     profiles = columns("stock_profiles")
     new_profile_cols = {

@@ -27,11 +27,15 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from sqlalchemy import func, select
 
 from config import settings
 from database import init_db
+from models import StockPrice
 from routers import alerts, market, meta, portfolio, screener, stocks, watchlist
 from scheduler import (
+    TICKERS,
+    backfill_active,
     backfill_daily,
     start_scheduler,
     stop_scheduler,
@@ -46,6 +50,21 @@ logging.basicConfig(
 log = logging.getLogger("bursa")
 
 
+async def _catalog_coverage() -> float:
+    """Fraction of catalog tickers that already have daily price data."""
+    from database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        have = (
+            await session.execute(
+                select(func.count(func.distinct(StockPrice.ticker))).where(
+                    StockPrice.interval == "1d"
+                )
+            )
+        ).scalar_one()
+    return have / max(1, len(TICKERS))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: init DB -> seed -> purge stale -> backfill -> start scheduler."""
@@ -55,8 +74,11 @@ async def lifespan(app: FastAPI):
     # Drop fundamentals rows written before currency-aware storage.
     await purge_stale_fundamentals()
 
-    # Blocking initial backfill so charts have data immediately after boot.
-    await backfill_daily()
+    # Fast startup backfill for the active set; the full catalog sync runs in
+    # the background only when coverage is low (first boot), keeping restarts fast.
+    await backfill_active()
+    if await _catalog_coverage() < 0.5:
+        asyncio.create_task(backfill_daily())
 
     start_scheduler()
 

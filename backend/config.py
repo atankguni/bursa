@@ -36,6 +36,9 @@ class Settings(BaseSettings):
     provider_max_concurrency: int = 2
     provider_min_interval_ms: int = 200
     search_cache_seconds: int = 300
+    # Catalog sync: symbols per download batch, and the intraday universe cap.
+    provider_chunk_size: int = 50
+    intraday_max_symbols: int = 100
 
     # IDX trades in lots; 1 lot = 100 shares.
     lot_size: int = 100

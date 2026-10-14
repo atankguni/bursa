@@ -33,6 +33,8 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 - **Search** — find any symbol from the navbar (IDX by default); click a result to
   inspect it in the detail modal. New tickers are auto-added to the tracked universe
   (not your watchlist).
+- **Browse IDX** — the full IDX catalog (~960 listed stocks) with search and a
+  Track toggle; tracked stocks get intraday updates.
 - **Market overview** — breadth, top gainers/losers and a sector-performance view.
 - **Alerts** — price-above/below, %-change, and rating-change rules with in-app
   notifications (navbar bell); evaluated after each market sync.
@@ -170,6 +172,8 @@ bursa/
 | GET    | `/api/search?q=&all=` | Symbol search (IDX-only by default; `all=1` for every exchange) |
 | POST   | `/api/stocks` | Track a new ticker |
 | GET    | `/api/stocks/{ticker}` | Single tracked stock summary |
+| GET    | `/api/catalog?q=&limit=&offset=` | Browse the full IDX catalog |
+| POST/DELETE | `/api/stocks/{ticker}/track` | Add/remove a symbol from the intraday set |
 | GET    | `/api/screener?min_score=&max_pbv=&min_roe=&rating=&sector=&buy_only=` | Rank/filter the universe |
 | POST   | `/api/screener/sync` | Background sync of missing fundamentals (capped) |
 | GET    | `/api/screener/sync/status` | Progress of the sync job |
@@ -194,11 +198,18 @@ bursa/
 
 ## Data & Sync
 
-- **Prices** — a single batched `yf.download()` call every **3 minutes** (avoids rate limits),
-  upserted into SQLite; daily candles backfilled on startup.
-- **Fundamentals** — refreshed daily (~18:00 WIB) and on demand via the watchlist **Refresh** button.
-  Figures are **normalized to IDR**; foreign-currency filers (e.g. PGAS, which reports in USD)
-  are converted so PBV is calculated on a consistent basis.
+The app uses **tiered sync** so the free Yahoo API is never hammered:
+
+- **Catalog (all ~960 IDX stocks)** — daily candles only, fetched **chunked**
+  (`provider_chunk_size`, default 50) and paced by the governor; the full list lives in
+  `market/idx_listed.py` (regenerate with `python scripts/gen_idx_list.py`).
+- **Active set (≤ `intraday_max_symbols`, default 100)** — index constituents +
+  watchlist + portfolio holdings + user-tracked symbols get **1-minute intraday**
+  every 3 minutes during market hours.
+- **Fundamentals** — on demand (per ticker); the Screener has a capped "Sync missing"
+  job. The watchlist's fundamentals also refresh daily (~18:00 WIB) and via **Refresh**.
+  Figures are **normalized to IDR**; foreign-currency filers (e.g. PGAS, which reports in
+  USD) are converted so PBV is calculated on a consistent basis.
 - **Ratios** — `PBV = market cap ÷ book value` (book value = total assets − total liabilities);
   `RoE = net income ÷ equity`.
 
@@ -237,7 +248,8 @@ trigger to add a shared cache/lock, not before.
   (Yahoo today). Adapters live in `backend/market/providers/`; add one and register it
   in `market/providers/registry.py` to switch sources.
 - **Rate-limiting** — `provider_max_concurrency`, `provider_min_interval_ms`,
-  `search_cache_seconds` in `backend/config.py`.
+  `provider_chunk_size`, `intraday_max_symbols`, `search_cache_seconds` in
+  `backend/config.py`.
 - **IDX lot size** — `lot_size` (default 100) in `backend/config.py`; exposed via `/api/status`.
 
 ## Development commands

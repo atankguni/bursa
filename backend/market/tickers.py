@@ -14,7 +14,12 @@ memberships change ~twice a year, so edit these lists freely.
 
 NOTE: ISSI (Indonesia Sharia Stock Index) actually contains hundreds of names;
 only a well-known subset is seeded here for performance. Extend as needed.
+
+The full IDX listing lives in `market/idx_listed.py` (generated separately);
+`all_tickers()` unions it with the index constituents above.
 """
+
+from market.idx_listed import LISTED
 
 # Display order of the index selector in the UI.
 INDEX_ORDER: list[str] = [
@@ -142,17 +147,23 @@ INDICES: dict[str, list[str]] = {
 
 
 def all_tickers() -> list[str]:
-    """Every unique ticker across all indices (sorted for stable batches)."""
+    """Every unique ticker across all indices AND the full IDX catalog."""
     seen: dict[str, None] = {}
     for members in INDICES.values():
         for t in members:
             seen[t] = None
+    for t in LISTED:
+        seen[t] = None
     return sorted(seen)
 
 
 def name_for(ticker: str) -> str:
     """Company name, falling back to the bare ticker if unknown."""
-    return STOCK_NAMES.get(ticker, ticker.replace(".JK", ""))
+    return (
+        STOCK_NAMES.get(ticker)
+        or LISTED.get(ticker)
+        or ticker.replace(".JK", "")
+    )
 
 
 def associations() -> list[tuple[str, str]]:

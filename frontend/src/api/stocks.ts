@@ -1,5 +1,6 @@
 import { api } from './client'
 import type {
+  CatalogRow,
   Company,
   DividendSummary,
   FundamentalsResponse,
@@ -78,5 +79,23 @@ export async function fetchDividends(ticker: string): Promise<DividendSummary> {
 
 export async function fetchCompany(ticker: string): Promise<Company> {
   const { data } = await api.get<Company>(`/api/stocks/${ticker}/company`)
+  return data
+}
+
+export async function fetchCatalog(
+  q?: string,
+  limit = 100,
+  offset = 0,
+): Promise<CatalogRow[]> {
+  const { data } = await api.get<CatalogRow[]>('/api/catalog', {
+    params: { q: q || undefined, limit, offset },
+  })
+  return data
+}
+
+export async function setTracked(ticker: string, tracked: boolean): Promise<CatalogRow> {
+  const { data } = tracked
+    ? await api.post<CatalogRow>(`/api/stocks/${ticker}/track`)
+    : await api.delete<CatalogRow>(`/api/stocks/${ticker}/track`)
   return data
 }
