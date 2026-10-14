@@ -35,3 +35,27 @@ async def test_search_requires_min_length(monkeypatch):
 
     assert await search_mod.search("b") == []
     assert fake.calls == 0
+
+
+class _MixedProvider:
+    name = "fake"
+
+    def search_symbols(self, q: str) -> list[dict]:
+        return [
+            {"symbol": "BBCA.JK", "name": "Bank Central Asia",
+             "exchange": "Jakarta", "type": "EQUITY"},
+            {"symbol": "PBCRY", "name": "Bank Central Asia OTC",
+             "exchange": "OTC", "type": "EQUITY"},
+        ]
+
+
+async def test_search_defaults_to_idx_only(monkeypatch):
+    monkeypatch.setattr(settings, "provider_min_interval_ms", 0)
+    monkeypatch.setattr(search_mod, "price_provider", lambda: _MixedProvider())
+    search_mod._cache.clear()
+
+    idx_only = await search_mod.search("bank", idf_only=True)
+    all_exchanges = await search_mod.search("bank", idf_only=False)
+
+    assert [r["symbol"] for r in idx_only] == ["BBCA.JK"]
+    assert len(all_exchanges) == 2

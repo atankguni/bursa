@@ -34,9 +34,10 @@ router = APIRouter(prefix="/api", tags=["stocks"])
 @router.get("/search", response_model=list[SearchResultOut])
 async def search_symbols(
     q: str = Query(..., min_length=2, max_length=40),
+    all_exchanges: bool = Query(False, alias="all"),
 ) -> list[SearchResultOut]:
-    """Resolve a free-text query to candidate symbols (cached)."""
-    return [SearchResultOut(**r) for r in await search(q)]
+    """Resolve a free-text query to candidate symbols (IDX-only unless `all`)."""
+    return [SearchResultOut(**r) for r in await search(q, idf_only=not all_exchanges)]
 
 
 @router.post("/stocks", response_model=StockOut, status_code=status.HTTP_201_CREATED)
@@ -127,6 +128,51 @@ async def list_stocks(
             )
         )
     return result
+
+
+@router.get("/stocks/{ticker}", response_model=StockOut)
+async def get_stock(
+    ticker: str,
+    session: AsyncSession = Depends(get_session),
+) -> StockOut:
+    """Summary for a single tracked stock (price, change, indices, signal)."""
+    stock = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
+
+    info = (await latest_daily(session, [ticker])).get(ticker, {})
+    last = info.get("close")
+    prev = info.get("prev_close")
+    change = None
+    change_pct = None
+    if last is not None and prev is not None and prev != 0:
+        change = round(last - prev, 2)
+        change_pct = round((last - prev) / prev * 100, 2)
+
+    index_map = await indices_map(session, [ticker])
+    rec = (await compute_universe_cached(session)).get(ticker)
+
+    return StockOut(
+        id=stock.id,
+        ticker=stock.ticker,
+        name=stock.name,
+        indices=index_map.get(ticker, []),
+        last_price=last,
+        previous_close=prev,
+        change=change,
+        change_percent=change_pct,
+        volume=info.get("volume"),
+        updated_at=info.get("updated_at"),
+        recommendation=(
+            RecommendationSummary(
+                score=rec.score, rating=rec.rating, strength=rec.strength
+            )
+            if rec
+            else None
+        ),
+    )
 
 
 @router.get("/stocks/{ticker}/history", response_model=StockHistory)

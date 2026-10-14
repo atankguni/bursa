@@ -1,4 +1,5 @@
 import { lazy, Suspense, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
@@ -98,7 +99,7 @@ export default function StockDetailModal({
       active ? 'bg-active text-ink' : 'text-muted hover:text-ink'
     }`
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
       onClick={onClose}
@@ -385,6 +386,7 @@ export default function StockDetailModal({
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

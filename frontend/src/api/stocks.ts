@@ -48,8 +48,15 @@ export async function fetchRecommendation(ticker: string): Promise<Recommendatio
   return data
 }
 
-export async function searchSymbols(q: string): Promise<SearchResult[]> {
-  const { data } = await api.get<SearchResult[]>('/api/search', { params: { q } })
+export async function searchSymbols(q: string, all = false): Promise<SearchResult[]> {
+  const { data } = await api.get<SearchResult[]>('/api/search', {
+    params: { q, all },
+  })
+  return data
+}
+
+export async function fetchStock(ticker: string): Promise<Stock> {
+  const { data } = await api.get<Stock>(`/api/stocks/${ticker}`)
   return data
 }
 

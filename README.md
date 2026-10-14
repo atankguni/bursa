@@ -28,7 +28,9 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   allocation weights, day change, realized P/L, and a portfolio value curve.
 - **Screener** — rank/filter the tracked universe by score, PBV, RoE, sector, or
   "Buy signals only".
-- **Search** — add any `.JK` symbol (not just seeded indices) from the navbar.
+- **Search** — find any symbol from the navbar (IDX by default); click a result to
+  inspect it in the detail modal. New tickers are auto-added to the tracked universe
+  (not your watchlist).
 - **Market overview** — breadth, top gainers/losers and a sector-performance view.
 - **Alerts** — price-above/below, %-change, and rating-change rules with in-app
   notifications (navbar bell); evaluated after each market sync.
@@ -150,8 +152,9 @@ bursa/
 | GET    | `/api/stocks/{ticker}/history?interval=1d\|1m` | OHLCV bars for charts |
 | GET    | `/api/stocks/{ticker}/fundamentals` | Yearly fundamentals + PBV/RoE |
 | GET    | `/api/stocks/{ticker}/recommendation` | Buy-signal score + rating + conviction + factors |
-| GET    | `/api/search?q=` | Symbol search (add arbitrary tickers) |
+| GET    | `/api/search?q=&all=` | Symbol search (IDX-only by default; `all=1` for every exchange) |
 | POST   | `/api/stocks` | Track a new ticker |
+| GET    | `/api/stocks/{ticker}` | Single tracked stock summary |
 | GET    | `/api/screener?min_score=&max_pbv=&min_roe=&rating=&sector=&buy_only=` | Rank/filter the universe |
 | GET    | `/api/market/overview` | Breadth, top movers, sector performance |
 | GET    | `/api/portfolio` | Holdings + totals (average-cost P/L) |

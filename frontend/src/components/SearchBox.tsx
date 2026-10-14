@@ -1,15 +1,26 @@
-import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Plus, Search } from 'lucide-react'
-import { searchSymbols, trackStock } from '../api'
+import { useEffect, useRef, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Loader2, Search } from 'lucide-react'
+import {
+  fetchStock,
+  searchSymbols,
+  trackStock,
+  type SearchResult,
+  type Stock,
+} from '../api'
 import { queryKeys } from '../hooks'
+import StockDetailModal from './StockDetailModal'
 
-/** Navbar symbol search that can add an arbitrary ticker to the universe. */
+/** Navbar symbol search — click a result to inspect it in the detail modal. */
 export default function SearchBox() {
   const [q, setQ] = useState('')
   const [debounced, setDebounced] = useState('')
   const [open, setOpen] = useState(false)
-  const [message, setMessage] = useState<string | null>(null)
+  const [showAll, setShowAll] = useState(false)
+  const [selected, setSelected] = useState<Stock | null>(null)
+  const [preparing, setPreparing] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const ref = useRef<HTMLDivElement>(null)
   const qc = useQueryClient()
 
   useEffect(() => {
@@ -17,34 +28,45 @@ export default function SearchBox() {
     return () => clearTimeout(t)
   }, [q])
 
+  // Close the results on any click outside.
+  useEffect(() => {
+    function onDoc(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', onDoc)
+    return () => document.removeEventListener('mousedown', onDoc)
+  }, [])
+
   const { data: results = [], isFetching } = useQuery({
-    queryKey: queryKeys.search(debounced),
-    queryFn: () => searchSymbols(debounced),
+    queryKey: queryKeys.search(debounced, showAll),
+    queryFn: () => searchSymbols(debounced, showAll),
     enabled: debounced.length >= 2,
   })
 
-  const track = useMutation({
-    mutationFn: ({ symbol, name }: { symbol: string; name: string }) =>
-      trackStock(symbol, name),
-    onSuccess: (s) => {
+  const openPreview = async (r: SearchResult) => {
+    setOpen(false)
+    setError(null)
+    setPreparing(r.symbol)
+    try {
+      // Ensure the ticker is tracked so the info endpoints can serve it.
+      try {
+        await trackStock(r.symbol, r.name)
+      } catch {
+        /* already tracked (409) or transient — ignore */
+      }
+      const stock = await fetchStock(r.symbol)
+      setSelected(stock)
       qc.invalidateQueries({ queryKey: ['stocks'] })
-      qc.invalidateQueries({ queryKey: ['indexes'] })
-      setMessage(`Tracking ${s.ticker}`)
       setQ('')
-      setOpen(false)
-      setTimeout(() => setMessage(null), 2500)
-    },
-    onError: (e: unknown) => {
-      const detail =
-        (e as { response?: { data?: { detail?: string } } })?.response?.data?.detail ??
-        'Could not add ticker'
-      setMessage(detail)
-      setTimeout(() => setMessage(null), 3000)
-    },
-  })
+    } catch {
+      setError(`Could not load ${r.symbol}`)
+    } finally {
+      setPreparing(null)
+    }
+  }
 
   return (
-    <div className="relative">
+    <div ref={ref} className="relative">
       <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line focus-within:ring-bull">
         <Search size={13} className="text-muted" />
         <input
@@ -59,14 +81,24 @@ export default function SearchBox() {
         />
       </div>
 
-      {message && (
-        <div className="absolute right-0 z-30 mt-1 whitespace-nowrap rounded bg-panel px-2.5 py-1 text-[11px] text-muted shadow-pop ring-1 ring-line">
-          {message}
+      {error && (
+        <div className="absolute left-0 z-30 mt-1 whitespace-nowrap rounded bg-panel px-2.5 py-1 text-[11px] text-bear shadow-pop ring-1 ring-line">
+          {error}
         </div>
       )}
 
-      {open && debounced.length >= 2 && !message && (
-        <div className="absolute right-0 z-20 mt-1 w-72 animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line">
+      {open && debounced.length >= 2 && (
+        <div className="absolute left-0 z-20 mt-1 w-80 animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line">
+          <label className="mb-1 flex cursor-pointer items-center justify-between border-b border-line px-2.5 py-1.5 text-[11px] text-muted">
+            <span>All exchanges</span>
+            <input
+              type="checkbox"
+              checked={showAll}
+              onChange={(e) => setShowAll(e.target.checked)}
+              className="h-3.5 w-3.5 accent-bull"
+            />
+          </label>
+
           {isFetching && results.length === 0 && (
             <div className="px-3 py-2 text-xs text-subtle">Searching…</div>
           )}
@@ -76,21 +108,28 @@ export default function SearchBox() {
           {results.map((r) => (
             <button
               key={r.symbol}
-              onClick={() => track.mutate({ symbol: r.symbol, name: r.name })}
-              disabled={track.isPending}
+              onClick={() => openPreview(r)}
+              disabled={preparing != null}
               className="flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5 text-left text-xs transition hover:bg-panelalt disabled:opacity-50"
             >
               <span className="min-w-0">
                 <span className="font-medium text-ink">{r.symbol}</span>
                 <span className="ml-2 truncate text-subtle">{r.name}</span>
               </span>
-              <span className="flex shrink-0 items-center gap-1 text-subtle">
-                <span className="text-[10px]">{r.exchange}</span>
-                <Plus size={12} />
+              <span className="shrink-0 text-subtle">
+                {preparing === r.symbol ? (
+                  <Loader2 size={12} className="animate-spin" />
+                ) : (
+                  <span className="text-[10px]">{r.exchange}</span>
+                )}
               </span>
             </button>
           ))}
         </div>
+      )}
+
+      {selected && (
+        <StockDetailModal stock={selected} onClose={() => setSelected(null)} />
       )}
     </div>
   )
