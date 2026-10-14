@@ -44,6 +44,9 @@ class Settings(BaseSettings):
     conviction_very_strong: float = 0.75
     conviction_strong: float = 0.55
     conviction_moderate: float = 0.35
+    # Reuse a computed universe score for this long (seconds) to avoid
+    # recomputing on every 60s poll.
+    recommendation_cache_seconds: int = 60
 
 
 settings = Settings()

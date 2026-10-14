@@ -11,7 +11,7 @@ from schemas import FundamentalOut, RecommendationSummary, WatchlistItemOut
 from services.fundamentals import sync_many, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily, latest_fundamentals
-from services.recommendation import compute_universe
+from services.recommendation import compute_universe_cached, invalidate_cache
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 
@@ -32,7 +32,7 @@ async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
     index_map = await indices_map(session, tickers)
     price_map = await latest_daily(session, tickers)
     fund_map = await latest_fundamentals(session, tickers)
-    rec_map = await compute_universe(session)  # cross-sectional -> score everyone
+    rec_map = await compute_universe_cached(session)  # cross-sectional -> score everyone
 
     items: list[WatchlistItemOut] = []
     for link in links:
@@ -86,6 +86,7 @@ async def refresh_watchlist(
     """Re-sync fundamentals for every watchlist ticker (on demand)."""
     tickers = (await session.execute(select(Watchlist.ticker))).scalars().all()
     rows = await sync_many(list(tickers), throttle=1.0)
+    invalidate_cache()  # fresh fundamentals -> recompute scores next request
     return {"tickers": len(tickers), "rows": rows}
 
 
@@ -118,6 +119,7 @@ async def add_to_watchlist(
 
     # Populate fundamentals immediately so the new row is useful at once.
     await sync_ticker(ticker)
+    invalidate_cache()
 
     items = await _build_watchlist(session)
     for item in items:

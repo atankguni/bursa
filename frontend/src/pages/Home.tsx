@@ -14,17 +14,24 @@ import { DEFAULT_INDEXES, addToWatchlist, type Stock } from '../api'
 import { useIndexes, useStocks, useWatchlist } from '../hooks'
 import { fmtChange, fmtDateTime, fmtPct, fmtPrice, fmtVolume } from '../lib/format'
 import IndexMultiSelect from '../components/IndexMultiSelect'
+import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
+
+type DetailTab = 'chart' | 'fundamentals' | 'recommendation'
+type SignalSort = 'off' | 'desc' | 'asc'
+const NEXT_SORT: Record<SignalSort, SignalSort> = { off: 'desc', desc: 'asc', asc: 'off' }
 
 export default function Home() {
   // Default selection on every load is LQ45; user can toggle more indices.
   const [selectedIndexes, setSelectedIndexes] = useState<string[]>(['LQ45'])
   const [selected, setSelected] = useState<Stock | null>(null)
   // Which tab the detail modal opens on (row click -> chart, button -> fundamentals).
-  const [detailTab, setDetailTab] = useState<'chart' | 'fundamentals'>('chart')
+  const [detailTab, setDetailTab] = useState<DetailTab>('chart')
+  const [buyOnly, setBuyOnly] = useState(false)
+  const [signalSort, setSignalSort] = useState<SignalSort>('off')
   const queryClient = useQueryClient()
 
-  const openDetail = (stock: Stock, tab: 'chart' | 'fundamentals') => {
+  const openDetail = (stock: Stock, tab: DetailTab) => {
     setSelected(stock)
     setDetailTab(tab)
   }
@@ -58,11 +65,42 @@ export default function Home() {
     return { gainers, losers, unchanged, updated }
   }, [stocks])
 
+  // Buy-signal counts for the current universe view.
+  const signals = useMemo(() => {
+    let strongBuy = 0
+    let buy = 0
+    for (const s of stocks) {
+      const r = s.recommendation?.rating
+      if (r === 'Strong Buy') strongBuy++
+      else if (r === 'Buy') buy++
+    }
+    return { strongBuy, buy }
+  }, [stocks])
+
+  // Apply the "buy only" filter and optional signal sort.
+  const rows = useMemo(() => {
+    let out = stocks
+    if (buyOnly) {
+      out = out.filter(
+        (s) =>
+          s.recommendation?.rating === 'Buy' || s.recommendation?.rating === 'Strong Buy',
+      )
+    }
+    if (signalSort !== 'off') {
+      out = [...out].sort((a, b) => {
+        const sa = a.recommendation?.score ?? -1
+        const sb = b.recommendation?.score ?? -1
+        return signalSort === 'desc' ? sb - sa : sa - sb
+      })
+    }
+    return out
+  }, [stocks, buyOnly, signalSort])
+
   const marketUp = summary.gainers >= summary.losers
 
   return (
     <main className="w-full px-3 py-3">
-      {/* Toolbar: index selector + market breadth + refresh */}
+      {/* Toolbar: index selector + market breadth + signal counts + refresh */}
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted">Indices</span>
@@ -76,7 +114,7 @@ export default function Home() {
           />
         </div>
 
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex flex-wrap items-center gap-3 text-xs">
           <div className="flex items-center gap-1">
             {marketUp ? (
               <TrendingUp size={14} className="text-bull" />
@@ -92,6 +130,23 @@ export default function Home() {
             <span className="text-bear">{summary.losers} down</span>
             <span className="text-subtle">{summary.unchanged} flat</span>
           </div>
+          <span
+            className="flex items-center gap-2 border-l border-line pl-3"
+            title="Signal ratings are relative to the tracked universe"
+          >
+            <span className="text-bull">{signals.strongBuy} Strong Buy</span>
+            <span className="text-bull">{signals.buy} Buy</span>
+          </span>
+          <button
+            onClick={() => setBuyOnly((v) => !v)}
+            className={`rounded-lg px-2 py-1 ring-1 transition ${
+              buyOnly
+                ? 'bg-bull/10 text-bull ring-bull/40'
+                : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
+            }`}
+          >
+            Buy only
+          </button>
           <button
             onClick={() => refetch()}
             className="flex items-center gap-1 rounded-lg px-2 py-1 text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
@@ -112,6 +167,18 @@ export default function Home() {
               <th className="px-3 py-2 text-right">Last</th>
               <th className="px-3 py-2 text-right">Change</th>
               <th className="px-3 py-2 text-right">%</th>
+              <th className="px-3 py-2">
+                <button
+                  onClick={() => setSignalSort((s) => NEXT_SORT[s])}
+                  className="inline-flex items-center gap-1 uppercase hover:text-ink"
+                  title="Sort by signal score"
+                >
+                  Signal
+                  <span className="text-[8px]">
+                    {signalSort === 'desc' ? '▼' : signalSort === 'asc' ? '▲' : '↕'}
+                  </span>
+                </button>
+              </th>
               <th className="px-3 py-2 text-right">Volume</th>
               <th className="px-3 py-2 text-center">Actions</th>
             </tr>
@@ -119,19 +186,21 @@ export default function Home() {
           <tbody className="divide-y divide-line">
             {isLoading && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-subtle">
+                <td colSpan={9} className="px-3 py-8 text-center text-subtle">
                   Loading market data…
                 </td>
               </tr>
             )}
-            {!isLoading && stocks.length === 0 && (
+            {!isLoading && rows.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-3 py-8 text-center text-subtle">
-                  No stocks match the selected indices.
+                <td colSpan={9} className="px-3 py-8 text-center text-subtle">
+                  {buyOnly
+                    ? 'No Buy signals in this view.'
+                    : 'No stocks match the selected indices.'}
                 </td>
               </tr>
             )}
-            {stocks.map((s) => {
+            {rows.map((s) => {
               const up = (s.change ?? 0) >= 0
               const tone =
                 s.change == null ? 'text-muted' : up ? 'text-bull' : 'text-bear'
@@ -170,6 +239,18 @@ export default function Home() {
                         (up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
                       {fmtPct(s.change_percent)}
                     </span>
+                  </td>
+                  <td className="px-3 py-1.5">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        openDetail(s, 'recommendation')
+                      }}
+                      className="rounded px-1 py-0.5 transition hover:bg-active"
+                      title="View signal breakdown"
+                    >
+                      <SignalBadge rec={s.recommendation} />
+                    </button>
                   </td>
                   <td className="px-3 py-1.5 text-right text-subtle">
                     {fmtVolume(s.volume)}
@@ -211,7 +292,8 @@ export default function Home() {
       </div>
       {summary.updated && (
         <p className="mt-2 text-[11px] text-subtle">
-          Last sync: {fmtDateTime(summary.updated)} · auto-refresh every 60s
+          Last sync: {fmtDateTime(summary.updated)} · auto-refresh every 60s · signals
+          relative to the tracked universe
         </p>
       )}
 

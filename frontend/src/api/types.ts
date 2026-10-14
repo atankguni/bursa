@@ -11,6 +11,7 @@ export interface Stock {
   change_percent: number | null
   volume: number | null
   updated_at: string | null
+  recommendation: RecommendationSummary | null
 }
 
 export interface PricePoint {

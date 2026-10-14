@@ -16,6 +16,14 @@ class StockBase(BaseModel):
     name: str
 
 
+class RecommendationSummary(BaseModel):
+    """Compact recommendation, attached to stock + watchlist rows."""
+
+    score: float
+    rating: str
+    strength: str
+
+
 class StockOut(StockBase):
     """A tracked stock enriched with its latest quote + daily change."""
 
@@ -27,6 +35,7 @@ class StockOut(StockBase):
     change_percent: float | None = None  # percentage change vs prev close
     volume: int | None = None
     updated_at: datetime | None = None
+    recommendation: RecommendationSummary | None = None
 
 
 class PricePoint(BaseModel):
@@ -109,14 +118,6 @@ class RecommendationOut(BaseModel):
     categories: list[CategoryOut] = []
     reasons: list[str] = []
     disclaimer: str = ""
-
-
-class RecommendationSummary(BaseModel):
-    """Compact form attached to watchlist rows."""
-
-    score: float
-    rating: str
-    strength: str
 
 
 class WatchlistItemOut(StockBase):

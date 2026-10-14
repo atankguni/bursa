@@ -14,6 +14,7 @@ Everything is transparent and testable — no black-box model.
 """
 
 import logging
+import time
 from statistics import pstdev
 
 from sqlalchemy import select
@@ -250,3 +251,25 @@ async def compute_universe(session, tickers: list[str] | None = None):
         for t in tickers
     }
     return score_universe(raw)
+
+
+# In-process TTL cache: the cross-section only changes when data syncs (prices
+# every 3 min, fundamentals daily), so recomputing on every 60s poll is wasteful.
+_cache: tuple[float, dict[str, RecommendationOut]] | None = None
+
+
+async def compute_universe_cached(session) -> dict[str, RecommendationOut]:
+    """Whole-universe scores, cached for `recommendation_cache_seconds`."""
+    global _cache
+    now = time.monotonic()
+    if _cache is not None and now - _cache[0] < settings.recommendation_cache_seconds:
+        return _cache[1]
+    data = await compute_universe(session)
+    _cache = (now, data)
+    return data
+
+
+def invalidate_cache() -> None:
+    """Drop the cached universe scores (e.g. after a manual refresh)."""
+    global _cache
+    _cache = None

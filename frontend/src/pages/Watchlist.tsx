@@ -5,13 +5,7 @@ import { refreshWatchlist, removeFromWatchlist, type WatchlistItem } from '../ap
 import { useWatchlist } from '../hooks'
 import { fmtCompact, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import StockDetailModal from '../components/StockDetailModal'
-
-const signalTone = (rating: string) =>
-  rating === 'Strong Buy' || rating === 'Buy'
-    ? 'text-bull'
-    : rating === 'Reduce' || rating === 'Avoid'
-      ? 'text-bear'
-      : 'text-muted'
+import SignalBadge from '../components/SignalBadge'
 
 export default function Watchlist() {
   const [selected, setSelected] = useState<WatchlistItem | null>(null)
@@ -124,20 +118,7 @@ export default function Watchlist() {
                   </td>
                   <td className="px-3 py-1.5 text-muted">{it.name}</td>
                   <td className="px-3 py-1.5">
-                    {it.recommendation ? (
-                      <span className="inline-flex items-center gap-1.5">
-                        <span
-                          className={`font-medium ${signalTone(it.recommendation.rating)}`}
-                        >
-                          {it.recommendation.rating}
-                        </span>
-                        <span className="text-[10px] text-subtle">
-                          {it.recommendation.strength}
-                        </span>
-                      </span>
-                    ) : (
-                      <span className="text-subtle">—</span>
-                    )}
+                    <SignalBadge rec={it.recommendation} />
                   </td>
                   <td className="px-3 py-1.5 text-right font-medium">
                     {fmtPrice(it.last_price)}

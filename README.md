@@ -16,7 +16,9 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   liabilities, equity) with derived **PBV** and **RoE**.
 - **Recommendation** — an explainable, cross-sectional **factor score** (Quality, Valuation,
   Growth, Momentum, Health) → rating (Strong Buy → Avoid) + conviction, with a factor
-  breakdown and plain-language reasons. Heuristic, not financial advice.
+  breakdown and plain-language reasons. Shown on **Home** (sortable column, "Buy only"
+  filter, buy-signal counts) and the **Watchlist**, plus a detail tab. Heuristic, not
+  financial advice.
 - **Charts** — candlestick or line, daily (1d) and intraday (1m), via Lightweight Charts.
 - **Theme** — light / dark / **follow system** (toggle in the top bar).
 

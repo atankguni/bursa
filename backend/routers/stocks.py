@@ -11,13 +11,14 @@ from schemas import (
     FundamentalsResponse,
     PricePoint,
     RecommendationOut,
+    RecommendationSummary,
     StockHistory,
     StockOut,
 )
 from services.fundamentals import is_stale, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily
-from services.recommendation import compute_universe
+from services.recommendation import compute_universe_cached
 
 router = APIRouter(prefix="/api", tags=["stocks"])
 
@@ -51,6 +52,7 @@ async def list_stocks(
     tickers = [s.ticker for s in stocks]
     index_map = await indices_map(session, tickers)
     latest = await latest_daily(session, tickers)
+    rec_map = await compute_universe_cached(session)  # cross-sectional, cached
 
     result: list[StockOut] = []
     for stock in stocks:
@@ -63,6 +65,7 @@ async def list_stocks(
             change = round(last - prev, 2)
             change_pct = round((last - prev) / prev * 100, 2)
 
+        rec = rec_map.get(stock.ticker)
         result.append(
             StockOut(
                 id=stock.id,
@@ -75,6 +78,13 @@ async def list_stocks(
                 change_percent=change_pct,
                 volume=info.get("volume"),
                 updated_at=info.get("updated_at"),
+                recommendation=(
+                    RecommendationSummary(
+                        score=rec.score, rating=rec.rating, strength=rec.strength
+                    )
+                    if rec
+                    else None
+                ),
             )
         )
     return result
@@ -183,7 +193,7 @@ async def stock_recommendation(
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
 
-    recommendations = await compute_universe(session)
+    recommendations = await compute_universe_cached(session)
     rec = recommendations.get(ticker)
     if rec is None:
         raise HTTPException(
