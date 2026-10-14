@@ -5,7 +5,6 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CandlestickChart,
-  ChevronDown,
   LineChart,
   RefreshCw,
   TrendingDown,
@@ -19,6 +18,7 @@ import {
   fetchStocks,
   type Stock,
 } from './api'
+import IndexMultiSelect from './components/IndexMultiSelect'
 import StockChart from './components/StockChart'
 
 // --------------------------------------------------------------------------- //
@@ -157,8 +157,8 @@ function StockDetail({ stock, onClose }: { stock: Stock; onClose: () => void }) 
 // --------------------------------------------------------------------------- //
 
 export default function App() {
-  // Default index on every load is LQ45; user can switch via the header select.
-  const [index, setIndex] = useState('LQ45')
+  // Default selection on every load is LQ45; user can toggle more indices.
+  const [selectedIndexes, setSelectedIndexes] = useState<string[]>(['LQ45'])
   const [selected, setSelected] = useState<Stock | null>(null)
 
   const { data: serverIndexes } = useQuery({
@@ -167,7 +167,7 @@ export default function App() {
   })
 
   // Prefer the server list; fall back to the built-in list until it resolves.
-  const indexes =
+  const indexOptions =
     serverIndexes && serverIndexes.length > 0 ? serverIndexes : DEFAULT_INDEXES
 
   const {
@@ -176,8 +176,8 @@ export default function App() {
     isFetching,
     refetch,
   } = useQuery({
-    queryKey: ['stocks', index],
-    queryFn: () => fetchStocks(index),
+    queryKey: ['stocks', selectedIndexes],
+    queryFn: () => fetchStocks(selectedIndexes),
   })
 
   // Aggregate market breadth for the summary header bar.
@@ -208,30 +208,19 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-lg font-bold leading-tight">Bursa</h1>
-              <p className="text-xs text-slate-400">IDX Monitor · {index}</p>
+              <p className="text-xs text-slate-400">
+                IDX Monitor · {selectedIndexes.join(', ')}
+              </p>
             </div>
-            {/* Index selector — defaults to LQ45 on every page load. */}
-            <div className="relative ml-2">
-              <select
-                value={index}
-                onChange={(e) => {
-                  setIndex(e.target.value)
-                  setSelected(null)
-                }}
-                className="appearance-none rounded-lg bg-panelalt py-1.5 pl-3 pr-8 text-sm text-slate-100 ring-1 ring-slate-700 outline-none transition hover:bg-slate-700 focus:ring-bull"
-                aria-label="Select index"
-              >
-                {indexes.map((idx) => (
-                  <option key={idx} value={idx}>
-                    {idx}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown
-                size={14}
-                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
-              />
-            </div>
+            {/* Index multi-select — defaults to LQ45 on every page load. */}
+            <IndexMultiSelect
+              options={indexOptions}
+              selected={selectedIndexes}
+              onChange={(next) => {
+                setSelectedIndexes(next)
+                setSelected(null)
+              }}
+            />
           </div>
 
           <div className="flex items-center gap-6 text-sm">

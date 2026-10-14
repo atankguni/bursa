@@ -52,10 +52,11 @@ export async function fetchIndexes(): Promise<string[]> {
   return data
 }
 
-export async function fetchStocks(index?: string): Promise<Stock[]> {
-  const { data } = await api.get<Stock[]>('/api/stocks', {
-    params: index ? { index } : undefined,
-  })
+export async function fetchStocks(indexes?: string[]): Promise<Stock[]> {
+  // Repeated `index` params (index=LQ45&index=IDX30); FastAPI reads them as a list.
+  const params = new URLSearchParams()
+  indexes?.forEach((i) => params.append('index', i))
+  const { data } = await api.get<Stock[]>('/api/stocks', { params })
   return data
 }
 

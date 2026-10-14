@@ -165,18 +165,28 @@ async def _indices_map(
 
 @app.get("/api/stocks", response_model=list[StockOut])
 async def list_stocks(
-    index: str | None = Query(None, description="Filter by index name, e.g. LQ45"),
+    index: list[str] | None = Query(
+        None, description="Filter by one or more index names, e.g. index=LQ45&index=IDX30"
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> list[StockOut]:
     """
-    List tracked stocks (optionally filtered to one index) with the latest
-    daily close and the change versus the previous close.
+    List tracked stocks (optionally filtered to one or more indices) with the
+    latest daily close and the change versus the previous close.
     """
     stmt = select(Stock).order_by(Stock.ticker)
     if index:
-        stmt = stmt.join(
-            StockIndex, StockIndex.ticker == Stock.ticker
-        ).where(StockIndex.index_name == index)
+        # De-duplicate the incoming list so the HAVING count is accurate.
+        wanted = list(dict.fromkeys(index))
+        # Intersection: keep only stocks that belong to EVERY selected index.
+        stmt = (
+            stmt.join(StockIndex, StockIndex.ticker == Stock.ticker)
+            .where(StockIndex.index_name.in_(wanted))
+            .group_by(Stock.id)
+            .having(
+                func.count(func.distinct(StockIndex.index_name)) == len(wanted)
+            )
+        )
     stocks = (await session.execute(stmt)).scalars().all()
     tickers = [s.ticker for s in stocks]
     index_map = await _indices_map(session, tickers)
