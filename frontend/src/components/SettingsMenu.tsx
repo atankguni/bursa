@@ -46,14 +46,14 @@ function Segmented<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="inline-flex rounded-md bg-panelalt/70 p-0.5 ring-1 ring-line">
+    <div className="inline-flex rounded-md bg-panelalt/70 p-0.5 ring-1 ring-line-strong">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
           className={`rounded px-2.5 py-1 text-xs font-medium transition ${
             value === o.value
-              ? 'bg-panel text-ink shadow-card ring-1 ring-line'
+              ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
               : 'text-muted hover:text-ink'
           }`}
         >
@@ -109,7 +109,7 @@ function Chip({
       className={`rounded px-2.5 py-1 text-xs font-medium ring-1 transition ${
         active
           ? 'bg-bull/15 text-bull ring-bull/30'
-          : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
+          : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
       }`}
     >
       {label}
@@ -201,7 +201,7 @@ export default function SettingsMenu() {
         onClick={() => setOpen(true)}
         title="Settings"
         aria-label="Settings"
-        className="rounded p-1.5 text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+        className="rounded p-2 text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
       >
         <SettingsIcon size={15} />
       </button>
@@ -311,7 +311,7 @@ export default function SettingsMenu() {
                         onChange={(e) =>
                           update({ refreshSeconds: Number(e.target.value) })
                         }
-                        className="rounded bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line disabled:opacity-40"
+                        className="rounded bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line-strong disabled:opacity-40"
                       >
                         {[30, 60, 120, 300].map((s) => (
                           <option key={s} value={s}>
@@ -374,7 +374,7 @@ export default function SettingsMenu() {
                 <span className="text-[11px] text-subtle">Changes apply instantly.</span>
                 <button
                   onClick={reset}
-                  className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
                 >
                   <RotateCcw size={13} /> Reset to defaults
                 </button>

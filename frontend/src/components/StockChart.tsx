@@ -69,20 +69,20 @@ const PALETTE = {
   dark: {
     background: '#0f172a',
     text: '#cbd5e1',
-    grid: '#1e293b',
-    border: '#334155',
-    bull: '#22c55e',
-    bear: '#ef4444',
-    line: '#38bdf8',
+    grid: '#334155',
+    border: '#475569',
+    bull: '#4ade80',
+    bear: '#f87171',
+    line: '#7dd3fc',
   },
   light: {
     background: '#ffffff',
-    text: '#475569',
-    grid: '#e2e8f0',
-    border: '#e2e8f0',
-    bull: '#16a34a',
-    bear: '#dc2626',
-    line: '#0284c7',
+    text: '#334155',
+    grid: '#cbd5e1',
+    border: '#94a3b8',
+    bull: '#15803d',
+    bear: '#b91c1c',
+    line: '#0369a1',
   },
 } as const
 
@@ -239,8 +239,14 @@ export default function StockChart({
     ind?.rsi,
   ])
 
+  const last = data.length > 0 ? data[data.length - 1].close : null
+  const label =
+    last != null
+      ? `Price chart with ${data.length} points; latest close ${last}`
+      : 'Price chart'
+
   return (
-    <div className="w-full">
+    <div className="w-full" role="img" aria-label={label}>
       <div ref={mainRef} className="w-full" />
       {ind?.rsi && <div ref={rsiRef} className="mt-1 w-full" />}
     </div>

@@ -12,6 +12,7 @@ export default {
         panelalt: 'rgb(var(--c-panelalt) / <alpha-value>)',
         active: 'rgb(var(--c-active) / <alpha-value>)',
         line: 'rgb(var(--c-line) / <alpha-value>)',
+        'line-strong': 'rgb(var(--c-line-strong) / <alpha-value>)',
         ink: 'rgb(var(--c-ink) / <alpha-value>)',
         muted: 'rgb(var(--c-muted) / <alpha-value>)',
         subtle: 'rgb(var(--c-subtle) / <alpha-value>)',

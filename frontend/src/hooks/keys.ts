@@ -19,4 +19,5 @@ export const queryKeys = {
   alertEvents: ['alerts', 'events'] as const,
   valuation: (ticker: string) => ['valuation', ticker] as const,
   dividends: (ticker: string) => ['dividends', ticker] as const,
+  company: (ticker: string) => ['company', ticker] as const,
 }

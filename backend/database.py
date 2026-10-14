@@ -92,6 +92,26 @@ def _apply_light_migrations(conn) -> None:
             "ALTER TABLE fundamentals ADD COLUMN financial_currency VARCHAR(8)"
         )
 
+    # Company-info columns added to stock_profiles after the table existed.
+    profiles = columns("stock_profiles")
+    new_profile_cols = {
+        "industry": "VARCHAR(96)",
+        "description": "TEXT",
+        "employees": "INTEGER",
+        "website": "VARCHAR(160)",
+        "country": "VARCHAR(64)",
+        "city": "VARCHAR(64)",
+        "address": "VARCHAR(200)",
+        "phone": "VARCHAR(48)",
+        "officers": "JSON",
+    }
+    if profiles:
+        for name, coltype in new_profile_cols.items():
+            if name not in profiles:
+                conn.exec_driver_sql(
+                    f"ALTER TABLE stock_profiles ADD COLUMN {name} {coltype}"
+                )
+
 
 async def wal_checkpoint(truncate: bool = True) -> None:
     """Fold the WAL back into the main DB file (TRUNCATE keeps -wal tiny)."""

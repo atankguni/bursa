@@ -1,5 +1,6 @@
 import { api } from './client'
 import type {
+  Company,
   DividendSummary,
   FundamentalsResponse,
   Recommendation,
@@ -72,5 +73,10 @@ export async function fetchValuation(ticker: string): Promise<Valuation> {
 
 export async function fetchDividends(ticker: string): Promise<DividendSummary> {
   const { data } = await api.get<DividendSummary>(`/api/stocks/${ticker}/dividends`)
+  return data
+}
+
+export async function fetchCompany(ticker: string): Promise<Company> {
+  const { data } = await api.get<Company>(`/api/stocks/${ticker}/company`)
   return data
 }

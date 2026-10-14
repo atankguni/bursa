@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { SlidersHorizontal } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, SlidersHorizontal } from 'lucide-react'
 import type { ScreenerRow } from '../api'
 import { useMarketOverview, useScreener } from '../hooks'
 import { useSettings } from '../lib/settings'
@@ -8,7 +8,7 @@ import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
 
 const inputCls =
-  'w-full rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line outline-none focus:ring-bull'
+  'w-full rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-bull'
 
 export default function Screener() {
   const { settings } = useSettings()
@@ -93,7 +93,7 @@ export default function Screener() {
           className={`rounded px-3 py-1.5 text-xs font-medium ring-1 transition ${
             buyOnly
               ? 'bg-bull/15 text-bull ring-bull/30'
-              : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
+              : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
           }`}
         >
           Buy signals only
@@ -108,14 +108,30 @@ export default function Screener() {
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
               <tr>
-                <th className="px-4 py-2.5">Ticker</th>
-                <th className="px-4 py-2.5">Name</th>
-                <th className="px-4 py-2.5">Sector</th>
-                <th className="px-4 py-2.5 text-right">Price</th>
-                <th className="px-4 py-2.5 text-right">Chg %</th>
-                <th className="px-4 py-2.5 text-right">PBV</th>
-                <th className="px-4 py-2.5 text-right">RoE</th>
-                <th className="px-4 py-2.5">Signal</th>
+                <th scope="col" className="px-4 py-2.5">
+                  Ticker
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Name
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Sector
+                </th>
+                <th scope="col" className="px-4 py-2.5 text-right">
+                  Price
+                </th>
+                <th scope="col" className="px-4 py-2.5 text-right">
+                  Chg %
+                </th>
+                <th scope="col" className="px-4 py-2.5 text-right">
+                  PBV
+                </th>
+                <th scope="col" className="px-4 py-2.5 text-right">
+                  RoE
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Signal
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -156,9 +172,17 @@ export default function Screener() {
                       {fmtPrice(r.price)}
                     </td>
                     <td className={`px-4 py-2 text-right tabular-nums ${tone}`}>
-                      {r.change_percent == null
-                        ? '—'
-                        : `${r.change_percent > 0 ? '+' : ''}${r.change_percent.toFixed(2)}%`}
+                      <span className="inline-flex items-center justify-end gap-0.5">
+                        {r.change_percent != null &&
+                          (r.change_percent >= 0 ? (
+                            <ArrowUpRight size={12} aria-hidden />
+                          ) : (
+                            <ArrowDownRight size={12} aria-hidden />
+                          ))}
+                        {r.change_percent == null
+                          ? '—'
+                          : `${r.change_percent > 0 ? '+' : ''}${r.change_percent.toFixed(2)}%`}
+                      </span>
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-muted">
                       {fmtRatio(r.pbv)}

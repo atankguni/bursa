@@ -11,12 +11,13 @@
   --c-panel: 255 255 255;
   --c-panelalt: 241 245 249; /* slate-100 */
   --c-active: 226 232 240; /* slate-200 */
-  --c-line: 226 232 240; /* slate-200 */
+  --c-line: 226 232 240; /* slate-200 — dividers */
+  --c-line-strong: 100 116 139; /* slate-500 — interactive borders (>=3:1) */
   --c-ink: 15 23 42; /* slate-900 */
-  --c-muted: 100 116 139; /* slate-500 */
-  --c-subtle: 148 163 184; /* slate-400 */
-  --c-bull: 22 163 74; /* green-600 */
-  --c-bear: 220 38 38; /* red-600   */
+  --c-muted: 51 65 85; /* slate-700 — AA everywhere */
+  --c-subtle: 71 85 105; /* slate-600 — AA everywhere */
+  --c-bull: 21 128 61; /* green-700 — AA */
+  --c-bear: 185 28 28; /* red-700   — AA */
 }
 
 .dark {
@@ -24,10 +25,11 @@
   --c-panel: 15 23 42; /* slate-900 */
   --c-panelalt: 30 41 59; /* slate-800 */
   --c-active: 51 65 85; /* slate-700 */
-  --c-line: 41 55 78; /* softer border than panelalt */
+  --c-line: 41 55 78; /* softer dividers */
+  --c-line-strong: 148 163 184; /* slate-400 — interactive borders */
   --c-ink: 241 245 249; /* slate-100 */
-  --c-muted: 148 163 184; /* slate-400 */
-  --c-subtle: 100 116 139; /* slate-500 */
+  --c-muted: 148 163 184; /* slate-400 — AA */
+  --c-subtle: 148 163 184; /* slate-400 — AA */
   --c-bull: 34 197 94; /* green-500 */
   --c-bear: 248 113 113; /* red-400   */
 }
@@ -56,6 +58,14 @@ html[data-reduce-motion] .animate-ping {
   animation: none !important;
 }
 
+/* Also honor the OS preference by default. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-pulse,
+  .animate-ping {
+    animation: none !important;
+  }
+}
+
 @layer base {
   body {
     background-color: rgb(var(--c-app));
@@ -75,8 +85,8 @@ html[data-reduce-motion] .animate-ping {
   }
 
   :focus-visible {
-    outline: 2px solid rgb(var(--c-bull) / 0.6);
-    outline-offset: 1px;
+    outline: 2px solid rgb(var(--c-ink));
+    outline-offset: 2px;
   }
 }
 
@@ -89,7 +99,7 @@ html[data-reduce-motion] .animate-ping {
    *   rounded-full       -> true circles only (status dots, switch knob)
    */
   .surface {
-    @apply rounded-md bg-panel ring-1 ring-line shadow-card;
+    @apply rounded-md bg-panel ring-1 ring-line-strong shadow-card;
   }
 }
 

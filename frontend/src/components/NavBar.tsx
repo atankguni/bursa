@@ -8,7 +8,7 @@ import SettingsMenu from './SettingsMenu'
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition ${
     isActive
-      ? 'bg-panel text-ink shadow-card ring-1 ring-line'
+      ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
       : 'text-muted hover:bg-panelalt hover:text-ink'
   }`
 
@@ -34,7 +34,7 @@ export default function NavBar() {
         </div>
 
         <div className="flex items-center gap-2">
-          <nav className="flex items-center gap-1 rounded-md bg-panelalt/70 p-1 ring-1 ring-line">
+          <nav className="flex items-center gap-1 rounded-md bg-panelalt/70 p-1 ring-1 ring-line-strong">
             <NavLink to="/" end className={linkClass}>
               <LayoutGrid size={14} /> Home
             </NavLink>

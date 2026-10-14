@@ -5,7 +5,7 @@ import pytest
 from config import settings
 from market.providers import registry
 from market.providers.base import FUNDAMENTALS, PRICES, MarketDataProvider
-from market.providers.yahoo import YahooProvider
+from market.providers.yahoo import YahooProvider, _profile_from_info
 
 
 def test_yahoo_is_registered_and_default():
@@ -38,3 +38,32 @@ def test_unknown_provider_raises(monkeypatch):
     monkeypatch.setattr(settings, "price_provider", "does-not-exist")
     with pytest.raises(ValueError, match="Unknown data provider"):
         registry.price_provider()
+
+
+def test_profile_from_info_maps_company_fields():
+    info = {
+        "sector": "Financial Services",
+        "industry": "Banks - Regional",
+        "longBusinessSummary": "A bank.",
+        "fullTimeEmployees": 27_728,
+        "website": "https://www.bca.co.id",
+        "country": "Indonesia",
+        "city": "Jakarta",
+        "address1": "Menara BCA",
+        "phone": "62 21 2358 8000",
+        "companyOfficers": [
+            {"name": "Mr. A", "title": "President Director"},
+            {"name": None, "title": "ignored"},
+        ],
+    }
+    p = _profile_from_info(info)
+    assert p is not None
+    assert p["description"] == "A bank."
+    assert p["industry"] == "Banks - Regional"
+    assert p["employees"] == 27_728
+    assert p["address"] == "Menara BCA"
+    assert p["officers"] == [{"name": "Mr. A", "title": "President Director"}]
+
+
+def test_profile_from_info_none_when_all_empty():
+    assert _profile_from_info({}) is None

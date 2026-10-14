@@ -51,24 +51,30 @@ const prefersDark = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-color-scheme: dark)').matches
 
+const prefersReducedMotion = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia('(prefers-reduced-motion: reduce)').matches
+
 /** Load settings, migrating the legacy single theme key if present. */
 function load(): Settings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS
+  // Default motion to the OS preference until the user chooses explicitly.
+  const base: Settings = { ...DEFAULT_SETTINGS, reduceMotion: prefersReducedMotion() }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<Settings>
       return {
-        ...DEFAULT_SETTINGS,
+        ...base,
         ...parsed,
         hiddenColumns: {
-          ...DEFAULT_SETTINGS.hiddenColumns,
+          ...base.hiddenColumns,
           ...(parsed.hiddenColumns ?? {}),
         },
       }
     }
     const legacy = window.localStorage.getItem(LEGACY_THEME_KEY) as Theme | null
-    if (legacy) return { ...DEFAULT_SETTINGS, theme: legacy }
+    if (legacy) return { ...base, theme: legacy }
   } catch {
     /* ignore malformed storage */
   }

@@ -4,8 +4,8 @@ import type { EquityPoint } from '../api'
 import { useSettings } from '../lib/settings'
 
 const PALETTE = {
-  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#1e293b', line: '#22c55e' },
-  light: { background: '#ffffff', text: '#475569', grid: '#e2e8f0', line: '#16a34a' },
+  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#334155', line: '#4ade80' },
+  light: { background: '#ffffff', text: '#334155', grid: '#cbd5e1', line: '#15803d' },
 } as const
 
 /** Portfolio value over time (area series). */
@@ -54,5 +54,17 @@ export default function PortfolioChart({
     }
   }, [data, height, resolvedTheme])
 
-  return <div ref={ref} className="w-full" />
+  const last = data.length > 0 ? data[data.length - 1].value : null
+  return (
+    <div
+      ref={ref}
+      className="w-full"
+      role="img"
+      aria-label={
+        last != null
+          ? `Portfolio value chart over ${data.length} days; latest ${last}`
+          : 'Portfolio value chart'
+      }
+    />
+  )
 }

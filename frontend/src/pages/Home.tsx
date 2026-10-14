@@ -152,14 +152,14 @@ export default function Home() {
             className={`rounded px-2.5 py-1 font-medium ring-1 transition ${
               buyOnly
                 ? 'bg-bull/15 text-bull ring-bull/30'
-                : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
+                : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
             }`}
           >
             Buy only
           </button>
           <button
             onClick={() => refetch()}
-            className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-medium text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+            className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
           >
             <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
             Refresh
@@ -172,14 +172,32 @@ export default function Home() {
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
               <tr>
-                <th className="px-4 py-2.5">Ticker</th>
-                <th className="px-4 py-2.5">Name</th>
-                {rec('index') && <th className="px-4 py-2.5">Index</th>}
-                <th className="px-4 py-2.5 text-right">Last</th>
-                {rec('change') && <th className="px-4 py-2.5 text-right">Change</th>}
-                {rec('pct') && <th className="px-4 py-2.5 text-right">%</th>}
+                <th scope="col" className="px-4 py-2.5">
+                  Ticker
+                </th>
+                <th scope="col" className="px-4 py-2.5">
+                  Name
+                </th>
+                {rec('index') && (
+                  <th scope="col" className="px-4 py-2.5">
+                    Index
+                  </th>
+                )}
+                <th scope="col" className="px-4 py-2.5 text-right">
+                  Last
+                </th>
+                {rec('change') && (
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Change
+                  </th>
+                )}
+                {rec('pct') && (
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    %
+                  </th>
+                )}
                 {rec('signal') && (
-                  <th className="px-4 py-2.5">
+                  <th scope="col" className="px-4 py-2.5">
                     <button
                       onClick={() => setSignalSort((s) => NEXT_SORT[s])}
                       className="inline-flex items-center gap-1 uppercase hover:text-ink"
@@ -192,8 +210,14 @@ export default function Home() {
                     </button>
                   </th>
                 )}
-                {rec('volume') && <th className="px-4 py-2.5 text-right">Volume</th>}
-                <th className="px-4 py-2.5 text-center">Actions</th>
+                {rec('volume') && (
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Volume
+                  </th>
+                )}
+                <th scope="col" className="px-4 py-2.5 text-center">
+                  Actions
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -252,7 +276,15 @@ export default function Home() {
                     </td>
                     {rec('change') && (
                       <td className={`px-4 py-2 text-right tabular-nums ${tone}`}>
-                        {fmtChange(s.change)}
+                        <span className="inline-flex items-center justify-end gap-0.5">
+                          {s.change != null &&
+                            (up ? (
+                              <ArrowUpRight size={12} aria-hidden />
+                            ) : (
+                              <ArrowDownRight size={12} aria-hidden />
+                            ))}
+                          {fmtChange(s.change)}
+                        </span>
                       </td>
                     )}
                     {rec('pct') && (
@@ -295,7 +327,7 @@ export default function Home() {
                             openDetail(s, 'fundamentals')
                           }}
                           title="View fundamentals"
-                          className="inline-flex items-center justify-center rounded p-1.5 text-muted transition hover:bg-active hover:text-ink"
+                          className="inline-flex items-center justify-center rounded p-2 text-muted transition hover:bg-active hover:text-ink"
                         >
                           <BarChart3 size={14} />
                         </button>
@@ -306,7 +338,7 @@ export default function Home() {
                           }}
                           disabled={watched || add.isPending}
                           title={watched ? 'On watchlist' : 'Add to watchlist'}
-                          className={`inline-flex items-center justify-center rounded p-1.5 transition ${
+                          className={`inline-flex items-center justify-center rounded p-2 transition ${
                             watched
                               ? 'cursor-default text-bull'
                               : 'text-muted hover:bg-active hover:text-ink'

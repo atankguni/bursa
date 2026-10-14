@@ -110,17 +110,39 @@ export default function Portfolio() {
               <table className="w-full whitespace-nowrap text-left text-xs">
                 <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
                   <tr>
-                    <th className="px-4 py-2.5">Ticker</th>
-                    <th className="px-4 py-2.5 text-right">Lots</th>
-                    <th className="px-4 py-2.5 text-right">Shares</th>
-                    <th className="px-4 py-2.5 text-right">Avg</th>
-                    <th className="px-4 py-2.5 text-right">Price</th>
-                    <th className="px-4 py-2.5 text-right">Value</th>
-                    <th className="px-4 py-2.5 text-right">P/L</th>
-                    <th className="px-4 py-2.5 text-right">P/L %</th>
-                    <th className="px-4 py-2.5 text-right">Day %</th>
-                    <th className="px-4 py-2.5 text-right">Weight</th>
-                    <th className="px-4 py-2.5 text-right">Est. income</th>
+                    <th scope="col" className="px-4 py-2.5">
+                      Ticker
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Lots
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Shares
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Avg
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Price
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Value
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      P/L
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      P/L %
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Day %
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Weight
+                    </th>
+                    <th scope="col" className="px-4 py-2.5 text-right">
+                      Est. income
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
@@ -235,7 +257,7 @@ export default function Portfolio() {
                           <button
                             onClick={() => remove.mutate(t.id)}
                             title="Delete transaction"
-                            className="rounded p-1.5 text-muted transition hover:bg-bear/15 hover:text-bear"
+                            className="rounded p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
                           >
                             <Trash2 size={14} />
                           </button>

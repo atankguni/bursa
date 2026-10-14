@@ -123,9 +123,25 @@ def _col_for_year(df: pd.DataFrame | None, year: int):
 
 
 def _profile_from_info(info: dict) -> dict | None:
-    """Extract optional info-derived metrics (may all be None)."""
+    """Extract optional info-derived metrics + company profile (may all be None)."""
+    officers = [
+        {"name": o.get("name"), "title": o.get("title")}
+        for o in (info.get("companyOfficers") or [])
+        if o.get("name")
+    ]
     keys = {
+        # Company profile
         "sector": info.get("sector"),
+        "industry": info.get("industry"),
+        "description": info.get("longBusinessSummary"),
+        "employees": info.get("fullTimeEmployees"),
+        "website": info.get("website"),
+        "country": info.get("country"),
+        "city": info.get("city"),
+        "address": info.get("address1"),
+        "phone": info.get("phone"),
+        "officers": officers or None,
+        # Metrics
         "trailing_pe": info.get("trailingPE"),
         "profit_margin": info.get("profitMargins"),
         "revenue_growth": info.get("revenueGrowth"),

@@ -264,6 +264,28 @@ class DividendSummary(BaseModel):
     history: list[DividendOut] = []
 
 
+class OfficerOut(BaseModel):
+    name: str
+    title: str | None = None
+
+
+class CompanyOut(BaseModel):
+    """Company profile / board information for the detail modal."""
+
+    ticker: str
+    name: str
+    sector: str | None = None
+    industry: str | None = None
+    description: str | None = None
+    employees: int | None = None
+    website: str | None = None
+    country: str | None = None
+    city: str | None = None
+    address: str | None = None
+    phone: str | None = None
+    officers: list[OfficerOut] = []
+
+
 class StockOut(StockBase):
     """A tracked stock enriched with its latest quote + daily change."""
 

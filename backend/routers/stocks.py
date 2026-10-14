@@ -5,12 +5,14 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
-from models import Fundamental, Stock, StockIndex, StockPrice
+from models import Fundamental, Stock, StockIndex, StockPrice, StockProfile
 from schemas import (
+    CompanyOut,
     DividendOut,
     DividendSummary,
     FundamentalOut,
     FundamentalsResponse,
+    OfficerOut,
     PricePoint,
     RecommendationOut,
     RecommendationSummary,
@@ -322,4 +324,53 @@ async def stock_dividends(
         trailing_dps=dps,
         yield_percent=yield_pct,
         history=[DividendOut.model_validate(r) for r in rows],
+    )
+
+
+@router.get("/stocks/{ticker}/company", response_model=CompanyOut)
+async def stock_company(
+    ticker: str,
+    session: AsyncSession = Depends(get_session),
+) -> CompanyOut:
+    """Company profile + board/management (fetched on demand, cached)."""
+    stock = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
+
+    async def load() -> StockProfile | None:
+        return (
+            await session.execute(
+                select(StockProfile).where(StockProfile.ticker == ticker)
+            )
+        ).scalar_one_or_none()
+
+    profile = await load()
+    if profile is None or not profile.description:
+        # Populate from the provider on first view (best-effort, governed).
+        await sync_ticker(ticker)
+        # sync_ticker commits in its own session; end ours + drop the cached
+        # instance so the re-read sees the fresh row.
+        await session.commit()
+        session.expire_all()
+        profile = await load()
+
+    officers: list[OfficerOut] = []
+    if profile and profile.officers:
+        officers = [OfficerOut(**o) for o in profile.officers if isinstance(o, dict)]
+
+    return CompanyOut(
+        ticker=stock.ticker,
+        name=stock.name,
+        sector=profile.sector if profile else None,
+        industry=profile.industry if profile else None,
+        description=profile.description if profile else None,
+        employees=profile.employees if profile else None,
+        website=profile.website if profile else None,
+        country=profile.country if profile else None,
+        city=profile.city if profile else None,
+        address=profile.address if profile else None,
+        phone=profile.phone if profile else None,
+        officers=officers,
     )

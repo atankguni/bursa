@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Info, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Info, RefreshCw, Trash2 } from 'lucide-react'
 import { refreshWatchlist, removeFromWatchlist, type WatchlistItem } from '../api'
 import { useWatchlist } from '../hooks'
 import { useSettings } from '../lib/settings'
@@ -40,7 +40,7 @@ export default function Watchlist() {
         <button
           onClick={() => refresh.mutate()}
           disabled={refresh.isPending || items.length === 0}
-          className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
         >
           <RefreshCw
             size={13}
@@ -62,27 +62,71 @@ export default function Watchlist() {
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
               <tr>
-                <th className="px-4 py-2.5">Ticker</th>
-                {show('name') && <th className="px-4 py-2.5">Name</th>}
-                {show('signal') && <th className="px-4 py-2.5">Signal</th>}
-                <th className="px-4 py-2.5 text-right">Price</th>
-                <th className="px-4 py-2.5 text-right">Chg %</th>
-                {show('shares') && <th className="px-4 py-2.5 text-right">Shares</th>}
+                <th scope="col" className="px-4 py-2.5">
+                  Ticker
+                </th>
+                {show('name') && (
+                  <th scope="col" className="px-4 py-2.5">
+                    Name
+                  </th>
+                )}
+                {show('signal') && (
+                  <th scope="col" className="px-4 py-2.5">
+                    Signal
+                  </th>
+                )}
+                <th scope="col" className="px-4 py-2.5 text-right">
+                  Price
+                </th>
+                <th scope="col" className="px-4 py-2.5 text-right">
+                  Chg %
+                </th>
+                {show('shares') && (
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Shares
+                  </th>
+                )}
                 {show('marketCap') && (
-                  <th className="px-4 py-2.5 text-right">Market Cap</th>
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Market Cap
+                  </th>
                 )}
-                {show('revenue') && <th className="px-4 py-2.5 text-right">Revenue</th>}
+                {show('revenue') && (
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Revenue
+                  </th>
+                )}
                 {show('netIncome') && (
-                  <th className="px-4 py-2.5 text-right">Net Income</th>
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Net Income
+                  </th>
                 )}
-                {show('assets') && <th className="px-4 py-2.5 text-right">Assets</th>}
+                {show('assets') && (
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Assets
+                  </th>
+                )}
                 {show('liabilities') && (
-                  <th className="px-4 py-2.5 text-right">Liabilities</th>
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Liabilities
+                  </th>
                 )}
-                {show('equity') && <th className="px-4 py-2.5 text-right">Equity</th>}
-                {show('pbv') && <th className="px-4 py-2.5 text-right text-ink">PBV</th>}
-                {show('roe') && <th className="px-4 py-2.5 text-right text-ink">RoE</th>}
-                <th className="px-4 py-2.5 text-center" />
+                {show('equity') && (
+                  <th scope="col" className="px-4 py-2.5 text-right">
+                    Equity
+                  </th>
+                )}
+                {show('pbv') && (
+                  <th scope="col" className="px-4 py-2.5 text-right text-ink">
+                    PBV
+                  </th>
+                )}
+                {show('roe') && (
+                  <th scope="col" className="px-4 py-2.5 text-right text-ink">
+                    RoE
+                  </th>
+                )}
+                <th scope="col" className="px-4 py-2.5 text-center" />
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -139,7 +183,15 @@ export default function Watchlist() {
                       {fmtPrice(it.last_price)}
                     </td>
                     <td className={`px-4 py-2 text-right font-medium ${chgTone}`}>
-                      {fmtPct(it.change_percent)}
+                      <span className="inline-flex items-center justify-end gap-0.5">
+                        {it.change_percent != null &&
+                          (it.change_percent >= 0 ? (
+                            <ArrowUpRight size={12} aria-hidden />
+                          ) : (
+                            <ArrowDownRight size={12} aria-hidden />
+                          ))}
+                        {fmtPct(it.change_percent)}
+                      </span>
                     </td>
                     {show('shares') && (
                       <td className="px-4 py-2 text-right text-subtle">
@@ -194,7 +246,7 @@ export default function Watchlist() {
                         }}
                         disabled={remove.isPending}
                         title="Remove from watchlist"
-                        className="mx-auto flex items-center justify-center rounded p-1.5 text-muted transition hover:bg-bear/15 hover:text-bear"
+                        className="mx-auto flex items-center justify-center rounded p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
                       >
                         <Trash2 size={14} />
                       </button>

@@ -38,6 +38,8 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 - **Chart indicators** — MA(20/50/200), volume, and RSI overlays on the detail chart.
 - **Relative valuation** — where current PBV/RoE sit within the stock's own history.
 - **Dividends** — dividend history, trailing yield, and projected annual income for holdings.
+- **Company** — a detail tab with the company description, sector/industry, employees,
+  HQ/website, and the **board & management** (directors) list.
 - **Market clock** — a navbar indicator (dot + label) shows whether IDX is
   **Open / Pre-open / Break / Closed** (sessions + holidays), and the background
   sync uses the same clock.
@@ -94,8 +96,18 @@ VITE_API_URL=http://localhost:8000 npm run dev
 Vite serves on http://localhost:5173 and, with `VITE_API_URL` set, talks to the
 backend on `:8000` (CORS is already allowed for `localhost:5173`).
 
-## Notes
+## Accessibility
 
+- Light/dark palettes target **WCAG AA** contrast (body text ≥ 4.5:1, interactive
+  borders ≥ 3:1); a documented radius/spacing system keeps the UI consistent.
+- Colour is never the only signal — price changes carry **↑/↓ arrows** and `+/−`
+  signs in addition to green/red.
+- **Reduce motion** honors the OS `prefers-reduced-motion` by default (also toggleable).
+- Visible **focus rings**, `scope="col"` table headers, ARIA labels on icon-only
+  controls, and an `aria-label` summary on the charts (canvas charts aren't
+  screen-reader readable).
+
+## Notes
 - The frontend is a static build served by nginx (gzipped, immutable caching,
   `/api` reverse-proxied). The chart library and the Watchlist route are
   code-split and loaded on demand.
@@ -167,6 +179,7 @@ bursa/
 | GET    | `/api/alerts/events` | Recent triggered alerts |
 | GET    | `/api/stocks/{ticker}/valuation` | PBV/RoE vs own history (percentile) |
 | GET    | `/api/stocks/{ticker}/dividends` | Dividend history + trailing yield |
+| GET    | `/api/stocks/{ticker}/company` | Company profile + board/management |
 | GET    | `/api/watchlist` | Watchlist with price + fundamentals + ratios |
 | POST   | `/api/watchlist/{ticker}` | Add a ticker (fetches fundamentals) |
 | DELETE | `/api/watchlist/{ticker}` | Remove a ticker |

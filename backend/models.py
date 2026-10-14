@@ -18,6 +18,7 @@ the original field list but is required for correct charting.
 from datetime import date, datetime
 
 from sqlalchemy import (
+    JSON,
     BigInteger,
     Boolean,
     Date,
@@ -27,6 +28,7 @@ from sqlalchemy import (
     Index,
     Integer,
     String,
+    Text,
     UniqueConstraint,
     func,
 )
@@ -166,6 +168,16 @@ class StockProfile(Base):
         primary_key=True, nullable=False,
     )
     sector: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    industry: Mapped[str | None] = mapped_column(String(96), nullable=True)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    employees: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    website: Mapped[str | None] = mapped_column(String(160), nullable=True)
+    country: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    city: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    address: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    phone: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    # Board / management: [{name, title}, ...] from the provider profile.
+    officers: Mapped[list | None] = mapped_column(JSON, nullable=True)
     trailing_pe: Mapped[float | None] = mapped_column(Float, nullable=True)
     profit_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
     revenue_growth: Mapped[float | None] = mapped_column(Float, nullable=True)

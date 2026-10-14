@@ -274,3 +274,23 @@ export interface DividendSummary {
   yield_percent: number | null
   history: Dividend[]
 }
+
+export interface Officer {
+  name: string
+  title: string | null
+}
+
+export interface Company {
+  ticker: string
+  name: string
+  sector: string | null
+  industry: string | null
+  description: string | null
+  employees: number | null
+  website: string | null
+  country: string | null
+  city: string | null
+  address: string | null
+  phone: string | null
+  officers: Officer[]
+}

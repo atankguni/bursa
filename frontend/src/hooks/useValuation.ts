@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchDividends, fetchValuation } from '../api'
+import { fetchCompany, fetchDividends, fetchValuation } from '../api'
 import { queryKeys } from './keys'
 
 /** Where the stock's PBV/RoE sit within its own history. */
@@ -16,6 +16,15 @@ export function useDividends(ticker: string, enabled = true) {
   return useQuery({
     queryKey: queryKeys.dividends(ticker),
     queryFn: () => fetchDividends(ticker),
+    enabled,
+  })
+}
+
+/** Company profile + board/management. */
+export function useCompany(ticker: string, enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.company(ticker),
+    queryFn: () => fetchCompany(ticker),
     enabled,
   })
 }

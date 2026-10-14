@@ -46,7 +46,7 @@ export default function FundamentalsPanel({
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="mt-1 rounded px-2.5 py-1 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+            className="mt-1 rounded px-2.5 py-1 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
           >
             Retry
           </button>
@@ -90,7 +90,7 @@ export default function FundamentalsPanel({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
           >
             <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
             Re-fetch
