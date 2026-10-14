@@ -28,13 +28,13 @@ import StockChart from './components/StockChart'
 const fmtPrice = (v: number | null) =>
   v == null
     ? '—'
-    : new Intl.NumberFormat('id-ID', { maximumFractionDigits: 2 }).format(v)
+    : new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(v)
 
 const fmtVolume = (v: number | null) => {
   if (v == null) return '—'
-  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}M`
-  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}jt`
-  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}rb`
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}B`
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`
+  if (v >= 1_000) return `${(v / 1_000).toFixed(1)}K`
   return String(v)
 }
 
@@ -321,7 +321,7 @@ export default function App() {
         </div>
         {summary.updated && (
           <p className="mt-3 text-xs text-slate-500">
-            Last sync: {new Date(summary.updated).toLocaleString('id-ID')} · auto-refresh every 60s
+            Last sync: {new Date(summary.updated).toLocaleString('en-US')} · auto-refresh every 60s
           </p>
         )}
       </main>
