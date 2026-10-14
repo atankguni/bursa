@@ -22,19 +22,25 @@ Startup
 * kick off the daily backfill then start the APScheduler worker
 """
 
+import asyncio
 import logging
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, Query, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_session, init_db
 from fundamentals import sync_many, sync_ticker
 from models import Fundamental, Stock, StockIndex, StockPrice, Watchlist
-from scheduler import backfill_daily, start_scheduler, stop_scheduler
+from scheduler import (
+    backfill_daily,
+    start_scheduler,
+    stop_scheduler,
+    sync_watchlist_fundamentals,
+)
 from schemas import (
     DerivedMetrics,
     FundamentalOut,
@@ -96,16 +102,37 @@ async def _seed() -> None:
             )
 
 
+async def _purge_stale_fundamentals() -> None:
+    """Remove fundamentals rows lacking a currency tag (pre-conversion rows)."""
+    from database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        result = await session.execute(
+            delete(Fundamental).where(Fundamental.financial_currency.is_(None))
+        )
+        await session.commit()
+        if result.rowcount:
+            log.info("Purged %d stale fundamentals rows", result.rowcount)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB -> seed -> backfill -> start scheduler."""
     await init_db()
     await _seed()
 
+    # Drop fundamentals rows written before currency-aware storage (their
+    # figures are in the source currency and would yield wrong ratios).
+    await _purge_stale_fundamentals()
+
     # Blocking initial backfill so charts have data immediately after boot.
     await backfill_daily()
 
     start_scheduler()
+
+    # Refresh watchlist fundamentals in the background (non-blocking startup).
+    asyncio.create_task(sync_watchlist_fundamentals())
+
     log.info("Bursa API ready")
     try:
         yield

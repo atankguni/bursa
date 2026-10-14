@@ -108,7 +108,17 @@ export default function Watchlist() {
                   className="cursor-pointer bg-panel transition hover:bg-panelalt"
                 >
                   <td className="px-3 py-1.5 font-semibold">
-                    {it.ticker.replace('.JK', '')}
+                    <span className="inline-flex items-center gap-1.5">
+                      {it.ticker.replace('.JK', '')}
+                      {f?.financial_currency && f.financial_currency !== 'IDR' && (
+                        <span
+                          title={`Reported in ${f.financial_currency}, converted to IDR`}
+                          className="rounded bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
+                        >
+                          {f.financial_currency}
+                        </span>
+                      )}
+                    </span>
                   </td>
                   <td className="px-3 py-1.5 text-muted">{it.name}</td>
                   <td className="px-3 py-1.5 text-right font-medium">
@@ -165,7 +175,8 @@ export default function Watchlist() {
       </div>
 
       <p className="mt-2 text-[11px] text-subtle">
-        PBV = market cap ÷ book value. RoE = net income ÷ equity.
+        Figures are normalized to IDR (foreign-currency filers converted). PBV =
+        market cap ÷ book value. RoE = net income ÷ equity.
       </p>
 
       {selected && (

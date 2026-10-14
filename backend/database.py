@@ -79,3 +79,20 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        await conn.run_sync(_apply_light_migrations)
+
+
+def _apply_light_migrations(conn) -> None:
+    """
+    Tiny in-place migrations for SQLite, which cannot add columns via
+    create_all. Adds columns introduced after the table already existed.
+    """
+    def columns(table: str) -> set[str]:
+        rows = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
+        return {r[1] for r in rows}
+
+    fundamentals = columns("fundamentals")
+    if fundamentals and "financial_currency" not in fundamentals:
+        conn.exec_driver_sql(
+            "ALTER TABLE fundamentals ADD COLUMN financial_currency VARCHAR(8)"
+        )

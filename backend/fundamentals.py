@@ -14,7 +14,7 @@ statements, so calls are per-ticker and throttled when syncing many symbols.
 
 import asyncio
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 
 import pandas as pd
 import yfinance as yf
@@ -24,6 +24,13 @@ from database import AsyncSessionLocal
 from models import Fundamental
 
 log = logging.getLogger("bursa.fundamentals")
+
+# Everything is normalised to IDR so PBV (IDR market cap / IDR book value) works.
+PRICE_CURRENCY = "IDR"
+
+# Cache FX rates (currency -> (rate, fetched_at)) to avoid a call per ticker.
+_FX_TTL = timedelta(hours=6)
+_fx_cache: dict[str, tuple[float, datetime]] = {}
 
 # Candidate row labels across the various Yahoo statement layouts.
 _INCOME_REVENUE = ["Total Revenue", "Operating Revenue"]
@@ -43,6 +50,36 @@ _BS_EQUITY = [
     "Total Equity Gross Minority Interest",
 ]
 _BS_SHARES = ["Ordinary Shares Number", "Share Issued"]
+
+
+def _fx_rate(currency: str) -> float | None:
+    """
+    IDR per unit of `currency`. Returns 1.0 for IDR, a cached rate when fresh,
+    or a freshly-fetched rate. Returns None if the rate cannot be determined.
+    """
+    currency = (currency or PRICE_CURRENCY).upper()
+    if currency == PRICE_CURRENCY:
+        return 1.0
+
+    now = datetime.utcnow()
+    cached = _fx_cache.get(currency)
+    if cached and now - cached[1] < _FX_TTL:
+        return cached[0]
+
+    try:
+        fx = yf.Ticker(f"{currency}{PRICE_CURRENCY}=X").fast_info
+        rate = fx.get("lastPrice") or fx.get("last_price")
+        if rate:
+            rate = float(rate)
+            _fx_cache[currency] = (rate, now)
+            return rate
+    except Exception as exc:  # noqa: BLE001 - network failure
+        log.warning("FX fetch failed %s->%s: %s", currency, PRICE_CURRENCY, exc)
+
+    # Fall back to a stale cached rate rather than producing a wrong ratio.
+    if cached:
+        return cached[0]
+    return None
 
 
 def _pick(df: pd.DataFrame | None, labels: list[str], col) -> float | None:
@@ -68,23 +105,40 @@ def _col_for_year(df: pd.DataFrame | None, year: int):
 
 
 def fetch_rows(ticker: str) -> list[dict]:
-    """Blocking fetch + parse of one ticker's yearly fundamentals."""
+    """Blocking fetch + parse of one ticker's yearly fundamentals (to IDR)."""
     try:
         t = yf.Ticker(ticker)
         income = t.income_stmt
         balance = t.balance_sheet
+        info = t.info
     except Exception as exc:  # noqa: BLE001 - network / parse failure
         log.warning("Fundamentals fetch failed for %s: %s", ticker, exc)
         return []
 
+    # Reporting currency vs the trading currency. Statements in a foreign
+    # currency (e.g. PGAS reports in USD) must be converted before any ratio
+    # against the IDR market cap is meaningful.
+    currency = (info.get("financialCurrency") or PRICE_CURRENCY).upper()
+    rate = _fx_rate(currency)
+    if rate is None:
+        log.warning(
+            "Skipping %s: no FX rate %s->%s (statements cannot be converted)",
+            ticker, currency, PRICE_CURRENCY,
+        )
+        return []
+
     # Shares outstanding (yfinance .info can be flaky -> fall back to BS).
-    shares: float | None = None
-    try:
-        shares = t.info.get("sharesOutstanding")
-    except Exception:  # noqa: BLE001
-        shares = None
+    shares: float | None = info.get("sharesOutstanding")
     if shares is None:
-        shares = _pick(balance, _BS_SHARES, balance.columns[0] if balance is not None and not balance.empty else None)
+        shares = _pick(
+            balance,
+            _BS_SHARES,
+            balance.columns[0] if balance is not None and not balance.empty else None,
+        )
+
+    def money(value: float | None) -> float | None:
+        """Convert a monetary statement figure into IDR."""
+        return None if value is None else value * rate
 
     years: set[int] = set()
     for df in (income, balance):
@@ -99,12 +153,13 @@ def fetch_rows(ticker: str) -> list[dict]:
             {
                 "ticker": ticker,
                 "fiscal_year": year,
+                "financial_currency": currency,
                 "total_shares": shares,
-                "revenue": _pick(income, _INCOME_REVENUE, icol),
-                "net_income": _pick(income, _INCOME_NET, icol),
-                "total_assets": _pick(balance, _BS_ASSETS, bcol),
-                "total_liabilities": _pick(balance, _BS_LIABILITIES, bcol),
-                "equity": _pick(balance, _BS_EQUITY, bcol),
+                "revenue": money(_pick(income, _INCOME_REVENUE, icol)),
+                "net_income": money(_pick(income, _INCOME_NET, icol)),
+                "total_assets": money(_pick(balance, _BS_ASSETS, bcol)),
+                "total_liabilities": money(_pick(balance, _BS_LIABILITIES, bcol)),
+                "equity": money(_pick(balance, _BS_EQUITY, bcol)),
                 "updated_at": datetime.utcnow(),
             }
         )
@@ -122,6 +177,7 @@ async def sync_ticker(ticker: str) -> int:
         stmt = stmt.on_conflict_do_update(
             index_elements=["ticker", "fiscal_year"],
             set_={
+                "financial_currency": stmt.excluded.financial_currency,
                 "total_shares": stmt.excluded.total_shares,
                 "revenue": stmt.excluded.revenue,
                 "net_income": stmt.excluded.net_income,

@@ -128,6 +128,10 @@ class Fundamental(Base):
         nullable=False,
     )
     fiscal_year: Mapped[int] = mapped_column(Integer, index=True, nullable=False)
+    # Reporting currency of the statement figures (e.g. "IDR", "USD"). All
+    # monetary columns below are stored CONVERTED to IDR so ratios (PBV) are
+    # valid; this column records what the source statements reported in.
+    financial_currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
     total_shares: Mapped[float | None] = mapped_column(Float, nullable=True)
     revenue: Mapped[float | None] = mapped_column(Float, nullable=True)
     net_income: Mapped[float | None] = mapped_column(Float, nullable=True)

@@ -53,11 +53,12 @@ class StockHistory(BaseModel):
 
 
 class FundamentalOut(BaseModel):
-    """One fiscal year of raw financial figures (IDR, raw units)."""
+    """One fiscal year of financial figures, converted to IDR (raw units)."""
 
     model_config = ConfigDict(from_attributes=True)
 
     fiscal_year: int
+    financial_currency: str | None = None
     total_shares: float | None = None
     revenue: float | None = None
     net_income: float | None = None

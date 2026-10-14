@@ -76,6 +76,7 @@ export async function fetchHistory(
 
 export interface Fundamental {
   fiscal_year: number
+  financial_currency: string | null
   total_shares: number | null
   revenue: number | null
   net_income: number | null
