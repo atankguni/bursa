@@ -72,6 +72,7 @@ class StatusOut(BaseModel):
     stocks_tracked: int = 0
     providers: dict[str, str] = {}
     calls_today: dict[str, int] = {}
+    lot_size: int = 100
 
 
 # --------------------------------------------------------------------------- #

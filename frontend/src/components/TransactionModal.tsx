@@ -3,18 +3,25 @@ import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { X } from 'lucide-react'
 import { addTransaction, type TransactionInput } from '../api'
-import { useStocks } from '../hooks'
+import { useStatus, useStocks } from '../hooks'
 
 export default function TransactionModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
   const { data: stocks = [] } = useStocks([])
+  const { data: status } = useStatus()
+  const lotSize = status?.lot_size ?? 100
   const [ticker, setTicker] = useState('')
   const [side, setSide] = useState<'buy' | 'sell'>('buy')
+  const [unit, setUnit] = useState<'lots' | 'shares'>('lots')
   const [quantity, setQuantity] = useState('')
   const [price, setPrice] = useState('')
   const [fees, setFees] = useState('0')
   const [tradeDate, setTradeDate] = useState(new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
+
+  // Quantity is stored as shares; lots are converted on submit.
+  const shares =
+    unit === 'lots' ? (Number(quantity) || 0) * lotSize : Number(quantity) || 0
 
   const add = useMutation({
     mutationFn: (input: TransactionInput) => addTransaction(input),
@@ -28,7 +35,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
     add.mutate({
       ticker: ticker.trim().toUpperCase(),
       side,
-      quantity: Number(quantity),
+      quantity: shares,
       price: Number(price),
       fees: Number(fees) || 0,
       trade_date: tradeDate,
@@ -97,13 +104,33 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs text-muted">Quantity</label>
+              <div className="mb-1 flex items-center justify-between">
+                <label className="text-xs text-muted">Quantity</label>
+                <div className="flex overflow-hidden rounded ring-1 ring-line">
+                  {(['lots', 'shares'] as const).map((u) => (
+                    <button
+                      key={u}
+                      onClick={() => setUnit(u)}
+                      className={`px-2 py-0.5 text-[10px] font-medium capitalize transition ${
+                        unit === u ? 'bg-active text-ink' : 'text-muted hover:text-ink'
+                      }`}
+                    >
+                      {u}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <input
                 type="number"
                 value={quantity}
                 onChange={(e) => setQuantity(e.target.value)}
                 className={inputCls}
               />
+              {unit === 'lots' && quantity !== '' && (
+                <p className="mt-1 text-[10px] text-subtle">
+                  = {shares.toLocaleString('en-US')} shares
+                </p>
+              )}
             </div>
             <div>
               <label className="mb-1 block text-xs text-muted">Price</label>

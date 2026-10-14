@@ -112,6 +112,7 @@ export interface Status {
   stocks_tracked: number
   providers: Record<string, string>
   calls_today: Record<string, number>
+  lot_size: number
 }
 
 // --- Portfolio -------------------------------------------------------------

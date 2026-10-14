@@ -84,6 +84,8 @@ async def test_status(client):
         "stocks_tracked",
         "providers",
         "calls_today",
+        "lot_size",
     ):
         assert key in body
     assert body["stocks_tracked"] > 0
+    assert body["lot_size"] == 100

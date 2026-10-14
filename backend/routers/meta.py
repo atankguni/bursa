@@ -43,6 +43,7 @@ async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
             "fundamentals": settings.fundamentals_provider,
         },
         calls_today=calls,
+        lot_size=settings.lot_size,
     )
 
 

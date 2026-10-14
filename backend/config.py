@@ -37,6 +37,9 @@ class Settings(BaseSettings):
     provider_min_interval_ms: int = 200
     search_cache_seconds: int = 300
 
+    # IDX trades in lots; 1 lot = 100 shares.
+    lot_size: int = 100
+
     # IDX trading sessions (local exchange time, "HH:MM"). Session 2 end is the
     # point after which intraday data stops; the lunch break is skipped.
     pre_open_start: str = "08:45"

@@ -24,8 +24,9 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 - **Settings** (gear in the navbar) — theme, display **density** (compact/medium/large),
   reduce motion, default indices, chart defaults, auto-refresh, number format,
   change coloring, and per-table **column visibility**; persisted in the browser.
-- **Portfolio** — record buy/sell transactions; holdings with average-cost **P/L**,
-  allocation weights, day change, realized P/L, and a portfolio value curve.
+- **Portfolio** — record buy/sell transactions (**in lots** — 1 lot = 100 shares, with a
+  shares toggle); holdings with average-cost **P/L**, allocation weights, day change,
+  realized P/L, and a portfolio value curve.
 - **Screener** — rank/filter the tracked universe by score, PBV, RoE, sector, or
   "Buy signals only".
 - **Search** — find any symbol from the navbar (IDX by default); click a result to
@@ -221,6 +222,7 @@ trigger to add a shared cache/lock, not before.
   in `market/providers/registry.py` to switch sources.
 - **Rate-limiting** — `provider_max_concurrency`, `provider_min_interval_ms`,
   `search_cache_seconds` in `backend/config.py`.
+- **IDX lot size** — `lot_size` (default 100) in `backend/config.py`; exposed via `/api/status`.
 
 ## Development commands
 

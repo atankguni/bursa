@@ -2,7 +2,7 @@ import { lazy, Suspense, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Plus, Trash2 } from 'lucide-react'
 import { deleteTransaction } from '../api'
-import { usePortfolio, usePortfolioHistory, useTransactions } from '../hooks'
+import { usePortfolio, usePortfolioHistory, useStatus, useTransactions } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
 import TransactionModal from '../components/TransactionModal'
@@ -13,6 +13,12 @@ const signed = (v: number | null) =>
   v == null ? '—' : `${v > 0 ? '+' : ''}${fmtPrice(v)}`
 const signedPct = (v: number | null) =>
   v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`
+
+// IDX lots: shares / lotSize (integer when whole).
+const lotsOf = (shares: number, lotSize: number) => {
+  const v = shares / lotSize
+  return Number.isInteger(v) ? String(v) : v.toFixed(2)
+}
 
 function Card({ label, value, tone }: { label: string; value: string; tone?: string }) {
   return (
@@ -32,6 +38,8 @@ export default function Portfolio() {
   const { data: pf, isLoading } = usePortfolio()
   const { data: txs = [] } = useTransactions()
   const { data: history = [] } = usePortfolioHistory()
+  const { data: status } = useStatus()
+  const lotSize = status?.lot_size ?? 100
 
   const remove = useMutation({
     mutationFn: deleteTransaction,
@@ -103,7 +111,8 @@ export default function Portfolio() {
                 <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
                   <tr>
                     <th className="px-4 py-2.5">Ticker</th>
-                    <th className="px-4 py-2.5 text-right">Qty</th>
+                    <th className="px-4 py-2.5 text-right">Lots</th>
+                    <th className="px-4 py-2.5 text-right">Shares</th>
                     <th className="px-4 py-2.5 text-right">Avg</th>
                     <th className="px-4 py-2.5 text-right">Price</th>
                     <th className="px-4 py-2.5 text-right">Value</th>
@@ -117,7 +126,7 @@ export default function Portfolio() {
                 <tbody className="divide-y divide-line">
                   {holdings.length === 0 && (
                     <tr>
-                      <td colSpan={10} className="px-4 py-10 text-center text-subtle">
+                      <td colSpan={11} className="px-4 py-10 text-center text-subtle">
                         No positions yet — add a transaction to get started.
                       </td>
                     </tr>
@@ -130,7 +139,12 @@ export default function Portfolio() {
                       <td className="px-4 py-2 font-semibold">
                         {h.ticker.replace('.JK', '')}
                       </td>
-                      <td className="px-4 py-2 text-right tabular-nums">{h.quantity}</td>
+                      <td className="px-4 py-2 text-right font-medium tabular-nums">
+                        {lotsOf(h.quantity, lotSize)}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-muted">
+                        {h.quantity.toLocaleString('en-US')}
+                      </td>
                       <td className="px-4 py-2 text-right tabular-nums text-muted">
                         {fmtPrice(h.avg_cost)}
                       </td>
@@ -205,7 +219,10 @@ export default function Portfolio() {
                           {t.side}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
-                          {t.quantity}
+                          {lotsOf(t.quantity, lotSize)}
+                        </td>
+                        <td className="px-4 py-2 text-right tabular-nums text-subtle">
+                          {t.quantity.toLocaleString('en-US')}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           {fmtPrice(t.price)}
