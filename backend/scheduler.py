@@ -98,6 +98,18 @@ async def compact_db() -> None:
     log.info("VACUUM complete")
 
 
+async def log_provider_stats() -> None:
+    """Log today's outbound provider calls, then reset the daily counter."""
+    from market.providers.governor import governor
+
+    stats = governor.stats()
+    log.info(
+        "Provider calls today: %s",
+        {name: s.get("calls_today", 0) for name, s in stats.items()},
+    )
+    governor.reset_daily()
+
+
 # --------------------------------------------------------------------------- #
 # Lifecycle
 # --------------------------------------------------------------------------- #
@@ -155,6 +167,16 @@ def start_scheduler() -> None:
         compact_db,
         trigger=CronTrigger(day_of_week="sun", hour=3, minute=0),
         id="compact_db",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Daily provider-call summary (23:00 WIB).
+    scheduler.add_job(
+        log_provider_stats,
+        trigger=CronTrigger(hour=23, minute=0),
+        id="log_provider_stats",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

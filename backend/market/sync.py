@@ -13,6 +13,7 @@ import logging
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from database import AsyncSessionLocal
+from market.providers.governor import governor
 from market.providers.registry import price_provider
 from models import StockPrice
 
@@ -48,8 +49,13 @@ async def _fetch_with_retry(
     last_exc: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            return await asyncio.to_thread(
-                provider.fetch_price_rows, tickers, period, interval
+            return await governor.call(
+                provider.name,
+                "prices",
+                provider.fetch_price_rows,
+                tickers,
+                period,
+                interval,
             )
         except Exception as exc:  # noqa: BLE001 - log and retry
             last_exc = exc

@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from deps import get_session
+from market.providers.governor import governor
 from market.providers.registry import available as available_providers
 from market.tickers import INDEX_ORDER
 from models import StockIndex
@@ -33,6 +34,7 @@ async def get_providers() -> ProvidersOut:
         price=settings.price_provider,
         fundamentals=settings.fundamentals_provider,
         available=[ProviderInfo(**p) for p in available_providers()],
+        metrics=governor.stats(),
     )
 
 

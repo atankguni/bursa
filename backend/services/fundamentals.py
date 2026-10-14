@@ -15,6 +15,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from config import settings
 from database import AsyncSessionLocal
+from market.providers.governor import governor
 from market.providers.registry import fundamentals_provider
 from models import Fundamental, StockProfile
 
@@ -35,7 +36,9 @@ def is_stale(rows: list[Fundamental]) -> bool:
 async def sync_ticker(ticker: str) -> int:
     """Fetch and upsert one ticker's fundamentals + profile. Returns rows written."""
     provider = fundamentals_provider()
-    rows, profile = await asyncio.to_thread(provider.fetch_fundamentals, ticker)
+    rows, profile = await governor.call(
+        provider.name, f"fund:{ticker}", provider.fetch_fundamentals, ticker
+    )
     if not rows and profile is None:
         return 0
 

@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     # Alerts: minimum time before the same alert may fire again.
     alert_cooldown_hours: int = 12
 
+    # Outbound provider governance (anti-burst / anti-blacklist).
+    provider_max_concurrency: int = 2
+    provider_min_interval_ms: int = 200
+    search_cache_seconds: int = 300
+
     # IDX trading sessions (local exchange time, "HH:MM"). Session 2 end is the
     # point after which intraday data stops; the lunch break is skipped.
     pre_open_start: str = "08:45"

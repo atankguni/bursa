@@ -43,12 +43,23 @@ class ProviderInfo(BaseModel):
     capabilities: list[str]
 
 
+class ProviderStat(BaseModel):
+    """Lightweight outbound-call metrics per provider."""
+
+    calls: int = 0
+    calls_today: int = 0
+    errors: int = 0
+    last_error: str | None = None
+    last_call_at: float | None = None
+
+
 class ProvidersOut(BaseModel):
     """Active data providers (price + fundamentals are selected separately)."""
 
     price: str
     fundamentals: str
     available: list[ProviderInfo]
+    metrics: dict[str, ProviderStat] = {}
 
 
 # --------------------------------------------------------------------------- #

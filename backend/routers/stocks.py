@@ -1,13 +1,10 @@
 """Stock listing, price history and fundamentals endpoints."""
 
-import asyncio
-
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
-from market.providers.registry import price_provider
 from models import Fundamental, Stock, StockIndex, StockPrice
 from schemas import (
     DividendOut,
@@ -28,6 +25,7 @@ from services.fundamentals import is_stale, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily
 from services.recommendation import compute_universe_cached
+from services.search import search
 from services.valuation import valuation
 
 router = APIRouter(prefix="/api", tags=["stocks"])
@@ -35,12 +33,10 @@ router = APIRouter(prefix="/api", tags=["stocks"])
 
 @router.get("/search", response_model=list[SearchResultOut])
 async def search_symbols(
-    q: str = Query(..., min_length=1, max_length=40),
+    q: str = Query(..., min_length=2, max_length=40),
 ) -> list[SearchResultOut]:
-    """Resolve a free-text query to candidate symbols via the provider."""
-    provider = price_provider()
-    results = await asyncio.to_thread(provider.search_symbols, q)
-    return [SearchResultOut(**r) for r in results]
+    """Resolve a free-text query to candidate symbols (cached)."""
+    return [SearchResultOut(**r) for r in await search(q)]
 
 
 @router.post("/stocks", response_model=StockOut, status_code=status.HTTP_201_CREATED)

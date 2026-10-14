@@ -181,6 +181,30 @@ bursa/
 - **Ratios** — `PBV = market cap ÷ book value` (book value = total assets − total liabilities);
   `RoE = net income ÷ equity`.
 
+## Architecture & rate-limiting
+
+Temporary data lives in two places — no external cache service is used:
+
+- **SQLite is the durable cache / source of truth.** The API serves reads from
+  SQLite, never from the provider, so browsing never hits Yahoo.
+- **In-process TTL caches** for derived/volatile data:
+  - recommendation scores — `recommendation_cache_seconds` (60s);
+  - FX rates — `fx_cache_hours` (6h);
+  - symbol search — `search_cache_seconds` (300s).
+
+**Anti-blacklist:** all outbound provider calls go through a central **governor**
+(`market/providers/governor.py`) that caps concurrency, spaces calls
+(`provider_min_interval_ms`), dedupes concurrent identical calls (single-flight),
+and records per-provider metrics exposed at `GET /api/providers` (plus a daily
+summary logged at 23:00 WIB). Combined with batched `yf.download`, market-hours-only
+intraday syncing, and DB-backed staleness, bursts are prevented.
+
+**Why not Redis?** The app runs as a **single process** (one uvicorn worker with the
+scheduler in-process), so in-process caches are shared by every request. Redis only
+becomes worthwhile when scaling to **multiple workers/replicas** (shared cache) or
+running the scheduler as a **separate service** (distributed lock) — that's the
+trigger to add a shared cache/lock, not before.
+
 ## Configuration
 
 - **Ports / DB path / API URL** — see `docker-compose.yml` (`DATABASE_URL`, `VITE_API_URL`).
@@ -191,6 +215,8 @@ bursa/
 - **Data provider(s)** — `price_provider` / `fundamentals_provider` in `backend/config.py`
   (Yahoo today). Adapters live in `backend/market/providers/`; add one and register it
   in `market/providers/registry.py` to switch sources.
+- **Rate-limiting** — `provider_max_concurrency`, `provider_min_interval_ms`,
+  `search_cache_seconds` in `backend/config.py`.
 
 ## Development commands
 
