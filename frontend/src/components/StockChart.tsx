@@ -9,6 +9,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { PricePoint } from '../api'
+import { useTheme } from '../lib/theme'
 
 interface Props {
   data: PricePoint[]
@@ -22,39 +23,64 @@ function toTimestamp(iso: string): UTCTimestamp {
   return Math.floor(new Date(`${iso}Z`).getTime() / 1000) as UTCTimestamp
 }
 
-export default function StockChart({ data, chartType, height = 420 }: Props) {
+// Chart palette per resolved theme (lightweight-charts needs literal colors).
+const PALETTE = {
+  dark: {
+    background: '#0f172a',
+    text: '#cbd5e1',
+    grid: '#1e293b',
+    border: '#334155',
+    bull: '#22c55e',
+    bear: '#ef4444',
+    line: '#38bdf8',
+  },
+  light: {
+    background: '#ffffff',
+    text: '#475569',
+    grid: '#e2e8f0',
+    border: '#e2e8f0',
+    bull: '#16a34a',
+    bear: '#dc2626',
+    line: '#0284c7',
+  },
+} as const
+
+export default function StockChart({ data, chartType, height = 400 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
+  const { resolved } = useTheme()
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    // Build a fresh chart for the current series type.
+    const c = PALETTE[resolved]
+
+    // Build a fresh chart for the current series type + theme.
     const chart = createChart(container, {
       height,
       layout: {
-        background: { type: ColorType.Solid, color: '#0f172a' },
-        textColor: '#cbd5e1',
+        background: { type: ColorType.Solid, color: c.background },
+        textColor: c.text,
       },
       grid: {
-        vertLines: { color: '#1e293b' },
-        horzLines: { color: '#1e293b' },
+        vertLines: { color: c.grid },
+        horzLines: { color: c.grid },
       },
       crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: '#334155' },
-      timeScale: { borderColor: '#334155', timeVisible: true, secondsVisible: false },
+      rightPriceScale: { borderColor: c.border },
+      timeScale: { borderColor: c.border, timeVisible: true, secondsVisible: false },
     })
     chartRef.current = chart
 
     if (chartType === 'candle') {
       const series = chart.addCandlestickSeries({
-        upColor: '#16a34a',
-        downColor: '#dc2626',
-        borderUpColor: '#16a34a',
-        borderDownColor: '#dc2626',
-        wickUpColor: '#16a34a',
-        wickDownColor: '#dc2626',
+        upColor: c.bull,
+        downColor: c.bear,
+        borderUpColor: c.bull,
+        borderDownColor: c.bear,
+        wickUpColor: c.bull,
+        wickDownColor: c.bear,
       })
       const bars: CandlestickData[] = data.map((p) => ({
         time: toTimestamp(p.timestamp),
@@ -65,10 +91,7 @@ export default function StockChart({ data, chartType, height = 420 }: Props) {
       }))
       series.setData(bars)
     } else {
-      const series = chart.addLineSeries({
-        color: '#38bdf8',
-        lineWidth: 2,
-      })
+      const series = chart.addLineSeries({ color: c.line, lineWidth: 2 })
       const points: LineData[] = data.map((p) => ({
         time: toTimestamp(p.timestamp),
         value: p.close,
@@ -81,9 +104,7 @@ export default function StockChart({ data, chartType, height = 420 }: Props) {
     // Keep the chart sized to its container.
     const observer = new ResizeObserver((entries) => {
       const entry = entries[0]
-      if (entry) {
-        chart.applyOptions({ width: entry.contentRect.width })
-      }
+      if (entry) chart.applyOptions({ width: entry.contentRect.width })
     })
     observer.observe(container)
 
@@ -92,7 +113,7 @@ export default function StockChart({ data, chartType, height = 420 }: Props) {
       chart.remove()
       chartRef.current = null
     }
-  }, [data, chartType, height])
+  }, [data, chartType, height, resolved])
 
   return <div ref={containerRef} className="w-full" />
 }

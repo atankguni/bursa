@@ -38,6 +38,10 @@ export default function StockDetailModal({
 
   const up = (stock.change ?? stock.change_percent ?? 0) >= 0
   const tone = up ? 'text-bull' : 'text-bear'
+  const seg = (active: boolean) =>
+    `px-2.5 py-1 text-xs transition ${
+      active ? 'bg-active text-ink' : 'text-muted hover:text-ink'
+    }`
 
   return (
     <div
@@ -45,28 +49,28 @@ export default function StockDetailModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-4xl rounded-2xl bg-panel p-6 shadow-2xl ring-1 ring-slate-700"
+        className="w-full max-w-4xl rounded-xl bg-panel p-5 shadow-2xl ring-1 ring-line"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xl font-semibold">{stock.ticker}</h2>
+              <h2 className="text-lg font-semibold">{stock.ticker}</h2>
               {stock.indices.map((idx) => (
                 <span
                   key={idx}
-                  className="rounded bg-panelalt px-2 py-0.5 text-xs text-slate-300"
+                  className="rounded bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
                 >
                   {idx}
                 </span>
               ))}
             </div>
-            <p className="text-sm text-slate-400">{stock.name}</p>
-            <div className="mt-2 flex items-baseline gap-3">
-              <span className="text-2xl font-bold">{fmtPrice(stock.last_price)}</span>
+            <p className="text-xs text-muted">{stock.name}</p>
+            <div className="mt-1.5 flex items-baseline gap-3">
+              <span className="text-xl font-bold">{fmtPrice(stock.last_price)}</span>
               {stock.change_percent != null && (
-                <span className={`flex items-center text-sm font-medium ${tone}`}>
-                  {up ? <ArrowUpRight size={16} /> : <ArrowDownRight size={16} />}
+                <span className={`flex items-center text-xs font-medium ${tone}`}>
+                  {up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                   {stock.change != null && <>{fmtChange(stock.change)} </>}
                   ({fmtPct(stock.change_percent)})
                 </span>
@@ -75,56 +79,46 @@ export default function StockDetailModal({
           </div>
           <button
             onClick={onClose}
-            className="rounded-lg p-2 text-slate-400 transition hover:bg-panelalt hover:text-white"
+            className="rounded-lg p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
             aria-label="Close"
           >
-            <X size={20} />
+            <X size={18} />
           </button>
         </div>
 
-        <div className="mt-4 flex flex-wrap items-center gap-2">
-          <div className="flex overflow-hidden rounded-lg ring-1 ring-slate-700">
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
             {(['1d', '1m'] as const).map((i) => (
-              <button
-                key={i}
-                onClick={() => setRange(i)}
-                className={`px-3 py-1.5 text-sm ${
-                  range === i ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-                }`}
-              >
+              <button key={i} onClick={() => setRange(i)} className={seg(range === i)}>
                 {i === '1d' ? 'Daily' : '1-Min'}
               </button>
             ))}
           </div>
-          <div className="flex overflow-hidden rounded-lg ring-1 ring-slate-700">
+          <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
             <button
               onClick={() => setChartType('candle')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-sm ${
-                chartType === 'candle' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-1 ${seg(chartType === 'candle')}`}
             >
-              <CandlestickChart size={14} /> Candle
+              <CandlestickChart size={13} /> Candle
             </button>
             <button
               onClick={() => setChartType('line')}
-              className={`flex items-center gap-1 px-3 py-1.5 text-sm ${
-                chartType === 'line' ? 'bg-slate-700 text-white' : 'text-slate-400 hover:text-white'
-              }`}
+              className={`flex items-center gap-1 ${seg(chartType === 'line')}`}
             >
-              <LineChart size={14} /> Line
+              <LineChart size={13} /> Line
             </button>
           </div>
         </div>
 
-        <div className="mt-4">
+        <div className="mt-3">
           {isLoading ? (
-            <div className="flex h-[420px] items-center justify-center text-slate-500">
+            <div className="flex h-[400px] items-center justify-center text-muted">
               Loading chart…
             </div>
           ) : data && data.points.length > 0 ? (
             <StockChart data={data.points} chartType={chartType} />
           ) : (
-            <div className="flex h-[420px] items-center justify-center text-slate-500">
+            <div className="flex h-[400px] items-center justify-center text-muted">
               No price data yet for this interval.
             </div>
           )}

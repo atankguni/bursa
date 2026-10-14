@@ -38,39 +38,37 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
     selected.length <= 2 ? selected.join(', ') : `${selected.length} indices`
 
   return (
-    <div ref={ref} className="relative ml-2">
+    <div ref={ref} className="relative">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-lg bg-panelalt py-1.5 pl-3 pr-2 text-sm text-slate-100 ring-1 ring-slate-700 transition hover:bg-slate-700"
+        className="flex items-center gap-2 rounded-lg bg-panelalt py-1 pl-2.5 pr-1.5 text-xs font-medium text-ink ring-1 ring-line transition hover:bg-active"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
-        <span className="max-w-[16rem] truncate">{label}</span>
+        <span className="max-w-[14rem] truncate">{label}</span>
         <ChevronDown
-          size={14}
-          className={`text-slate-400 transition ${open ? 'rotate-180' : ''}`}
+          size={13}
+          className={`text-muted transition ${open ? 'rotate-180' : ''}`}
         />
       </button>
 
       {open && (
-        <div className="absolute left-0 z-20 mt-1 w-56 overflow-hidden rounded-lg bg-panelalt shadow-xl ring-1 ring-slate-700">
+        <div className="absolute left-0 z-20 mt-1 w-48 overflow-hidden rounded-lg bg-panel shadow-xl ring-1 ring-line">
           {options.map((opt) => {
             const active = selected.includes(opt)
             return (
               <label
                 key={opt}
-                className="flex cursor-pointer items-center gap-2 px-3 py-2 text-sm transition hover:bg-slate-700"
+                className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-xs transition hover:bg-panelalt"
               >
                 <input
                   type="checkbox"
                   checked={active}
                   onChange={() => toggle(opt)}
-                  className="h-4 w-4 accent-bull"
+                  className="h-3.5 w-3.5 accent-bull"
                 />
-                <span className={active ? 'text-white' : 'text-slate-300'}>
-                  {opt}
-                </span>
+                <span className={active ? 'text-ink' : 'text-muted'}>{opt}</span>
               </label>
             )
           })}

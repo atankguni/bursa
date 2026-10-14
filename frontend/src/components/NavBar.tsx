@@ -1,35 +1,38 @@
 import { NavLink } from 'react-router-dom'
 import { Activity, LayoutGrid, Star } from 'lucide-react'
+import ThemeToggle from './ThemeToggle'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition ${
-    isActive
-      ? 'bg-panelalt text-white'
-      : 'text-slate-400 hover:bg-panelalt hover:text-white'
+  `flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+    isActive ? 'bg-active text-ink' : 'text-muted hover:bg-panelalt hover:text-ink'
   }`
 
+// Full-width, compact top bar: brand, navigation, theme switcher.
 export default function NavBar() {
   return (
-    <header className="sticky top-0 z-30 border-b border-slate-800 bg-panel/90 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-6 py-3">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-bull/10 p-2 text-bull">
-            <Activity size={20} />
+    <header className="sticky top-0 z-30 border-b border-line bg-panel/90 backdrop-blur">
+      <div className="flex w-full items-center justify-between gap-4 px-4 py-2">
+        <div className="flex items-center gap-2">
+          <div className="rounded-md bg-bull/10 p-1.5 text-bull">
+            <Activity size={18} />
           </div>
-          <div>
-            <h1 className="text-base font-bold leading-tight">Bursa</h1>
-            <p className="text-[11px] text-slate-500">IDX Monitor</p>
+          <div className="leading-none">
+            <h1 className="text-sm font-bold">Bursa</h1>
+            <p className="text-[10px] text-subtle">IDX Monitor</p>
           </div>
         </div>
 
-        <nav className="flex items-center gap-1">
-          <NavLink to="/" end className={linkClass}>
-            <LayoutGrid size={15} /> Home
-          </NavLink>
-          <NavLink to="/watchlist" className={linkClass}>
-            <Star size={15} /> Watchlist
-          </NavLink>
-        </nav>
+        <div className="flex items-center gap-2">
+          <nav className="flex items-center gap-1">
+            <NavLink to="/" end className={linkClass}>
+              <LayoutGrid size={14} /> Home
+            </NavLink>
+            <NavLink to="/watchlist" className={linkClass}>
+              <Star size={14} /> Watchlist
+            </NavLink>
+          </nav>
+          <ThemeToggle />
+        </div>
       </div>
     </header>
   )

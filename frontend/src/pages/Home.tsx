@@ -56,9 +56,7 @@ export default function Home() {
 
   const add = useMutation({
     mutationFn: (ticker: string) => addToWatchlist(ticker),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['watchlist'] })
-    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['watchlist'] }),
   })
 
   const summary = useMemo(() => {
@@ -78,11 +76,11 @@ export default function Home() {
   const marketUp = summary.gainers >= summary.losers
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-6">
+    <main className="w-full px-3 py-3">
       {/* Toolbar: index selector + market breadth + refresh */}
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <span className="text-sm text-slate-400">Indices</span>
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted">Indices</span>
           <IndexMultiSelect
             options={indexOptions}
             selected={selectedIndexes}
@@ -93,64 +91,65 @@ export default function Home() {
           />
         </div>
 
-        <div className="flex items-center gap-6 text-sm">
-          <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-4 text-xs">
+          <div className="flex items-center gap-1">
             {marketUp ? (
-              <TrendingUp size={16} className="text-bull" />
+              <TrendingUp size={14} className="text-bull" />
             ) : (
-              <TrendingDown size={16} className="text-bear" />
+              <TrendingDown size={14} className="text-bear" />
             )}
             <span className={marketUp ? 'text-bull' : 'text-bear'}>
-              {marketUp ? 'Market Bullish' : 'Market Bearish'}
+              {marketUp ? 'Bullish' : 'Bearish'}
             </span>
           </div>
-          <div className="hidden items-center gap-3 sm:flex">
+          <div className="hidden items-center gap-2 sm:flex">
             <span className="text-bull">{summary.gainers} up</span>
             <span className="text-bear">{summary.losers} down</span>
-            <span className="text-slate-500">{summary.unchanged} flat</span>
+            <span className="text-subtle">{summary.unchanged} flat</span>
           </div>
           <button
             onClick={() => refetch()}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-slate-300 ring-1 ring-slate-700 transition hover:bg-panelalt hover:text-white"
+            className="flex items-center gap-1 rounded-lg px-2 py-1 text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
           >
-            <RefreshCw size={14} className={isFetching ? 'animate-spin' : ''} />
+            <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
       </div>
 
-      <div className="overflow-hidden rounded-xl ring-1 ring-slate-800">
-        <table className="w-full text-left text-sm">
-          <thead className="bg-panelalt text-xs uppercase tracking-wide text-slate-400">
+      <div className="overflow-x-auto rounded-lg ring-1 ring-line">
+        <table className="w-full whitespace-nowrap text-left text-xs">
+          <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
             <tr>
-              <th className="px-4 py-3">Ticker</th>
-              <th className="px-4 py-3">Name</th>
-              <th className="px-4 py-3">Index</th>
-              <th className="px-4 py-3 text-right">Last</th>
-              <th className="px-4 py-3 text-right">Change</th>
-              <th className="px-4 py-3 text-right">%</th>
-              <th className="px-4 py-3 text-right">Volume</th>
-              <th className="px-4 py-3 text-center">Watch</th>
+              <th className="px-3 py-2">Ticker</th>
+              <th className="px-3 py-2">Name</th>
+              <th className="px-3 py-2">Index</th>
+              <th className="px-3 py-2 text-right">Last</th>
+              <th className="px-3 py-2 text-right">Change</th>
+              <th className="px-3 py-2 text-right">%</th>
+              <th className="px-3 py-2 text-right">Volume</th>
+              <th className="px-3 py-2 text-center">Watch</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800">
+          <tbody className="divide-y divide-line">
             {isLoading && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={8} className="px-3 py-8 text-center text-subtle">
                   Loading market data…
                 </td>
               </tr>
             )}
             {!isLoading && stocks.length === 0 && (
               <tr>
-                <td colSpan={8} className="px-4 py-10 text-center text-slate-500">
+                <td colSpan={8} className="px-3 py-8 text-center text-subtle">
                   No stocks match the selected indices.
                 </td>
               </tr>
             )}
             {stocks.map((s) => {
               const up = (s.change ?? 0) >= 0
-              const tone = s.change == null ? 'text-slate-400' : up ? 'text-bull' : 'text-bear'
+              const tone =
+                s.change == null ? 'text-muted' : up ? 'text-bull' : 'text-bear'
               const watched = watchSet.has(s.ticker)
               return (
                 <tr
@@ -158,31 +157,37 @@ export default function Home() {
                   onClick={() => setSelected(s)}
                   className="cursor-pointer bg-panel transition hover:bg-panelalt"
                 >
-                  <td className="px-4 py-3 font-semibold">{s.ticker.replace('.JK', '')}</td>
-                  <td className="px-4 py-3 text-slate-300">{s.name}</td>
-                  <td className="px-4 py-3">
+                  <td className="px-3 py-1.5 font-semibold">
+                    {s.ticker.replace('.JK', '')}
+                  </td>
+                  <td className="px-3 py-1.5 text-muted">{s.name}</td>
+                  <td className="px-3 py-1.5">
                     <div className="flex flex-wrap gap-1">
                       {s.indices.map((idx) => (
                         <span
                           key={idx}
-                          className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
+                          className="rounded bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
                         >
                           {idx}
                         </span>
                       ))}
                     </div>
                   </td>
-                  <td className="px-4 py-3 text-right font-medium">{fmtPrice(s.last_price)}</td>
-                  <td className={`px-4 py-3 text-right ${tone}`}>{fmtChange(s.change)}</td>
-                  <td className={`px-4 py-3 text-right font-medium ${tone}`}>
+                  <td className="px-3 py-1.5 text-right font-medium">
+                    {fmtPrice(s.last_price)}
+                  </td>
+                  <td className={`px-3 py-1.5 text-right ${tone}`}>{fmtChange(s.change)}</td>
+                  <td className={`px-3 py-1.5 text-right font-medium ${tone}`}>
                     <span className="inline-flex items-center justify-end gap-1">
                       {s.change != null &&
-                        (up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />)}
+                        (up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />)}
                       {fmtPct(s.change_percent)}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right text-slate-400">{fmtVolume(s.volume)}</td>
-                  <td className="px-4 py-3 text-center">
+                  <td className="px-3 py-1.5 text-right text-subtle">
+                    {fmtVolume(s.volume)}
+                  </td>
+                  <td className="px-3 py-1.5 text-center">
                     <button
                       onClick={(e) => {
                         e.stopPropagation()
@@ -190,13 +195,13 @@ export default function Home() {
                       }}
                       disabled={watched || add.isPending}
                       title={watched ? 'On watchlist' : 'Add to watchlist'}
-                      className={`inline-flex items-center justify-center rounded-lg p-1.5 transition ${
+                      className={`inline-flex items-center justify-center rounded-md p-1 transition ${
                         watched
                           ? 'cursor-default text-bull'
-                          : 'text-slate-400 ring-1 ring-slate-700 hover:bg-slate-700 hover:text-white'
+                          : 'text-muted ring-1 ring-line hover:bg-active hover:text-ink'
                       }`}
                     >
-                      {watched ? <Check size={15} /> : <Plus size={15} />}
+                      {watched ? <Check size={13} /> : <Plus size={13} />}
                     </button>
                   </td>
                 </tr>
@@ -206,7 +211,7 @@ export default function Home() {
         </table>
       </div>
       {summary.updated && (
-        <p className="mt-3 text-xs text-slate-500">
+        <p className="mt-2 text-[11px] text-subtle">
           Last sync: {fmtDateTime(summary.updated)} · auto-refresh every 60s
         </p>
       )}
