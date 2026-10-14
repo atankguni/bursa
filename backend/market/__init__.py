@@ -1,1 +1,1 @@
-"""Market data integration package (Yahoo Finance via yfinance)."""
+"""Market data integration (providers + symbol universe)."""

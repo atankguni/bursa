@@ -35,6 +35,21 @@ class MarketStatusOut(BaseModel):
     next_change_label: str = ""
 
 
+class ProviderInfo(BaseModel):
+    """A registered market-data provider and what it supports."""
+
+    name: str
+    capabilities: list[str]
+
+
+class ProvidersOut(BaseModel):
+    """Active data providers (price + fundamentals are selected separately)."""
+
+    price: str
+    fundamentals: str
+    available: list[ProviderInfo]
+
+
 class StockOut(StockBase):
     """A tracked stock enriched with its latest quote + daily change."""
 

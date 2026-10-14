@@ -23,6 +23,12 @@ class Settings(BaseSettings):
     fundamentals_stale_hours: int = 24
     fx_cache_hours: int = 6
 
+    # Data sources. Yahoo is the only implemented provider today; extend the
+    # registry in market/providers/ and switch these per capability.
+    price_provider: str = "yahoo"
+    fundamentals_provider: str = "yahoo"
+    base_currency: str = "IDR"
+
     # IDX trading sessions (local exchange time, "HH:MM"). Session 2 end is the
     # point after which intraday data stops; the lunch break is skipped.
     pre_open_start: str = "08:45"

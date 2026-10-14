@@ -1,9 +1,9 @@
-"""Tests for the batched-download parsing (market.sync)."""
+"""Tests for the batched-download parsing (now in the Yahoo provider adapter)."""
 
 import numpy as np
 import pandas as pd
 
-from market.sync import _frame_for_ticker, _to_rows
+from market.providers.yahoo import _frame_for_ticker, _to_rows
 
 
 def _batched_df():

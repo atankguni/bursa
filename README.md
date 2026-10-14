@@ -133,6 +133,7 @@ bursa/
 |--------|------|-------------|
 | GET    | `/api/health` | Health check |
 | GET    | `/api/market-status` | IDX trading status (open / break / closed) |
+| GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |
 | GET    | `/api/stocks?index=LQ45&index=IDX30` | Stocks (AND across indices) + latest price/change |
 | GET    | `/api/stocks/{ticker}/history?interval=1d\|1m` | OHLCV bars for charts |
@@ -164,6 +165,9 @@ bursa/
 - **Backend settings** (retention days, staleness, CORS, tz, **trading-session times**,
   **recommendation weights & rating thresholds**) — `backend/config.py`.
 - **IDX holidays** — `backend/market/holidays.py` (update annually from the IDX calendar).
+- **Data provider(s)** — `price_provider` / `fundamentals_provider` in `backend/config.py`
+  (Yahoo today). Adapters live in `backend/market/providers/`; add one and register it
+  in `market/providers/registry.py` to switch sources.
 
 ## Development commands
 

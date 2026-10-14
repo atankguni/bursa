@@ -4,10 +4,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from deps import get_session
+from market.providers.registry import available as available_providers
 from market.tickers import INDEX_ORDER
 from models import StockIndex
-from schemas import MarketStatusOut
+from schemas import MarketStatusOut, ProviderInfo, ProvidersOut
 from services.market_clock import status as market_status
 
 router = APIRouter(prefix="/api", tags=["meta"])
@@ -22,6 +24,16 @@ async def health() -> dict[str, str]:
 async def get_market_status() -> MarketStatusOut:
     """Current IDX trading state (drives the navbar indicator)."""
     return MarketStatusOut(**market_status())
+
+
+@router.get("/providers", response_model=ProvidersOut)
+async def get_providers() -> ProvidersOut:
+    """Active data providers + the full registry (read-only)."""
+    return ProvidersOut(
+        price=settings.price_provider,
+        fundamentals=settings.fundamentals_provider,
+        available=[ProviderInfo(**p) for p in available_providers()],
+    )
 
 
 @router.get("/indexes", response_model=list[str])

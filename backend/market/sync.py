@@ -1,86 +1,22 @@
 """
 market/sync.py
 --------------
-Batched yfinance ingestion (anti rate-limit).
+Provider-agnostic batched price ingestion (anti rate-limit).
 
-Strategy: instead of one HTTP request per ticker we issue a SINGLE batched call
-to `yf.download()` covering every symbol, then upsert the parsed OHLCV bars.
+The active provider issues a SINGLE batched call covering every symbol; this
+module only handles retries, flattening, and upserting the bars.
 """
 
 import asyncio
 import logging
-from datetime import UTC
 
-import pandas as pd
-import yfinance as yf
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from database import AsyncSessionLocal
+from market.providers.registry import price_provider
 from models import StockPrice
 
 log = logging.getLogger("bursa.market.sync")
-
-
-def _download_batch(tickers: list[str], period: str, interval: str) -> pd.DataFrame:
-    """Blocking batched download. Runs in a thread via `asyncio.to_thread`."""
-    return yf.download(
-        tickers=tickers,
-        period=period,
-        interval=interval,
-        group_by="ticker",  # -> MultiIndex (ticker, field)
-        auto_adjust=False,
-        progress=False,
-        threads=True,
-        prepost=False,
-    )
-
-
-def _frame_for_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
-    """
-    Extract the per-ticker sub-frame from a batched download, tolerating both
-    the MultiIndex layout and the flat single-ticker layout.
-    """
-    if df is None or df.empty:
-        return pd.DataFrame()
-
-    if isinstance(df.columns, pd.MultiIndex):
-        first_level = df.columns.get_level_values(0)
-        if ticker not in first_level:
-            return pd.DataFrame()
-        return df[ticker].dropna(subset=["Close"])
-    # Single ticker -> flat columns.
-    return df.dropna(subset=["Close"])
-
-
-def _to_rows(df: pd.DataFrame, ticker: str, interval: str) -> list[dict]:
-    """Convert a per-ticker OHLCV frame into a list of upsert-ready dicts."""
-    rows: list[dict] = []
-    for ts, row in df.iterrows():
-        try:
-            # Normalise pandas Timestamp -> naive UTC datetime.
-            dt = ts.to_pydatetime()
-            if dt.tzinfo is not None:
-                dt = dt.astimezone(UTC).replace(tzinfo=None)
-
-            close = float(row["Close"])
-            if pd.isna(close):
-                continue
-
-            rows.append(
-                {
-                    "ticker": ticker,
-                    "timestamp": dt,
-                    "interval": interval,
-                    "open": float(row["Open"]),
-                    "high": float(row["High"]),
-                    "low": float(row["Low"]),
-                    "close": close,
-                    "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else 0,
-                }
-            )
-        except (KeyError, TypeError, ValueError) as exc:  # skip malformed bars
-            log.debug("Skipping bar for %s at %s: %s", ticker, ts, exc)
-    return rows
 
 
 async def _upsert_rows(rows: list[dict]) -> int:
@@ -105,14 +41,16 @@ async def _upsert_rows(rows: list[dict]) -> int:
     return len(rows)
 
 
-async def _download_with_retry(
-    tickers: list[str], period: str, interval: str, attempts: int = 3
-) -> pd.DataFrame:
-    """Batch download with a few retries + backoff to survive transient blocks."""
+async def _fetch_with_retry(
+    provider, tickers: list[str], period: str, interval: str, attempts: int = 3
+) -> dict[str, list[dict]]:
+    """Provider fetch with a few retries + backoff to survive transient blocks."""
     last_exc: Exception | None = None
     for attempt in range(1, attempts + 1):
         try:
-            return await asyncio.to_thread(_download_batch, tickers, period, interval)
+            return await asyncio.to_thread(
+                provider.fetch_price_rows, tickers, period, interval
+            )
         except Exception as exc:  # noqa: BLE001 - log and retry
             last_exc = exc
             log.warning(
@@ -124,23 +62,19 @@ async def _download_with_retry(
     log.error("All %d download attempts failed (%s/%s)", attempts, period, interval)
     if last_exc:
         raise last_exc
-    return pd.DataFrame()
+    return {}
 
 
 async def sync_batch(tickers: list[str], period: str, interval: str) -> int:
-    """Download a batch, parse every ticker, upsert all rows. Returns rows written."""
+    """Fetch a batch from the active provider and upsert all bars."""
+    provider = price_provider()
     try:
-        df = await _download_with_retry(tickers, period, interval)
-    except Exception as exc:  # network / yfinance failure -> never crash the job
+        per_ticker = await _fetch_with_retry(provider, tickers, period, interval)
+    except Exception as exc:  # never crash the job
         log.warning("Batch download failed (%s/%s): %s", period, interval, exc)
         return 0
 
-    all_rows: list[dict] = []
-    for ticker in tickers:
-        sub = _frame_for_ticker(df, ticker)
-        if not sub.empty:
-            all_rows.extend(_to_rows(sub, ticker, interval))
-
+    all_rows = [row for rows in per_ticker.values() for row in rows]
     written = await _upsert_rows(all_rows)
     log.info(
         "[%s] synced %d bars across %d tickers",
