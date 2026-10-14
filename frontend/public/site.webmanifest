@@ -1,0 +1,12 @@
+{
+  "name": "Bursa — IDX Stock Monitor",
+  "short_name": "Bursa",
+  "description": "Personal Indonesian stock exchange (IDX) monitor.",
+  "icons": [
+    { "src": "/favicon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ],
+  "theme_color": "#0f172a",
+  "background_color": "#0f172a",
+  "display": "standalone"
+}
