@@ -1,26 +1,69 @@
 """Stock listing, price history and fundamentals endpoints."""
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+import asyncio
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
+from market.providers.registry import price_provider
 from models import Fundamental, Stock, StockIndex, StockPrice
 from schemas import (
+    DividendOut,
+    DividendSummary,
     FundamentalOut,
     FundamentalsResponse,
     PricePoint,
     RecommendationOut,
     RecommendationSummary,
+    SearchResultOut,
     StockHistory,
     StockOut,
+    TrackStockIn,
+    ValuationOut,
 )
+from services.dividends import list_dividends, trailing_dps
 from services.fundamentals import is_stale, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily
 from services.recommendation import compute_universe_cached
+from services.valuation import valuation
 
 router = APIRouter(prefix="/api", tags=["stocks"])
+
+
+@router.get("/search", response_model=list[SearchResultOut])
+async def search_symbols(
+    q: str = Query(..., min_length=1, max_length=40),
+) -> list[SearchResultOut]:
+    """Resolve a free-text query to candidate symbols via the provider."""
+    provider = price_provider()
+    results = await asyncio.to_thread(provider.search_symbols, q)
+    return [SearchResultOut(**r) for r in results]
+
+
+@router.post("/stocks", response_model=StockOut, status_code=status.HTTP_201_CREATED)
+async def track_stock(
+    payload: TrackStockIn,
+    session: AsyncSession = Depends(get_session),
+) -> StockOut:
+    """Add an arbitrary ticker (e.g. a new .JK symbol) to the tracked universe."""
+    ticker = payload.ticker.strip().upper()
+    if not ticker:
+        raise HTTPException(status_code=400, detail="ticker is required")
+
+    existing = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if existing is not None:
+        raise HTTPException(status_code=409, detail="Already tracked")
+
+    stock = Stock(ticker=ticker, name=payload.name or ticker.replace(".JK", ""))
+    session.add(stock)
+    await session.commit()
+    await session.refresh(stock)
+    return StockOut(id=stock.id, ticker=stock.ticker, name=stock.name)
 
 
 @router.get("/stocks", response_model=list[StockOut])
@@ -200,3 +243,41 @@ async def stock_recommendation(
             status_code=404, detail=f"No recommendation available for {ticker}"
         )
     return rec
+
+
+@router.get("/stocks/{ticker}/valuation", response_model=ValuationOut)
+async def stock_valuation(
+    ticker: str,
+    session: AsyncSession = Depends(get_session),
+) -> ValuationOut:
+    """Where the current PBV/RoE sit within the stock's own history."""
+    stock = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
+    return ValuationOut(**await valuation(session, ticker))
+
+
+@router.get("/stocks/{ticker}/dividends", response_model=DividendSummary)
+async def stock_dividends(
+    ticker: str,
+    session: AsyncSession = Depends(get_session),
+) -> DividendSummary:
+    """Dividend history + trailing yield for one ticker."""
+    stock = (
+        await session.execute(select(Stock).where(Stock.ticker == ticker))
+    ).scalar_one_or_none()
+    if stock is None:
+        raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
+
+    rows = await list_dividends(session, ticker)
+    dps = round((await trailing_dps(session, [ticker])).get(ticker, 0.0), 2)
+    price = (await latest_daily(session, [ticker])).get(ticker, {}).get("close")
+    yield_pct = round(dps / price * 100, 2) if dps and price else None
+    return DividendSummary(
+        ticker=ticker,
+        trailing_dps=dps,
+        yield_percent=yield_pct,
+        history=[DividendOut.model_validate(r) for r in rows],
+    )

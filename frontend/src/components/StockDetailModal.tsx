@@ -11,17 +11,20 @@ import {
 import { addToWatchlist, fetchFundamentals, removeFromWatchlist } from '../api'
 import {
   queryKeys,
+  useDividends,
   useFundamentals,
   useHistory,
   useRecommendation,
+  useValuation,
   useWatchlist,
 } from '../hooks'
-import { fmtChange, fmtPct, fmtPrice } from '../lib/format'
+import { fmtChange, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import { useSettings } from '../lib/settings'
 import FundamentalsPanel from './FundamentalsPanel'
 import RecommendationPanel from './RecommendationPanel'
 
 // lightweight-charts is heavy; load it only when a chart is actually shown.
+import type { Indicators } from './StockChart'
 const StockChart = lazy(() => import('./StockChart'))
 
 // Minimal shape needed to render the modal — both Stock and WatchlistItem fit.
@@ -49,6 +52,13 @@ export default function StockDetailModal({
   const { settings } = useSettings()
   const [range, setRange] = useState<'1d' | '1m'>(settings.chartRange)
   const [chartType, setChartType] = useState<'candle' | 'line'>(settings.chartType)
+  const [ind, setInd] = useState<Indicators>({
+    ma20: false,
+    ma50: false,
+    ma200: false,
+    volume: true,
+    rsi: false,
+  })
   const queryClient = useQueryClient()
 
   // --- Chart data -----------------------------------------------------------
@@ -56,6 +66,8 @@ export default function StockDetailModal({
 
   // --- Fundamentals (fetched on demand, cached) -----------------------------
   const fundamentals = useFundamentals(stock.ticker, tab === 'fundamentals')
+  const valuation = useValuation(stock.ticker, tab === 'fundamentals')
+  const dividends = useDividends(stock.ticker, tab === 'fundamentals')
   const refreshFundamentals = useMutation({
     mutationFn: () => fetchFundamentals(stock.ticker, true),
     onSuccess: (data) =>
@@ -211,6 +223,29 @@ export default function StockDetailModal({
                   <LineChart size={13} /> Line
                 </button>
               </div>
+              <div className="flex flex-wrap gap-1">
+                {(
+                  [
+                    ['ma20', 'MA20'],
+                    ['ma50', 'MA50'],
+                    ['ma200', 'MA200'],
+                    ['volume', 'Vol'],
+                    ['rsi', 'RSI'],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setInd((s) => ({ ...s, [key]: !s[key] }))}
+                    className={`rounded-full px-2 py-1 text-[11px] font-medium ring-1 transition ${
+                      ind[key]
+                        ? 'bg-bull/15 text-bull ring-bull/30'
+                        : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             <div className="mt-3">
@@ -226,7 +261,11 @@ export default function StockDetailModal({
                     </div>
                   }
                 >
-                  <StockChart data={history.data.points} chartType={chartType} />
+                  <StockChart
+                    data={history.data.points}
+                    chartType={chartType}
+                    indicators={ind}
+                  />
                 </Suspense>
               ) : (
                 <div className="flex h-[400px] items-center justify-center text-muted">
@@ -239,7 +278,7 @@ export default function StockDetailModal({
 
         {/* Fundamentals tab */}
         {tab === 'fundamentals' && (
-          <div className="mt-3">
+          <div className="mt-3 space-y-3">
             <FundamentalsPanel
               data={fundamentals.data}
               isLoading={fundamentals.isLoading}
@@ -247,6 +286,91 @@ export default function StockDetailModal({
               onRefresh={() => refreshFundamentals.mutate()}
               isRefreshing={refreshFundamentals.isPending}
             />
+
+            {/* Relative valuation */}
+            {valuation.data &&
+              (valuation.data.pbv != null || valuation.data.roe != null) && (
+                <div className="surface p-4">
+                  <div className="mb-3 text-[10px] uppercase tracking-wider text-muted">
+                    Relative valuation
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {[
+                      {
+                        label: 'PBV',
+                        value: valuation.data.pbv,
+                        range: `${valuation.data.pbv_min ?? '—'} – ${valuation.data.pbv_max ?? '—'}`,
+                        pct: valuation.data.pbv_percentile,
+                        window: `${valuation.data.window_days}d`,
+                      },
+                      {
+                        label: 'RoE',
+                        value: valuation.data.roe,
+                        range: `${valuation.data.years.length} yrs`,
+                        pct: valuation.data.roe_percentile,
+                        window: 'history',
+                      },
+                    ].map((row) => (
+                      <div key={row.label} className="text-xs">
+                        <div className="flex items-baseline justify-between">
+                          <span className="text-muted">
+                            {row.label}{' '}
+                            <span className="font-medium text-ink">
+                              {row.label === 'PBV'
+                                ? fmtRatio(row.value)
+                                : fmtPercent(row.value)}
+                            </span>
+                          </span>
+                          <span className="text-[10px] text-subtle">{row.range}</span>
+                        </div>
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-panelalt">
+                          <div
+                            className="h-full rounded-full bg-bull"
+                            style={{ width: `${row.pct ?? 0}%` }}
+                          />
+                        </div>
+                        <div className="mt-1 text-[10px] text-subtle">
+                          {row.pct != null ? `${row.pct.toFixed(0)}th percentile` : '—'} ·
+                          vs {row.window}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+            {/* Dividends */}
+            {dividends.data && dividends.data.history.length > 0 && (
+              <div className="surface p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <span className="text-[10px] uppercase tracking-wider text-muted">
+                    Dividends
+                  </span>
+                  <span className="text-xs text-muted">
+                    Trailing DPS{' '}
+                    <span className="font-medium text-ink">
+                      {fmtPrice(dividends.data.trailing_dps)}
+                    </span>
+                    {dividends.data.yield_percent != null && (
+                      <>
+                        {' · yield '}
+                        <span className="font-medium text-bull">
+                          {dividends.data.yield_percent.toFixed(2)}%
+                        </span>
+                      </>
+                    )}
+                  </span>
+                </div>
+                <ul className="divide-y divide-line text-xs">
+                  {dividends.data.history.slice(0, 5).map((d) => (
+                    <li key={d.ex_date} className="flex justify-between py-1.5">
+                      <span className="text-muted">{d.ex_date}</span>
+                      <span className="tabular-nums text-ink">{fmtPrice(d.amount)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
         )}
 

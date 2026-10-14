@@ -4,9 +4,10 @@ schemas.py
 Pydantic v2 response models for the public API surface.
 """
 
-from datetime import datetime
+from datetime import date, datetime
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class StockBase(BaseModel):
@@ -48,6 +49,195 @@ class ProvidersOut(BaseModel):
     price: str
     fundamentals: str
     available: list[ProviderInfo]
+
+
+# --------------------------------------------------------------------------- #
+# Portfolio
+# --------------------------------------------------------------------------- #
+
+
+class TransactionIn(BaseModel):
+    """Payload for recording a buy/sell."""
+
+    ticker: str
+    side: Literal["buy", "sell"]
+    quantity: float = Field(gt=0)
+    price: float = Field(gt=0)
+    fees: float = Field(default=0.0, ge=0)
+    trade_date: date
+    note: str | None = None
+
+
+class TransactionOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticker: str
+    side: str
+    quantity: float
+    price: float
+    fees: float
+    trade_date: date
+    note: str | None = None
+
+
+class HoldingOut(BaseModel):
+    """A current position with average-cost P/L."""
+
+    ticker: str
+    name: str
+    quantity: float
+    avg_cost: float
+    price: float | None = None
+    market_value: float | None = None
+    invested: float
+    unrealized_pl: float | None = None
+    unrealized_pl_pct: float | None = None
+    day_change: float | None = None
+    day_change_pct: float | None = None
+    weight: float | None = None
+    projected_income: float | None = None
+
+
+class PortfolioTotals(BaseModel):
+    invested: float
+    market_value: float
+    unrealized_pl: float
+    unrealized_pl_pct: float | None = None
+    day_change: float
+    day_change_pct: float | None = None
+    realized_pl: float
+    projected_income: float = 0.0
+
+
+class PortfolioOut(BaseModel):
+    totals: PortfolioTotals
+    holdings: list[HoldingOut]
+
+
+class EquityPoint(BaseModel):
+    date: date
+    value: float
+
+
+# --------------------------------------------------------------------------- #
+# Screener / search / market overview
+# --------------------------------------------------------------------------- #
+
+
+class SearchResultOut(BaseModel):
+    symbol: str
+    name: str
+    exchange: str = ""
+    type: str = ""
+
+
+class TrackStockIn(BaseModel):
+    ticker: str
+    name: str | None = None
+
+
+class ScreenerRow(BaseModel):
+    ticker: str
+    name: str
+    indices: list[str] = []
+    sector: str | None = None
+    price: float | None = None
+    change_percent: float | None = None
+    pbv: float | None = None
+    roe: float | None = None
+    score: float | None = None
+    rating: str | None = None
+    strength: str | None = None
+
+
+class MoverOut(BaseModel):
+    ticker: str
+    name: str
+    price: float | None = None
+    change_percent: float | None = None
+
+
+class SectorOut(BaseModel):
+    sector: str
+    count: int
+    avg_change_percent: float
+
+
+class MarketOverviewOut(BaseModel):
+    up: int
+    down: int
+    flat: int
+    top_gainers: list[MoverOut]
+    top_losers: list[MoverOut]
+    sectors: list[SectorOut]
+
+
+# --------------------------------------------------------------------------- #
+# Alerts
+# --------------------------------------------------------------------------- #
+
+AlertType = Literal["price_above", "price_below", "pct_change", "rating_change"]
+
+
+class AlertIn(BaseModel):
+    ticker: str
+    type: AlertType
+    threshold: float | None = None
+
+
+class AlertOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    ticker: str
+    type: str
+    threshold: float | None = None
+    active: bool
+    last_triggered_at: datetime | None = None
+    created_at: datetime
+
+
+class AlertEventOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    alert_id: int
+    ticker: str
+    triggered_at: datetime
+    value: float | None = None
+    message: str
+
+
+# --------------------------------------------------------------------------- #
+# Valuation & dividends
+# --------------------------------------------------------------------------- #
+
+
+class ValuationOut(BaseModel):
+    ticker: str
+    pbv: float | None = None
+    pbv_min: float | None = None
+    pbv_max: float | None = None
+    pbv_percentile: float | None = None
+    roe: float | None = None
+    roe_percentile: float | None = None
+    years: list[int] = []
+    window_days: int = 0
+
+
+class DividendOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    ex_date: date
+    amount: float
+
+
+class DividendSummary(BaseModel):
+    ticker: str
+    trailing_dps: float = 0.0
+    yield_percent: float | None = None
+    history: list[DividendOut] = []
 
 
 class StockOut(StockBase):

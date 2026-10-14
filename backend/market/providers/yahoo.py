@@ -15,11 +15,13 @@ import yfinance as yf
 
 from config import settings
 from market.providers.base import (
+    DIVIDENDS,
     FUNDAMENTALS,
     FX,
     INTRADAY,
     PRICES,
     PROFILE,
+    SEARCH,
     MarketDataProvider,
 )
 
@@ -141,7 +143,7 @@ def _profile_from_info(info: dict) -> dict | None:
 # --------------------------------------------------------------------------- #
 class YahooProvider(MarketDataProvider):
     name = "yahoo"
-    capabilities = {PRICES, INTRADAY, FUNDAMENTALS, FX, PROFILE}
+    capabilities = {PRICES, INTRADAY, FUNDAMENTALS, FX, PROFILE, SEARCH, DIVIDENDS}
 
     def __init__(self) -> None:
         self._fx_cache: dict[str, tuple[float, datetime]] = {}
@@ -248,3 +250,46 @@ class YahooProvider(MarketDataProvider):
                 }
             )
         return rows, profile
+
+    # --- Search -------------------------------------------------------------
+    def search_symbols(self, query: str) -> list[dict]:
+        """Resolve a free-text query to candidate symbols via Yahoo search."""
+        try:
+            quotes = yf.Search(query, max_results=10).quotes
+        except Exception as exc:  # noqa: BLE001 - network / parse failure
+            log.warning("Symbol search failed for %r: %s", query, exc)
+            return []
+
+        out: list[dict] = []
+        for q in quotes or []:
+            symbol = q.get("symbol")
+            if not symbol:
+                continue
+            out.append(
+                {
+                    "symbol": symbol,
+                    "name": q.get("shortname") or q.get("longname") or symbol,
+                    "exchange": q.get("exchDisp") or q.get("exchange") or "",
+                    "type": q.get("quoteType") or "",
+                }
+            )
+        return out
+
+    # --- Dividends ----------------------------------------------------------
+    def fetch_dividends(self, ticker: str) -> list[dict]:
+        """Historical cash dividends as [{ex_date, amount}]."""
+        try:
+            divs = yf.Ticker(ticker).dividends
+        except Exception as exc:  # noqa: BLE001 - network / parse failure
+            log.warning("Dividend fetch failed for %s: %s", ticker, exc)
+            return []
+
+        out: list[dict] = []
+        if divs is not None:
+            for ts, amount in divs.items():
+                try:
+                    ex_date = ts.date() if hasattr(ts, "date") else ts
+                    out.append({"ex_date": ex_date, "amount": float(amount)})
+                except (AttributeError, TypeError, ValueError):
+                    continue
+        return out

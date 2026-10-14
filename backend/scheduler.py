@@ -53,6 +53,10 @@ async def sync_intraday() -> None:
         log.debug("Market closed — skipping intraday sync")
         return
     await sync_batch(TICKERS, period="1d", interval=INTRADAY_INTERVAL)
+    # Evaluate alert rules against the freshly synced prices.
+    from services.alerts import evaluate_alerts
+
+    await evaluate_alerts()
 
 
 async def sync_watchlist_fundamentals() -> None:

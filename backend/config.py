@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     fundamentals_provider: str = "yahoo"
     base_currency: str = "IDR"
 
+    # Alerts: minimum time before the same alert may fire again.
+    alert_cooldown_hours: int = 12
+
     # IDX trading sessions (local exchange time, "HH:MM"). Session 2 end is the
     # point after which intraday data stops; the lunch break is skipped.
     pre_open_start: str = "08:45"

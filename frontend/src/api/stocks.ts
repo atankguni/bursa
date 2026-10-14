@@ -1,5 +1,13 @@
 import { api } from './client'
-import type { FundamentalsResponse, Recommendation, Stock, StockHistory } from './types'
+import type {
+  DividendSummary,
+  FundamentalsResponse,
+  Recommendation,
+  SearchResult,
+  Stock,
+  StockHistory,
+  Valuation,
+} from './types'
 
 export async function fetchIndexes(): Promise<string[]> {
   const { data } = await api.get<string[]>('/api/indexes')
@@ -37,5 +45,25 @@ export async function fetchFundamentals(
 
 export async function fetchRecommendation(ticker: string): Promise<Recommendation> {
   const { data } = await api.get<Recommendation>(`/api/stocks/${ticker}/recommendation`)
+  return data
+}
+
+export async function searchSymbols(q: string): Promise<SearchResult[]> {
+  const { data } = await api.get<SearchResult[]>('/api/search', { params: { q } })
+  return data
+}
+
+export async function trackStock(ticker: string, name?: string): Promise<Stock> {
+  const { data } = await api.post<Stock>('/api/stocks', { ticker, name })
+  return data
+}
+
+export async function fetchValuation(ticker: string): Promise<Valuation> {
+  const { data } = await api.get<Valuation>(`/api/stocks/${ticker}/valuation`)
+  return data
+}
+
+export async function fetchDividends(ticker: string): Promise<DividendSummary> {
+  const { data } = await api.get<DividendSummary>(`/api/stocks/${ticker}/dividends`)
   return data
 }

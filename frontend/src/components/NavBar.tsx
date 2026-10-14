@@ -1,6 +1,8 @@
 import { NavLink } from 'react-router-dom'
-import { Activity, LayoutGrid, Star } from 'lucide-react'
+import { Activity, Briefcase, Filter, Globe, LayoutGrid, Star } from 'lucide-react'
+import AlertsBell from './AlertsBell'
 import MarketStatus from './MarketStatus'
+import SearchBox from './SearchBox'
 import SettingsMenu from './SettingsMenu'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -31,6 +33,7 @@ export default function NavBar() {
         </div>
 
         <div className="flex items-center gap-2">
+          <SearchBox />
           <nav className="flex items-center gap-1 rounded-xl bg-panelalt/70 p-1 ring-1 ring-line">
             <NavLink to="/" end className={linkClass}>
               <LayoutGrid size={14} /> Home
@@ -38,7 +41,17 @@ export default function NavBar() {
             <NavLink to="/watchlist" className={linkClass}>
               <Star size={14} /> Watchlist
             </NavLink>
+            <NavLink to="/portfolio" className={linkClass}>
+              <Briefcase size={14} /> Portfolio
+            </NavLink>
+            <NavLink to="/screener" className={linkClass}>
+              <Filter size={14} /> Screener
+            </NavLink>
+            <NavLink to="/market" className={linkClass}>
+              <Globe size={14} /> Market
+            </NavLink>
           </nav>
+          <AlertsBell />
           <SettingsMenu />
         </div>
       </div>

@@ -77,6 +77,11 @@ async def sync_ticker(ticker: str) -> int:
             await session.execute(prof)
 
         await session.commit()
+
+    # Dividends are best-effort (separate provider call, own session).
+    from services.dividends import sync_dividends
+
+    await sync_dividends(ticker)
     return len(rows)
 
 

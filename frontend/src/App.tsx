@@ -3,8 +3,12 @@ import { Route, Routes } from 'react-router-dom'
 import NavBar from './components/NavBar'
 import Home from './pages/Home'
 
-// Watchlist is a secondary route — load it on demand.
+// Secondary routes are loaded on demand.
 const Watchlist = lazy(() => import('./pages/Watchlist'))
+const Portfolio = lazy(() => import('./pages/Portfolio'))
+const Screener = lazy(() => import('./pages/Screener'))
+const Market = lazy(() => import('./pages/Market'))
+const Alerts = lazy(() => import('./pages/Alerts'))
 
 // App shell: persistent top navigation + routed pages (full-width layout).
 export default function App() {
@@ -17,6 +21,10 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Home />} />
           <Route path="/watchlist" element={<Watchlist />} />
+          <Route path="/portfolio" element={<Portfolio />} />
+          <Route path="/screener" element={<Screener />} />
+          <Route path="/market" element={<Market />} />
+          <Route path="/alerts" element={<Alerts />} />
         </Routes>
       </Suspense>
     </div>

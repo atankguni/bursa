@@ -23,6 +23,8 @@ INTRADAY = "intraday"
 FUNDAMENTALS = "fundamentals"
 FX = "fx"
 PROFILE = "profile"
+SEARCH = "search"
+DIVIDENDS = "dividends"
 
 
 class MarketDataProvider(ABC):
@@ -44,3 +46,11 @@ class MarketDataProvider(ABC):
     @abstractmethod
     def fetch_fx_rate(self, currency: str, base: str) -> float | None:
         """Return `base` per 1 unit of `currency` (1.0 when equal)."""
+
+    def search_symbols(self, query: str) -> list[dict]:
+        """Optional: resolve a free-text query to symbols. Defaults to none."""
+        return []
+
+    def fetch_dividends(self, ticker: str) -> list[dict]:
+        """Optional: historical dividends as [{ex_date, amount}]. Defaults to none."""
+        return []

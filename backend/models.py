@@ -15,10 +15,12 @@ separate so a chart never mixes a daily close with a minute close. It is not in
 the original field list but is required for correct charting.
 """
 
-from datetime import datetime
+from datetime import date, datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -176,3 +178,110 @@ class StockProfile(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<StockProfile {self.ticker} ({self.sector})>"
+
+
+class Transaction(Base):
+    """A buy/sell of a tracked stock, used to derive the portfolio."""
+
+    __tablename__ = "transactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
+        nullable=False,
+    )
+    side: Mapped[str] = mapped_column(String(4), nullable=False)  # "buy" | "sell"
+    quantity: Mapped[float] = mapped_column(Float, nullable=False)
+    price: Mapped[float] = mapped_column(Float, nullable=False)
+    fees: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    trade_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<Transaction {self.side} {self.quantity} {self.ticker}@{self.price}>"
+
+
+class Alert(Base):
+    """A user-defined alert rule on a ticker."""
+
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
+        nullable=False,
+    )
+    # price_above | price_below | pct_change | rating_change
+    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<Alert {self.ticker} {self.type} {self.threshold}>"
+
+
+class AlertEvent(Base):
+    """A triggered alert (kept for the in-app notification list)."""
+
+    __tablename__ = "alert_events"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    alert_id: Mapped[int] = mapped_column(
+        ForeignKey("alerts.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    triggered_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), index=True, nullable=False
+    )
+    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    message: Mapped[str] = mapped_column(String(255), nullable=False)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<AlertEvent {self.ticker} {self.triggered_at}>"
+
+
+class RatingState(Base):
+    """Last-seen recommendation rating per ticker (for rating-change alerts)."""
+
+    __tablename__ = "rating_state"
+
+    ticker: Mapped[str] = mapped_column(
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"),
+        primary_key=True, nullable=False,
+    )
+    rating: Mapped[str] = mapped_column(String(16), nullable=False)
+    strength: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<RatingState {self.ticker} {self.rating}>"
+
+
+class Dividend(Base):
+    """A historical cash dividend (ex-date + amount per share)."""
+
+    __tablename__ = "dividends"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
+        nullable=False,
+    )
+    ex_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
+    amount: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "ex_date", name="uq_dividend"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<Dividend {self.ticker} {self.ex_date} {self.amount}>"

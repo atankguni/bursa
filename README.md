@@ -24,6 +24,17 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 - **Settings** (gear in the navbar) — theme, display **density** (compact/medium/large),
   reduce motion, default indices, chart defaults, auto-refresh, number format,
   change coloring, and per-table **column visibility**; persisted in the browser.
+- **Portfolio** — record buy/sell transactions; holdings with average-cost **P/L**,
+  allocation weights, day change, realized P/L, and a portfolio value curve.
+- **Screener** — rank/filter the tracked universe by score, PBV, RoE, sector, or
+  "Buy signals only".
+- **Search** — add any `.JK` symbol (not just seeded indices) from the navbar.
+- **Market overview** — breadth, top gainers/losers and a sector-performance view.
+- **Alerts** — price-above/below, %-change, and rating-change rules with in-app
+  notifications (navbar bell); evaluated after each market sync.
+- **Chart indicators** — MA(20/50/200), volume, and RSI overlays on the detail chart.
+- **Relative valuation** — where current PBV/RoE sit within the stock's own history.
+- **Dividends** — dividend history, trailing yield, and projected annual income for holdings.
 - **Market clock** — a navbar indicator (dot + label) shows whether IDX is
   **Open / Pre-open / Break / Closed** (sessions + holidays), and the background
   sync uses the same clock.
@@ -139,6 +150,18 @@ bursa/
 | GET    | `/api/stocks/{ticker}/history?interval=1d\|1m` | OHLCV bars for charts |
 | GET    | `/api/stocks/{ticker}/fundamentals` | Yearly fundamentals + PBV/RoE |
 | GET    | `/api/stocks/{ticker}/recommendation` | Buy-signal score + rating + conviction + factors |
+| GET    | `/api/search?q=` | Symbol search (add arbitrary tickers) |
+| POST   | `/api/stocks` | Track a new ticker |
+| GET    | `/api/screener?min_score=&max_pbv=&min_roe=&rating=&sector=&buy_only=` | Rank/filter the universe |
+| GET    | `/api/market/overview` | Breadth, top movers, sector performance |
+| GET    | `/api/portfolio` | Holdings + totals (average-cost P/L) |
+| GET/POST/DELETE | `/api/portfolio/transactions` | Manage transactions |
+| GET    | `/api/portfolio/history` | Portfolio value over time |
+| GET/POST | `/api/alerts` | List / create alert rules |
+| POST   | `/api/alerts/{id}/toggle` · DELETE `/api/alerts/{id}` | Pause / delete an alert |
+| GET    | `/api/alerts/events` | Recent triggered alerts |
+| GET    | `/api/stocks/{ticker}/valuation` | PBV/RoE vs own history (percentile) |
+| GET    | `/api/stocks/{ticker}/dividends` | Dividend history + trailing yield |
 | GET    | `/api/watchlist` | Watchlist with price + fundamentals + ratios |
 | POST   | `/api/watchlist/{ticker}` | Add a ticker (fetches fundamentals) |
 | DELETE | `/api/watchlist/{ticker}` | Remove a ticker |

@@ -30,7 +30,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 
 from config import settings
 from database import init_db
-from routers import meta, stocks, watchlist
+from routers import alerts, market, meta, portfolio, screener, stocks, watchlist
 from scheduler import (
     backfill_daily,
     start_scheduler,
@@ -91,3 +91,7 @@ app.add_middleware(GZipMiddleware, minimum_size=500)
 app.include_router(meta.router)
 app.include_router(stocks.router)
 app.include_router(watchlist.router)
+app.include_router(portfolio.router)
+app.include_router(screener.router)
+app.include_router(market.router)
+app.include_router(alerts.router)
