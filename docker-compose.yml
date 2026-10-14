@@ -1,0 +1,36 @@
+# Bursa — full stack in one file.
+#
+#   docker compose up --build
+#
+# Backend  : http://localhost:8000  (FastAPI + docs at /docs)
+# Frontend : http://localhost:5173  (Vite + React)
+# SQLite   : ./backend/data/bursa.db (persisted on the host, WAL mode)
+#
+# Both services bind-mount their source for hot-reloading.
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      # Bind-mount source -> uvicorn --reload picks up edits.
+      # The same mount keeps /app/data on the host, so the DB survives restarts.
+      - ./backend:/app
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/bursa.db
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      # Bind-mount source for HMR; keep node_modules inside the container.
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: unless-stopped
