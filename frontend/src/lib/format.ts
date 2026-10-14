@@ -2,12 +2,20 @@
 
 const nf = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 })
 
+// Global display mode, kept in sync with the settings store (see SettingsPanel).
+// "compact" abbreviates large magnitudes (1.23T); "full" prints separators.
+let compactNumbers = true
+export function setCompactNumbers(on: boolean) {
+  compactNumbers = on
+}
+
 /** Plain price/number with thousands separators. */
 export const fmtPrice = (v: number | null | undefined) => (v == null ? '—' : nf.format(v))
 
-/** Compact large magnitudes: T / B / M / K. */
+/** Large magnitudes: compact (T/B/M/K) or full separators per the display mode. */
 export const fmtCompact = (v: number | null | undefined) => {
   if (v == null) return '—'
+  if (!compactNumbers) return nf.format(v)
   const abs = Math.abs(v)
   if (abs >= 1_000_000_000_000) return `${(v / 1_000_000_000_000).toFixed(2)}T`
   if (abs >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}B`

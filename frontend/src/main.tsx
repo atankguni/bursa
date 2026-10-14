@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
-import { ThemeProvider } from './lib/theme'
+import { SettingsProvider } from './lib/settings'
 import './index.css'
 
 // Single shared React Query client. Polling is opt-in per query (see the
@@ -21,11 +21,11 @@ const queryClient = new QueryClient({
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider>
+      <SettingsProvider>
         <BrowserRouter>
           <App />
         </BrowserRouter>
-      </ThemeProvider>
+      </SettingsProvider>
     </QueryClientProvider>
   </React.StrictMode>,
 )

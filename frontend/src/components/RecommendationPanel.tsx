@@ -42,7 +42,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
   return (
     <div className="space-y-4">
       {/* Headline */}
-      <div className="flex flex-wrap items-center gap-4 rounded-lg bg-panelalt px-4 py-3 ring-1 ring-line">
+      <div className="flex flex-wrap items-center gap-4 rounded-xl bg-panelalt/70 px-4 py-3 ring-1 ring-line">
         <div className="flex items-baseline gap-2">
           <span className={`text-3xl font-bold ${ratingTone(data.rating)}`}>
             {data.score.toFixed(0)}

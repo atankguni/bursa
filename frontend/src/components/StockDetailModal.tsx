@@ -17,6 +17,7 @@ import {
   useWatchlist,
 } from '../hooks'
 import { fmtChange, fmtPct, fmtPrice } from '../lib/format'
+import { useSettings } from '../lib/settings'
 import FundamentalsPanel from './FundamentalsPanel'
 import RecommendationPanel from './RecommendationPanel'
 
@@ -45,8 +46,9 @@ export default function StockDetailModal({
   initialTab?: Tab
 }) {
   const [tab, setTab] = useState<Tab>(initialTab)
-  const [range, setRange] = useState<'1d' | '1m'>('1d')
-  const [chartType, setChartType] = useState<'candle' | 'line'>('candle')
+  const { settings } = useSettings()
+  const [range, setRange] = useState<'1d' | '1m'>(settings.chartRange)
+  const [chartType, setChartType] = useState<'candle' | 'line'>(settings.chartType)
   const queryClient = useQueryClient()
 
   // --- Chart data -----------------------------------------------------------
@@ -78,7 +80,7 @@ export default function StockDetailModal({
   const watchPending = add.isPending || remove.isPending
 
   const up = (stock.change ?? stock.change_percent ?? 0) >= 0
-  const tone = up ? 'text-bull' : 'text-bear'
+  const tone = !settings.colorizeChanges ? 'text-muted' : up ? 'text-bull' : 'text-bear'
   const seg = (active: boolean) =>
     `px-2.5 py-1 text-xs transition ${
       active ? 'bg-active text-ink' : 'text-muted hover:text-ink'
@@ -90,7 +92,7 @@ export default function StockDetailModal({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl bg-panel p-5 shadow-2xl ring-1 ring-line"
+        className="max-h-[90vh] w-full max-w-4xl animate-fade-in overflow-y-auto rounded-2xl bg-panel p-6 shadow-pop ring-1 ring-line"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -145,20 +147,35 @@ export default function StockDetailModal({
         </div>
 
         {/* Tabs */}
-        <div className="mt-3">
-          <div className="flex w-fit overflow-hidden rounded-lg ring-1 ring-line">
-            <button onClick={() => setTab('chart')} className={seg(tab === 'chart')}>
+        <div className="mt-4">
+          <div className="flex w-fit gap-1 rounded-xl bg-panelalt/70 p-1 ring-1 ring-line">
+            <button
+              onClick={() => setTab('chart')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                tab === 'chart'
+                  ? 'bg-panel text-ink shadow-card ring-1 ring-line'
+                  : 'text-muted hover:text-ink'
+              }`}
+            >
               Chart
             </button>
             <button
               onClick={() => setTab('fundamentals')}
-              className={seg(tab === 'fundamentals')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                tab === 'fundamentals'
+                  ? 'bg-panel text-ink shadow-card ring-1 ring-line'
+                  : 'text-muted hover:text-ink'
+              }`}
             >
               Fundamentals
             </button>
             <button
               onClick={() => setTab('recommendation')}
-              className={seg(tab === 'recommendation')}
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                tab === 'recommendation'
+                  ? 'bg-panel text-ink shadow-card ring-1 ring-line'
+                  : 'text-muted hover:text-ink'
+              }`}
             >
               Signal
             </button>

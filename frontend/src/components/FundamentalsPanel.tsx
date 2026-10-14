@@ -16,7 +16,7 @@ const roeOf = (f: Fundamental) =>
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg bg-panelalt px-3 py-2 ring-1 ring-line">
+    <div className="rounded-xl bg-panelalt/70 px-3 py-2.5 ring-1 ring-line">
       <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
       <div className="mt-0.5 text-sm font-semibold text-ink">{value}</div>
     </div>

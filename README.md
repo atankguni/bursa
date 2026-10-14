@@ -20,7 +20,10 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   filter, buy-signal counts) and the **Watchlist**, plus a detail tab. Heuristic, not
   financial advice.
 - **Charts** — candlestick or line, daily (1d) and intraday (1m), via Lightweight Charts.
-- **Theme** — light / dark / **follow system** (toggle in the top bar).
+- **Theme** — light / dark / **follow system** (set from Settings).
+- **Settings** (gear in the navbar) — theme, display **density** (compact/medium/large),
+  reduce motion, default indices, chart defaults, auto-refresh, number format,
+  change coloring, and per-table **column visibility**; persisted in the browser.
 - **Market clock** — a navbar indicator (dot + label) shows whether IDX is
   **Open / Pre-open / Break / Closed** (sessions + holidays), and the background
   sync uses the same clock.

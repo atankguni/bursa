@@ -41,7 +41,7 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-lg bg-panelalt py-1 pl-2.5 pr-1.5 text-xs font-medium text-ink ring-1 ring-line transition hover:bg-active"
+        className="flex items-center gap-2 rounded-full bg-panelalt/70 py-1 pl-3 pr-2 text-xs font-medium text-ink ring-1 ring-line transition hover:bg-panelalt"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -53,13 +53,13 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
       </button>
 
       {open && (
-        <div className="absolute left-0 z-20 mt-1 w-48 overflow-hidden rounded-lg bg-panel shadow-xl ring-1 ring-line">
+        <div className="absolute left-0 z-20 mt-1 w-48 animate-fade-in overflow-hidden rounded-xl bg-panel p-1 shadow-pop ring-1 ring-line">
           {options.map((opt) => {
             const active = selected.includes(opt)
             return (
               <label
                 key={opt}
-                className="flex cursor-pointer items-center gap-2 px-2.5 py-1.5 text-xs transition hover:bg-panelalt"
+                className="flex cursor-pointer items-center gap-2 rounded-lg px-2.5 py-1.5 text-xs transition hover:bg-panelalt"
               >
                 <input
                   type="checkbox"

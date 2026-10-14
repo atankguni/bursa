@@ -9,7 +9,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { PricePoint } from '../api'
-import { useTheme } from '../lib/theme'
+import { useSettings } from '../lib/settings'
 
 interface Props {
   data: PricePoint[]
@@ -48,13 +48,13 @@ const PALETTE = {
 export default function StockChart({ data, chartType, height = 400 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null)
   const chartRef = useRef<IChartApi | null>(null)
-  const { resolved } = useTheme()
+  const { resolvedTheme } = useSettings()
 
   useEffect(() => {
     const container = containerRef.current
     if (!container) return
 
-    const c = PALETTE[resolved]
+    const c = PALETTE[resolvedTheme]
 
     // Build a fresh chart for the current series type + theme.
     const chart = createChart(container, {
@@ -113,7 +113,7 @@ export default function StockChart({ data, chartType, height = 400 }: Props) {
       chart.remove()
       chartRef.current = null
     }
-  }, [data, chartType, height, resolved])
+  }, [data, chartType, height, resolvedTheme])
 
   return <div ref={containerRef} className="w-full" />
 }
