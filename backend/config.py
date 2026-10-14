@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # IDX trades in lots; 1 lot = 100 shares.
     lot_size: int = 100
 
+    # Screener "sync missing data" job (manual; fundamentals-only, bounded).
+    screener_sync_limit: int = 40
+    screener_sync_throttle: float = 0.4
+
     # IDX trading sessions (local exchange time, "HH:MM"). Session 2 end is the
     # point after which intraday data stops; the lunch break is skipped.
     pre_open_start: str = "08:45"

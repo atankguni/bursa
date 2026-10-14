@@ -33,7 +33,7 @@ def is_stale(rows: list[Fundamental]) -> bool:
     return datetime.utcnow() - max(times) > ttl
 
 
-async def sync_ticker(ticker: str) -> int:
+async def sync_ticker(ticker: str, with_dividends: bool = True) -> int:
     """Fetch and upsert one ticker's fundamentals + profile. Returns rows written."""
     provider = fundamentals_provider()
     rows, profile = await governor.call(
@@ -90,18 +90,23 @@ async def sync_ticker(ticker: str) -> int:
 
         await session.commit()
 
-    # Dividends are best-effort (separate provider call, own session).
-    from services.dividends import sync_dividends
+    # Dividends are best-effort (separate provider call, own session). Callers
+    # that only need ratios/sector (e.g. the screener sync) pass False to halve
+    # the number of provider calls.
+    if with_dividends:
+        from services.dividends import sync_dividends
 
-    await sync_dividends(ticker)
+        await sync_dividends(ticker)
     return len(rows)
 
 
-async def sync_many(tickers: list[str], throttle: float = 1.0) -> int:
+async def sync_many(
+    tickers: list[str], throttle: float = 1.0, with_dividends: bool = True
+) -> int:
     """Sync several tickers sequentially with a small delay between calls."""
     total = 0
     for i, ticker in enumerate(tickers):
-        total += await sync_ticker(ticker)
+        total += await sync_ticker(ticker, with_dividends=with_dividends)
         if throttle and i < len(tickers) - 1:
             await asyncio.sleep(throttle)
     if tickers:

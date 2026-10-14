@@ -191,6 +191,14 @@ export interface ScreenerRow {
   strength: string | null
 }
 
+export interface SyncStatus {
+  running: boolean
+  total: number
+  done: number
+  remaining: number
+  last_error: string | null
+}
+
 export interface SearchResult {
   symbol: string
   name: string

@@ -1,7 +1,14 @@
-import { useState } from 'react'
-import { ArrowDownRight, ArrowUpRight, SlidersHorizontal } from 'lucide-react'
-import type { ScreenerRow } from '../api'
-import { useMarketOverview, useScreener } from '../hooks'
+import { useEffect, useRef, useState } from 'react'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Loader2,
+  RefreshCw,
+  SlidersHorizontal,
+} from 'lucide-react'
+import { startScreenerSync, type ScreenerRow } from '../api'
+import { useMarketOverview, useScreener, useSyncStatus } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import SignalBadge from '../components/SignalBadge'
@@ -12,6 +19,7 @@ const inputCls =
 
 export default function Screener() {
   const { settings } = useSettings()
+  const qc = useQueryClient()
   const [minScore, setMinScore] = useState('')
   const [maxPbv, setMaxPbv] = useState('')
   const [minRoe, setMinRoe] = useState('')
@@ -29,6 +37,29 @@ export default function Screener() {
   const { data: rows = [], isLoading, isFetching } = useScreener(filters)
   const { data: overview } = useMarketOverview()
   const sectors = (overview?.sectors ?? []).map((s) => s.sector)
+
+  // Background "sync missing data" job.
+  const { data: sync } = useSyncStatus()
+  const startSync = useMutation({
+    mutationFn: () => startScreenerSync(),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['screener', 'sync'] }),
+  })
+
+  // When a run finishes (running: true -> false), refresh dependent data.
+  const wasRunning = useRef(false)
+  useEffect(() => {
+    if (sync?.running) {
+      wasRunning.current = true
+    } else if (wasRunning.current) {
+      wasRunning.current = false
+      qc.invalidateQueries({ queryKey: ['screener'] })
+      qc.invalidateQueries({ queryKey: ['recommendation'] })
+      qc.invalidateQueries({ queryKey: ['stocks'] })
+      qc.invalidateQueries({ queryKey: ['market', 'overview'] })
+    }
+  }, [sync?.running, qc])
+
+  const missing = rows.filter((r) => r.pbv == null && r.sector == null).length
 
   return (
     <main className="w-full animate-fade-in px-4 py-4">
@@ -98,9 +129,29 @@ export default function Screener() {
         >
           Buy signals only
         </button>
-        <span className="ml-auto self-center text-xs text-subtle">
-          {isFetching ? 'Loading…' : `${rows.length} matched`}
-        </span>
+
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-xs text-subtle">
+            {missing > 0 && <>{missing} missing · </>}
+            {isFetching ? 'Loading…' : `${rows.length} matched`}
+          </span>
+          <button
+            onClick={() => startSync.mutate()}
+            disabled={sync?.running || startSync.isPending}
+            title="Fetch fundamentals for stocks missing data (fundamentals only, capped)"
+            className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+          >
+            {sync?.running ? (
+              <Loader2 size={13} className="animate-spin" />
+            ) : (
+              <RefreshCw
+                size={13}
+                className={startSync.isPending ? 'animate-spin' : ''}
+              />
+            )}
+            {sync?.running ? `Syncing ${sync.done}/${sync.total}` : 'Sync missing'}
+          </button>
+        </div>
       </div>
 
       <div className="surface overflow-hidden">

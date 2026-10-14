@@ -12,6 +12,7 @@ export const queryKeys = {
   transactions: ['portfolio', 'transactions'] as const,
   portfolioHistory: ['portfolio', 'history'] as const,
   screener: (filters: unknown) => ['screener', filters] as const,
+  syncStatus: ['screener', 'sync'] as const,
   marketOverview: ['market', 'overview'] as const,
   search: (q: string, all: boolean) => ['search', q, all] as const,
   stock: (ticker: string) => ['stock', ticker] as const,

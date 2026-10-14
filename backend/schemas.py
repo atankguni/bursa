@@ -175,6 +175,25 @@ class ScreenerRow(BaseModel):
     strength: str | None = None
 
 
+class SyncStatusOut(BaseModel):
+    """Progress of the background 'sync missing data' job."""
+
+    running: bool
+    total: int = 0
+    done: int = 0
+    remaining: int = 0
+    last_error: str | None = None
+
+
+class SyncStartOut(BaseModel):
+    """Response of starting a screener sync."""
+
+    running: bool
+    queued: int = 0
+    total: int = 0
+    remaining: int = 0
+
+
 class MoverOut(BaseModel):
     ticker: str
     name: str

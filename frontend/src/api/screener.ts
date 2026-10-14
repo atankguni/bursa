@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ScreenerRow } from './types'
+import type { ScreenerRow, SyncStatus } from './types'
 
 export interface ScreenerFilters {
   minScore?: number
@@ -23,5 +23,24 @@ export async function fetchScreener(
   if (filters.buyOnly) params.set('buy_only', 'true')
   params.set('limit', String(filters.limit ?? 200))
   const { data } = await api.get<ScreenerRow[]>('/api/screener', { params })
+  return data
+}
+
+export interface SyncStart {
+  running: boolean
+  queued: number
+  total: number
+  remaining: number
+}
+
+export async function fetchSyncStatus(): Promise<SyncStatus> {
+  const { data } = await api.get<SyncStatus>('/api/screener/sync/status')
+  return data
+}
+
+export async function startScreenerSync(limit?: number): Promise<SyncStart> {
+  const { data } = await api.post<SyncStart>('/api/screener/sync', null, {
+    params: limit ? { limit } : undefined,
+  })
   return data
 }

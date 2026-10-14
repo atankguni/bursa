@@ -28,7 +28,8 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   shares toggle); holdings with average-cost **P/L**, allocation weights, day change,
   realized P/L, and a portfolio value curve.
 - **Screener** — rank/filter the tracked universe by score, PBV, RoE, sector, or
-  "Buy signals only".
+  "Buy signals only", plus a **"Sync missing"** button that backfills fundamentals
+  (PBV/RoE/sector) in a capped, throttled background job.
 - **Search** — find any symbol from the navbar (IDX by default); click a result to
   inspect it in the detail modal. New tickers are auto-added to the tracked universe
   (not your watchlist).
@@ -170,6 +171,8 @@ bursa/
 | POST   | `/api/stocks` | Track a new ticker |
 | GET    | `/api/stocks/{ticker}` | Single tracked stock summary |
 | GET    | `/api/screener?min_score=&max_pbv=&min_roe=&rating=&sector=&buy_only=` | Rank/filter the universe |
+| POST   | `/api/screener/sync` | Background sync of missing fundamentals (capped) |
+| GET    | `/api/screener/sync/status` | Progress of the sync job |
 | GET    | `/api/market/overview` | Breadth, top movers, sector performance |
 | GET    | `/api/portfolio` | Holdings + totals (average-cost P/L) |
 | GET/POST/DELETE | `/api/portfolio/transactions` | Manage transactions |

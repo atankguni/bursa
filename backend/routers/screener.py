@@ -3,8 +3,10 @@
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import settings
 from deps import get_session
-from schemas import ScreenerRow
+from schemas import ScreenerRow, SyncStartOut, SyncStatusOut
+from services import sync_job
 from services.screener import build_rows, filter_rows
 
 router = APIRouter(prefix="/api", tags=["screener"])
@@ -34,3 +36,30 @@ async def screener(
     # Highest score first; stocks without a score sink to the bottom.
     rows.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0)))
     return [ScreenerRow(**r) for r in rows[:limit]]
+
+
+@router.get("/screener/sync/status", response_model=SyncStatusOut)
+async def screener_sync_status() -> SyncStatusOut:
+    """Progress of the background 'sync missing fundamentals' job."""
+    return SyncStatusOut(**sync_job.status())
+
+
+@router.post("/screener/sync", response_model=SyncStartOut)
+async def screener_sync(
+    limit: int | None = Query(None, ge=1, le=200, description="Cap tickers per run"),
+) -> SyncStartOut:
+    """Queue a background fundamentals sync for stocks missing data."""
+    missing = await sync_job.missing_tickers()
+    cap = limit or settings.screener_sync_limit
+    tickers = missing[:cap]
+    if not tickers:
+        return SyncStartOut(running=False, queued=0, total=0, remaining=0)
+
+    started = sync_job.start(tickers)
+    st = sync_job.status()
+    return SyncStartOut(
+        running=st["running"],
+        queued=len(tickers) if started else 0,
+        total=st["total"],
+        remaining=st["remaining"],
+    )
