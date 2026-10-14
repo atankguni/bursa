@@ -70,3 +70,20 @@ async def test_get_single_stock(client):
 async def test_get_unknown_stock_404(client):
     r = await client.get("/api/stocks/NOPE.JK")
     assert r.status_code == 404
+
+
+async def test_status(client):
+    r = await client.get("/api/status")
+    assert r.status_code == 200
+    body = r.json()
+    for key in (
+        "server_time",
+        "timezone",
+        "session",
+        "last_sync",
+        "stocks_tracked",
+        "providers",
+        "calls_today",
+    ):
+        assert key in body
+    assert body["stocks_tracked"] > 0

@@ -1,7 +1,7 @@
 """Health + metadata endpoints."""
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
@@ -9,8 +9,8 @@ from deps import get_session
 from market.providers.governor import governor
 from market.providers.registry import available as available_providers
 from market.tickers import INDEX_ORDER
-from models import StockIndex
-from schemas import MarketStatusOut, ProviderInfo, ProvidersOut
+from models import Stock, StockIndex, StockPrice
+from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, StatusOut
 from services.market_clock import status as market_status
 
 router = APIRouter(prefix="/api", tags=["meta"])
@@ -19,6 +19,31 @@ router = APIRouter(prefix="/api", tags=["meta"])
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@router.get("/status", response_model=StatusOut)
+async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
+    """Global status for the app footer (sync time, provider, session, ...)."""
+    st = market_status()
+    last_sync = (
+        await session.execute(select(func.max(StockPrice.timestamp)))
+    ).scalar_one_or_none()
+    tracked = (
+        await session.execute(select(func.count()).select_from(Stock))
+    ).scalar_one()
+    calls = {name: s.get("calls_today", 0) for name, s in governor.stats().items()}
+    return StatusOut(
+        server_time=st["server_time"],
+        timezone=st["timezone"],
+        session=st["session"],
+        last_sync=last_sync,
+        stocks_tracked=int(tracked),
+        providers={
+            "price": settings.price_provider,
+            "fundamentals": settings.fundamentals_provider,
+        },
+        calls_today=calls,
+    )
 
 
 @router.get("/market-status", response_model=MarketStatusOut)

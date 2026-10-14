@@ -145,6 +145,7 @@ bursa/
 | Method | Path | Description |
 |--------|------|-------------|
 | GET    | `/api/health` | Health check |
+| GET    | `/api/status` | Global status (last sync, provider, session, counts) |
 | GET    | `/api/market-status` | IDX trading status (open / break / closed) |
 | GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |

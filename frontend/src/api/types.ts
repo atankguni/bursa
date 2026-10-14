@@ -104,6 +104,16 @@ export interface MarketStatus {
   next_change_label: string
 }
 
+export interface Status {
+  server_time: string
+  timezone: string
+  session: 'pre_open' | 'open' | 'break' | 'closed'
+  last_sync: string | null
+  stocks_tracked: number
+  providers: Record<string, string>
+  calls_today: Record<string, number>
+}
+
 // --- Portfolio -------------------------------------------------------------
 
 export interface Transaction {

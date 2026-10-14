@@ -62,6 +62,18 @@ class ProvidersOut(BaseModel):
     metrics: dict[str, ProviderStat] = {}
 
 
+class StatusOut(BaseModel):
+    """Global status for the app footer."""
+
+    server_time: datetime
+    timezone: str
+    session: str
+    last_sync: datetime | None = None
+    stocks_tracked: int = 0
+    providers: dict[str, str] = {}
+    calls_today: dict[str, int] = {}
+
+
 # --------------------------------------------------------------------------- #
 # Portfolio
 # --------------------------------------------------------------------------- #
