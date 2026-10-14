@@ -19,6 +19,7 @@ export interface Settings {
   theme: Theme
   density: Density
   reduceMotion: boolean
+  highContrast: boolean
   // Data / Display
   defaultIndexes: string[]
   chartType: 'candle' | 'line'
@@ -34,6 +35,7 @@ export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   density: 'medium',
   reduceMotion: false,
+  highContrast: false,
   defaultIndexes: ['LQ45'],
   chartType: 'candle',
   chartRange: '1d',
@@ -123,12 +125,13 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [settings.theme])
 
-  // Density + reduce-motion -> data attributes on <html>.
+  // Density + reduce-motion + high-contrast -> data attributes on <html>.
   useEffect(() => {
     const el = document.documentElement
     el.setAttribute('data-density', settings.density)
     el.toggleAttribute('data-reduce-motion', settings.reduceMotion)
-  }, [settings.density, settings.reduceMotion])
+    el.toggleAttribute('data-high-contrast', settings.highContrast)
+  }, [settings.density, settings.reduceMotion, settings.highContrast])
 
   // Number format -> module-level formatter flag (keeps call sites unchanged).
   useEffect(() => {

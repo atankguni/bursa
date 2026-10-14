@@ -65,7 +65,29 @@ function rsi(points: PricePoint[], period = 14): LineData[] {
   return out
 }
 
-const PALETTE = {
+// Soft (default) and high-contrast palettes, per theme.
+const SOFT = {
+  dark: {
+    background: '#0f172a',
+    text: '#cbd5e1',
+    grid: '#1e293b',
+    border: '#334155',
+    bull: '#22c55e',
+    bear: '#ef4444',
+    line: '#38bdf8',
+  },
+  light: {
+    background: '#ffffff',
+    text: '#475569',
+    grid: '#e2e8f0',
+    border: '#e2e8f0',
+    bull: '#16a34a',
+    bear: '#dc2626',
+    line: '#0284c7',
+  },
+} as const
+
+const HIGH = {
   dark: {
     background: '#0f172a',
     text: '#cbd5e1',
@@ -101,13 +123,13 @@ export default function StockChart({
 }) {
   const mainRef = useRef<HTMLDivElement>(null)
   const rsiRef = useRef<HTMLDivElement>(null)
-  const { resolvedTheme } = useSettings()
+  const { settings, resolvedTheme } = useSettings()
   const ind = indicators
 
   useEffect(() => {
     const el = mainRef.current
     if (!el) return
-    const c = PALETTE[resolvedTheme]
+    const c = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
 
     const chart = createChart(el, {
       height,
@@ -187,7 +209,7 @@ export default function StockChart({
     // Optional RSI pane (separate chart below).
     let rsiChart: IChartApi | null = null
     if (ind?.rsi && rsiRef.current) {
-      const rc = PALETTE[resolvedTheme]
+      const rc = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
       rsiChart = createChart(rsiRef.current, {
         height: 120,
         layout: {
@@ -232,6 +254,7 @@ export default function StockChart({
     chartType,
     height,
     resolvedTheme,
+    settings.highContrast,
     ind?.ma20,
     ind?.ma50,
     ind?.ma200,

@@ -33,6 +33,7 @@
           el.classList.toggle('dark', dark)
           el.setAttribute('data-density', s.density || 'medium')
           if (s.reduceMotion) el.setAttribute('data-reduce-motion', '')
+          if (s.highContrast) el.setAttribute('data-high-contrast', '')
         } catch (e) {}
       })()
     </script>

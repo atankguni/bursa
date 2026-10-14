@@ -3,7 +3,12 @@ import { ColorType, createChart, type AreaData, type IChartApi } from 'lightweig
 import type { EquityPoint } from '../api'
 import { useSettings } from '../lib/settings'
 
-const PALETTE = {
+const SOFT = {
+  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#1e293b', line: '#22c55e' },
+  light: { background: '#ffffff', text: '#475569', grid: '#e2e8f0', line: '#16a34a' },
+} as const
+
+const HIGH = {
   dark: { background: '#0f172a', text: '#cbd5e1', grid: '#334155', line: '#4ade80' },
   light: { background: '#ffffff', text: '#334155', grid: '#cbd5e1', line: '#15803d' },
 } as const
@@ -17,12 +22,12 @@ export default function PortfolioChart({
   height?: number
 }) {
   const ref = useRef<HTMLDivElement>(null)
-  const { resolvedTheme } = useSettings()
+  const { settings, resolvedTheme } = useSettings()
 
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const c = PALETTE[resolvedTheme]
+    const c = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
 
     const chart: IChartApi = createChart(el, {
       height,
@@ -52,7 +57,7 @@ export default function PortfolioChart({
       observer.disconnect()
       chart.remove()
     }
-  }, [data, height, resolvedTheme])
+  }, [data, height, resolvedTheme, settings.highContrast])
 
   const last = data.length > 0 ? data[data.length - 1].value : null
   return (

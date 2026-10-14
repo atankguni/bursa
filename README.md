@@ -99,14 +99,14 @@ backend on `:8000` (CORS is already allowed for `localhost:5173`).
 
 ## Accessibility
 
-- Light/dark palettes target **WCAG AA** contrast (body text ≥ 4.5:1, interactive
-  borders ≥ 3:1); a documented radius/spacing system keeps the UI consistent.
+- Ships a **High contrast** toggle (Settings → Appearance, under Reduce motion) that
+  switches the palette to a **WCAG AA** set (body text ≥ 4.5:1, interactive borders
+  ≥ 3:1); off = the softer default palette. Charts follow the toggle too.
 - Colour is never the only signal — price changes carry **↑/↓ arrows** and `+/−`
   signs in addition to green/red.
 - **Reduce motion** honors the OS `prefers-reduced-motion` by default (also toggleable).
 - Visible **focus rings**, `scope="col"` table headers, ARIA labels on icon-only
-  controls, and an `aria-label` summary on the charts (canvas charts aren't
-  screen-reader readable).
+  controls, and an `aria-label` summary on the charts.
 
 ## Notes
 - The frontend is a static build served by nginx (gzipped, immutable caching,

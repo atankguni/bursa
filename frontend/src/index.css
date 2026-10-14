@@ -7,17 +7,18 @@
 /* tailwind.config.js. Light is the default; `.dark` overrides.        */
 /* ------------------------------------------------------------------ */
 :root {
+  /* Soft palette — the default look. */
   --c-app: 244 246 250; /* soft slate behind panels */
   --c-panel: 255 255 255;
   --c-panelalt: 241 245 249; /* slate-100 */
   --c-active: 226 232 240; /* slate-200 */
   --c-line: 226 232 240; /* slate-200 — dividers */
-  --c-line-strong: 100 116 139; /* slate-500 — interactive borders (>=3:1) */
+  --c-line-strong: 226 232 240; /* slate-200 — interactive borders (soft) */
   --c-ink: 15 23 42; /* slate-900 */
-  --c-muted: 51 65 85; /* slate-700 — AA everywhere */
-  --c-subtle: 71 85 105; /* slate-600 — AA everywhere */
-  --c-bull: 21 128 61; /* green-700 — AA */
-  --c-bear: 185 28 28; /* red-700   — AA */
+  --c-muted: 100 116 139; /* slate-500 */
+  --c-subtle: 148 163 184; /* slate-400 */
+  --c-bull: 22 163 74; /* green-600 */
+  --c-bear: 220 38 38; /* red-600   */
 }
 
 .dark {
@@ -26,12 +27,32 @@
   --c-panelalt: 30 41 59; /* slate-800 */
   --c-active: 51 65 85; /* slate-700 */
   --c-line: 41 55 78; /* softer dividers */
-  --c-line-strong: 148 163 184; /* slate-400 — interactive borders */
+  --c-line-strong: 41 55 78; /* soft interactive borders */
   --c-ink: 241 245 249; /* slate-100 */
-  --c-muted: 148 163 184; /* slate-400 — AA */
-  --c-subtle: 148 163 184; /* slate-400 — AA */
+  --c-muted: 148 163 184; /* slate-400 */
+  --c-subtle: 100 116 139; /* slate-500 */
   --c-bull: 34 197 94; /* green-500 */
   --c-bear: 248 113 113; /* red-400   */
+}
+
+/*
+ * High-contrast (opt-in via Settings). WCAG AA palette. Declared after the
+ * theme blocks so the attribute selector overrides them; the combined
+ * `html[data-high-contrast].dark` variant wins when both apply.
+ */
+html[data-high-contrast] {
+  --c-line-strong: 100 116 139; /* slate-500 — >=3:1 */
+  --c-muted: 51 65 85; /* slate-700 */
+  --c-subtle: 71 85 105; /* slate-600 */
+  --c-bull: 21 128 61; /* green-700 */
+  --c-bear: 185 28 28; /* red-700   */
+}
+html[data-high-contrast].dark {
+  --c-line-strong: 148 163 184; /* slate-400 */
+  --c-muted: 148 163 184;
+  --c-subtle: 148 163 184;
+  --c-bull: 34 197 94;
+  --c-bear: 248 113 113;
 }
 
 html,

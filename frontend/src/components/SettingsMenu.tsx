@@ -270,6 +270,13 @@ export default function SettingsMenu() {
                       onChange={(v) => update({ reduceMotion: v })}
                     />
                   </ListRow>
+                  <ListRow label="High contrast" hint="Stronger colours (WCAG AA)">
+                    <Switch
+                      label="High contrast"
+                      checked={settings.highContrast}
+                      onChange={(v) => update({ highContrast: v })}
+                    />
+                  </ListRow>
                 </Section>
 
                 <Section icon={SlidersHorizontal} title="Display">
