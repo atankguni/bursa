@@ -40,7 +40,7 @@ export default function Watchlist() {
         <button
           onClick={() => refresh.mutate()}
           disabled={refresh.isPending || items.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
         >
           <RefreshCw
             size={13}
@@ -51,7 +51,7 @@ export default function Watchlist() {
       </div>
 
       {refresh.isSuccess && (
-        <div className="mb-3 flex items-center gap-1.5 rounded-lg bg-bull/10 px-3 py-2 text-[11px] text-bull ring-1 ring-bull/20">
+        <div className="mb-3 flex items-center gap-1.5 rounded bg-bull/10 px-3 py-2 text-[11px] text-bull ring-1 ring-bull/20">
           <Info size={13} /> Updated {refresh.data.tickers} tickers ({refresh.data.rows}{' '}
           rows).
         </div>
@@ -122,7 +122,7 @@ export default function Watchlist() {
                         {f?.financial_currency && f.financial_currency !== 'IDR' && (
                           <span
                             title={`Reported in ${f.financial_currency}, converted to IDR`}
-                            className="rounded bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
+                            className="rounded-sm bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
                           >
                             {f.financial_currency}
                           </span>
@@ -194,7 +194,7 @@ export default function Watchlist() {
                         }}
                         disabled={remove.isPending}
                         title="Remove from watchlist"
-                        className="mx-auto flex items-center justify-center rounded-md p-1.5 text-muted transition hover:bg-bear/15 hover:text-bear"
+                        className="mx-auto flex items-center justify-center rounded p-1.5 text-muted transition hover:bg-bear/15 hover:text-bear"
                       >
                         <Trash2 size={14} />
                       </button>

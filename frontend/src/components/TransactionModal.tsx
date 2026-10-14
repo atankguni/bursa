@@ -37,7 +37,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
   }
 
   const inputCls =
-    'w-full rounded-lg bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line outline-none focus:ring-bull'
+    'w-full rounded bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line outline-none focus:ring-bull'
 
   return createPortal(
     <div
@@ -45,14 +45,14 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md animate-fade-in rounded-2xl bg-panel p-6 shadow-pop ring-1 ring-line"
+        className="w-full max-w-md animate-fade-in rounded-md bg-panel p-6 shadow-pop ring-1 ring-line"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-sm font-semibold">Add transaction</h2>
           <button
             onClick={onClose}
-            className="rounded-lg p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
+            className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
             aria-label="Close"
           >
             <X size={18} />
@@ -80,7 +80,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted">Side</span>
-            <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
+            <div className="flex overflow-hidden rounded ring-1 ring-line">
               {(['buy', 'sell'] as const).map((s) => (
                 <button
                   key={s}
@@ -153,14 +153,14 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
           <div className="flex justify-end gap-2 pt-1">
             <button
               onClick={onClose}
-              className="rounded-lg px-3 py-1.5 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+              className="rounded px-3 py-1.5 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
             >
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={add.isPending || !ticker || !quantity || !price}
-              className="rounded-lg bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              className="rounded bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
             >
               {add.isPending ? 'Saving…' : 'Add'}
             </button>

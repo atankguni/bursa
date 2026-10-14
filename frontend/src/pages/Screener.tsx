@@ -8,7 +8,7 @@ import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
 
 const inputCls =
-  'w-full rounded-lg bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line outline-none focus:ring-bull'
+  'w-full rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line outline-none focus:ring-bull'
 
 export default function Screener() {
   const { settings } = useSettings()
@@ -90,7 +90,7 @@ export default function Screener() {
         </div>
         <button
           onClick={() => setBuyOnly((v) => !v)}
-          className={`rounded-full px-3 py-1.5 text-xs font-medium ring-1 transition ${
+          className={`rounded px-3 py-1.5 text-xs font-medium ring-1 transition ${
             buyOnly
               ? 'bg-bull/15 text-bull ring-bull/30'
               : 'text-muted ring-line hover:bg-panelalt hover:text-ink'

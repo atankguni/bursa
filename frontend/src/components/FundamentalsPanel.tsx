@@ -16,7 +16,7 @@ const roeOf = (f: Fundamental) =>
 
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-xl bg-panelalt/70 px-3 py-2.5 ring-1 ring-line">
+    <div className="rounded-md bg-panelalt/70 px-3 py-2.5 ring-1 ring-line">
       <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
       <div className="mt-0.5 text-sm font-semibold text-ink">{value}</div>
     </div>
@@ -46,7 +46,7 @@ export default function FundamentalsPanel({
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="mt-1 rounded-lg px-2.5 py-1 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+            className="mt-1 rounded px-2.5 py-1 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
           >
             Retry
           </button>
@@ -80,7 +80,7 @@ export default function FundamentalsPanel({
           {showCurrency && (
             <span
               title={`Reported in ${currency}, converted to IDR`}
-              className="rounded bg-panelalt px-1.5 py-0.5 text-[10px]"
+              className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px]"
             >
               {currency} → IDR
             </span>
@@ -90,7 +90,7 @@ export default function FundamentalsPanel({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1 rounded-lg px-2 py-1 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
           >
             <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
             Re-fetch
@@ -107,7 +107,7 @@ export default function FundamentalsPanel({
       </div>
 
       {/* Latest-year breakdown */}
-      <div className="overflow-x-auto rounded-lg ring-1 ring-line">
+      <div className="overflow-x-auto rounded ring-1 ring-line">
         <table className="w-full whitespace-nowrap text-left text-xs">
           <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
             <tr>
@@ -138,7 +138,7 @@ export default function FundamentalsPanel({
 
       {/* Multi-year trend */}
       {years.length > 1 && (
-        <div className="overflow-x-auto rounded-lg ring-1 ring-line">
+        <div className="overflow-x-auto rounded ring-1 ring-line">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
               <tr>

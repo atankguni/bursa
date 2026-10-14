@@ -128,7 +128,7 @@ export default function Market() {
                     </span>
                     <div className="flex h-2 flex-1 items-center">
                       <div
-                        className={`h-2 rounded-full ${pct >= 0 ? 'bg-bull' : 'bg-bear'}`}
+                        className={`h-2 rounded-sm ${pct >= 0 ? 'bg-bull' : 'bg-bear'}`}
                         style={{ width: `${Math.max(width, 2)}%` }}
                       />
                     </div>

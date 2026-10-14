@@ -38,7 +38,7 @@ export default function MarketStatus() {
 
   if (!data) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-panelalt px-2.5 py-1 text-[11px] text-subtle ring-1 ring-line">
+      <span className="inline-flex items-center gap-1.5 rounded bg-panelalt px-2.5 py-1 text-[11px] text-subtle ring-1 ring-line">
         <span className="h-1.5 w-1.5 rounded-full bg-subtle" />
         BEI …
       </span>
@@ -56,7 +56,7 @@ export default function MarketStatus() {
   return (
     <span
       title={tooltip}
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-medium ring-1 ${s.chip}`}
+      className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-[11px] font-medium ring-1 ${s.chip}`}
     >
       <span className="relative flex h-1.5 w-1.5">
         {s.pulse && (

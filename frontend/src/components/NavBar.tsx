@@ -6,7 +6,7 @@ import SearchBox from './SearchBox'
 import SettingsMenu from './SettingsMenu'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium transition ${
+  `flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition ${
     isActive
       ? 'bg-panel text-ink shadow-card ring-1 ring-line'
       : 'text-muted hover:bg-panelalt hover:text-ink'
@@ -19,7 +19,7 @@ export default function NavBar() {
       <div className="flex w-full items-center justify-between gap-4 px-4 py-2.5">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="rounded-xl bg-gradient-to-br from-bull to-emerald-600 p-2 text-white shadow-card">
+            <div className="rounded-md bg-gradient-to-br from-bull to-emerald-600 p-2 text-white shadow-card">
               <Activity size={18} strokeWidth={2.5} />
             </div>
             <div className="leading-tight">
@@ -34,7 +34,7 @@ export default function NavBar() {
 
         <div className="flex items-center gap-2">
           <SearchBox />
-          <nav className="flex items-center gap-1 rounded-xl bg-panelalt/70 p-1 ring-1 ring-line">
+          <nav className="flex items-center gap-1 rounded-md bg-panelalt/70 p-1 ring-1 ring-line">
             <NavLink to="/" end className={linkClass}>
               <LayoutGrid size={14} /> Home
             </NavLink>

@@ -42,7 +42,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
   return (
     <div className="space-y-4">
       {/* Headline */}
-      <div className="flex flex-wrap items-center gap-4 rounded-xl bg-panelalt/70 px-4 py-3 ring-1 ring-line">
+      <div className="flex flex-wrap items-center gap-4 rounded-md bg-panelalt/70 px-4 py-3 ring-1 ring-line">
         <div className="flex items-baseline gap-2">
           <span className={`text-3xl font-bold ${ratingTone(data.rating)}`}>
             {data.score.toFixed(0)}
@@ -85,9 +85,9 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
                 {(c.weight * 100).toFixed(0)}%
               </span>
             </span>
-            <div className="h-2 flex-1 overflow-hidden rounded-full bg-panelalt">
+            <div className="h-2 flex-1 overflow-hidden rounded-sm bg-panelalt">
               <div
-                className={`h-full rounded-full ${barTone(c.score ?? 50)}`}
+                className={`h-full rounded-sm ${barTone(c.score ?? 50)}`}
                 style={{ width: `${c.score ?? 0}%` }}
               />
             </div>

@@ -58,7 +58,7 @@ export default function Portfolio() {
         </div>
         <button
           onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1.5 rounded-full bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
+          className="inline-flex items-center gap-1.5 rounded bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
         >
           <Plus size={14} /> Add transaction
         </button>
@@ -175,9 +175,7 @@ export default function Portfolio() {
                 Portfolio value
               </div>
               <Suspense
-                fallback={
-                  <div className="h-[260px] animate-pulse rounded-lg bg-panelalt" />
-                }
+                fallback={<div className="h-[260px] animate-pulse rounded bg-panelalt" />}
               >
                 <PortfolioChart data={history} />
               </Suspense>
@@ -220,7 +218,7 @@ export default function Portfolio() {
                           <button
                             onClick={() => remove.mutate(t.id)}
                             title="Delete transaction"
-                            className="rounded-md p-1.5 text-muted transition hover:bg-bear/15 hover:text-bear"
+                            className="rounded p-1.5 text-muted transition hover:bg-bear/15 hover:text-bear"
                           >
                             <Trash2 size={14} />
                           </button>

@@ -46,12 +46,12 @@ function Segmented<T extends string>({
   onChange: (v: T) => void
 }) {
   return (
-    <div className="inline-flex rounded-xl bg-panelalt/70 p-0.5 ring-1 ring-line">
+    <div className="inline-flex rounded-md bg-panelalt/70 p-0.5 ring-1 ring-line">
       {options.map((o) => (
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`rounded-lg px-2.5 py-1 text-xs font-medium transition ${
+          className={`rounded px-2.5 py-1 text-xs font-medium transition ${
             value === o.value
               ? 'bg-panel text-ink shadow-card ring-1 ring-line'
               : 'text-muted hover:text-ink'
@@ -80,7 +80,7 @@ function Switch({
       aria-checked={checked}
       aria-label={label}
       onClick={() => onChange(!checked)}
-      className={`relative h-5 w-9 shrink-0 rounded-full transition-colors ${
+      className={`relative h-5 w-9 shrink-0 rounded transition-colors ${
         checked ? 'bg-bull' : 'bg-active'
       }`}
     >
@@ -106,7 +106,7 @@ function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded-full px-2.5 py-1 text-xs font-medium ring-1 transition ${
+      className={`rounded px-2.5 py-1 text-xs font-medium ring-1 transition ${
         active
           ? 'bg-bull/15 text-bull ring-bull/30'
           : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
@@ -131,7 +131,7 @@ function Section({
       <h3 className="flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-subtle">
         <Icon size={12} /> {title}
       </h3>
-      <div className="divide-y divide-line overflow-hidden rounded-xl bg-panelalt/40 ring-1 ring-line">
+      <div className="divide-y divide-line overflow-hidden rounded-md bg-panelalt/40 ring-1 ring-line">
         {children}
       </div>
     </section>
@@ -201,7 +201,7 @@ export default function SettingsMenu() {
         onClick={() => setOpen(true)}
         title="Settings"
         aria-label="Settings"
-        className="rounded-lg p-1.5 text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+        className="rounded p-1.5 text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
       >
         <SettingsIcon size={15} />
       </button>
@@ -213,13 +213,13 @@ export default function SettingsMenu() {
             onClick={() => setOpen(false)}
           >
             <div
-              className="flex max-h-[85vh] w-full max-w-lg animate-fade-in flex-col overflow-hidden rounded-2xl bg-panel shadow-pop ring-1 ring-line"
+              className="flex max-h-[85vh] w-full max-w-lg animate-fade-in flex-col overflow-hidden rounded-md bg-panel shadow-pop ring-1 ring-line"
               onClick={(e) => e.stopPropagation()}
             >
               {/* Header */}
               <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-xl bg-gradient-to-br from-bull to-emerald-600 p-2 text-white shadow-card">
+                  <div className="rounded-md bg-gradient-to-br from-bull to-emerald-600 p-2 text-white shadow-card">
                     <SettingsIcon size={16} strokeWidth={2.5} />
                   </div>
                   <div>
@@ -231,7 +231,7 @@ export default function SettingsMenu() {
                 </div>
                 <button
                   onClick={() => setOpen(false)}
-                  className="rounded-lg p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
+                  className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
                   aria-label="Close"
                 >
                   <X size={18} />
@@ -311,7 +311,7 @@ export default function SettingsMenu() {
                         onChange={(e) =>
                           update({ refreshSeconds: Number(e.target.value) })
                         }
-                        className="rounded-lg bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line disabled:opacity-40"
+                        className="rounded bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line disabled:opacity-40"
                       >
                         {[30, 60, 120, 300].map((s) => (
                           <option key={s} value={s}>
@@ -374,7 +374,7 @@ export default function SettingsMenu() {
                 <span className="text-[11px] text-subtle">Changes apply instantly.</span>
                 <button
                   onClick={reset}
-                  className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+                  className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
                 >
                   <RotateCcw size={13} /> Reset to defaults
                 </button>

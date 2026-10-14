@@ -40,18 +40,18 @@ export default function AlertsBell() {
         onClick={toggle}
         title="Alerts"
         aria-label="Alerts"
-        className="relative rounded-lg p-1.5 text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
+        className="relative rounded p-1.5 text-muted ring-1 ring-line transition hover:bg-panelalt hover:text-ink"
       >
         <Bell size={15} />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-bear px-1 text-[9px] font-semibold text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded bg-bear px-1 text-[9px] font-semibold text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-80 animate-fade-in overflow-hidden rounded-xl bg-panel shadow-pop ring-1 ring-line">
+        <div className="absolute right-0 z-20 mt-1 w-80 animate-fade-in overflow-hidden rounded-md bg-panel shadow-pop ring-1 ring-line">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="text-xs font-semibold">Alerts</span>
             <Link

@@ -104,7 +104,7 @@ export default function StockDetailModal({
       onClick={onClose}
     >
       <div
-        className="max-h-[90vh] w-full max-w-4xl animate-fade-in overflow-y-auto rounded-2xl bg-panel p-6 shadow-pop ring-1 ring-line"
+        className="max-h-[90vh] w-full max-w-4xl animate-fade-in overflow-y-auto rounded-md bg-panel p-6 shadow-pop ring-1 ring-line"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -115,7 +115,7 @@ export default function StockDetailModal({
               {stock.indices.map((idx) => (
                 <span
                   key={idx}
-                  className="rounded bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
+                  className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
                 >
                   {idx}
                 </span>
@@ -139,7 +139,7 @@ export default function StockDetailModal({
               onClick={() => (watched ? remove.mutate() : add.mutate())}
               disabled={watchPending}
               title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
-              className={`flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-50 ${
+              className={`flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-50 ${
                 watched
                   ? 'text-bull ring-bull/40 hover:bg-bull/10'
                   : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
@@ -150,7 +150,7 @@ export default function StockDetailModal({
             </button>
             <button
               onClick={onClose}
-              className="rounded-lg p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
+              className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
               aria-label="Close"
             >
               <X size={18} />
@@ -160,10 +160,10 @@ export default function StockDetailModal({
 
         {/* Tabs */}
         <div className="mt-4">
-          <div className="flex w-fit gap-1 rounded-xl bg-panelalt/70 p-1 ring-1 ring-line">
+          <div className="flex w-fit gap-1 rounded-md bg-panelalt/70 p-1 ring-1 ring-line">
             <button
               onClick={() => setTab('chart')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded px-3 py-1.5 text-xs font-medium transition ${
                 tab === 'chart'
                   ? 'bg-panel text-ink shadow-card ring-1 ring-line'
                   : 'text-muted hover:text-ink'
@@ -173,7 +173,7 @@ export default function StockDetailModal({
             </button>
             <button
               onClick={() => setTab('fundamentals')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded px-3 py-1.5 text-xs font-medium transition ${
                 tab === 'fundamentals'
                   ? 'bg-panel text-ink shadow-card ring-1 ring-line'
                   : 'text-muted hover:text-ink'
@@ -183,7 +183,7 @@ export default function StockDetailModal({
             </button>
             <button
               onClick={() => setTab('recommendation')}
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded px-3 py-1.5 text-xs font-medium transition ${
                 tab === 'recommendation'
                   ? 'bg-panel text-ink shadow-card ring-1 ring-line'
                   : 'text-muted hover:text-ink'
@@ -198,7 +198,7 @@ export default function StockDetailModal({
         {tab === 'chart' && (
           <>
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
+              <div className="flex overflow-hidden rounded ring-1 ring-line">
                 {(['1d', '1m'] as const).map((i) => (
                   <button
                     key={i}
@@ -209,7 +209,7 @@ export default function StockDetailModal({
                   </button>
                 ))}
               </div>
-              <div className="flex overflow-hidden rounded-lg ring-1 ring-line">
+              <div className="flex overflow-hidden rounded ring-1 ring-line">
                 <button
                   onClick={() => setChartType('candle')}
                   className={`flex items-center gap-1 ${seg(chartType === 'candle')}`}
@@ -236,7 +236,7 @@ export default function StockDetailModal({
                   <button
                     key={key}
                     onClick={() => setInd((s) => ({ ...s, [key]: !s[key] }))}
-                    className={`rounded-full px-2 py-1 text-[11px] font-medium ring-1 transition ${
+                    className={`rounded px-2 py-1 text-[11px] font-medium ring-1 transition ${
                       ind[key]
                         ? 'bg-bull/15 text-bull ring-bull/30'
                         : 'text-muted ring-line hover:bg-panelalt hover:text-ink'
@@ -323,9 +323,9 @@ export default function StockDetailModal({
                           </span>
                           <span className="text-[10px] text-subtle">{row.range}</span>
                         </div>
-                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-panelalt">
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-sm bg-panelalt">
                           <div
-                            className="h-full rounded-full bg-bull"
+                            className="h-full rounded-sm bg-bull"
                             style={{ width: `${row.pct ?? 0}%` }}
                           />
                         </div>

@@ -81,9 +81,15 @@ html[data-reduce-motion] .animate-ping {
 }
 
 @layer components {
-  /* Reusable surface card. */
+  /*
+   * Radius system ("square with a little radius"):
+   *   rounded-sm  (2px) -> tags & bars (index badges, progress bars)
+   *   rounded     (4px) -> controls & pills (buttons, inputs, chips)
+   *   rounded-md  (6px) -> surfaces & overlays (cards, dropdowns, modals)
+   *   rounded-full       -> true circles only (status dots, switch knob)
+   */
   .surface {
-    @apply rounded-xl bg-panel ring-1 ring-line shadow-card;
+    @apply rounded-md bg-panel ring-1 ring-line shadow-card;
   }
 }
 
