@@ -94,3 +94,12 @@ export interface Recommendation {
   reasons: string[]
   disclaimer: string
 }
+
+export interface MarketStatus {
+  is_open: boolean
+  session: 'pre_open' | 'open' | 'break' | 'closed'
+  timezone: string
+  server_time: string
+  next_change_at: string | null
+  next_change_label: string
+}

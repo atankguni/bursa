@@ -7,6 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from deps import get_session
 from market.tickers import INDEX_ORDER
 from models import StockIndex
+from schemas import MarketStatusOut
+from services.market_clock import status as market_status
 
 router = APIRouter(prefix="/api", tags=["meta"])
 
@@ -14,6 +16,12 @@ router = APIRouter(prefix="/api", tags=["meta"])
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@router.get("/market-status", response_model=MarketStatusOut)
+async def get_market_status() -> MarketStatusOut:
+    """Current IDX trading state (drives the navbar indicator)."""
+    return MarketStatusOut(**market_status())
 
 
 @router.get("/indexes", response_model=list[str])

@@ -21,6 +21,9 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   financial advice.
 - **Charts** — candlestick or line, daily (1d) and intraday (1m), via Lightweight Charts.
 - **Theme** — light / dark / **follow system** (toggle in the top bar).
+- **Market clock** — a navbar indicator (dot + label) shows whether IDX is
+  **Open / Pre-open / Break / Closed** (sessions + holidays), and the background
+  sync uses the same clock.
 
 ## Tech Stack
 
@@ -126,6 +129,7 @@ bursa/
 | Method | Path | Description |
 |--------|------|-------------|
 | GET    | `/api/health` | Health check |
+| GET    | `/api/market-status` | IDX trading status (open / break / closed) |
 | GET    | `/api/indexes` | Available index names |
 | GET    | `/api/stocks?index=LQ45&index=IDX30` | Stocks (AND across indices) + latest price/change |
 | GET    | `/api/stocks/{ticker}/history?interval=1d\|1m` | OHLCV bars for charts |
@@ -154,8 +158,9 @@ bursa/
 
 - **Ports / DB path / API URL** — see `docker-compose.yml` (`DATABASE_URL`, `VITE_API_URL`).
 - **Tracked stocks & indices** — edit `backend/market/tickers.py`.
-- **Backend settings** (retention days, staleness, CORS, tz, **recommendation weights
-  & rating thresholds**) — `backend/config.py`.
+- **Backend settings** (retention days, staleness, CORS, tz, **trading-session times**,
+  **recommendation weights & rating thresholds**) — `backend/config.py`.
+- **IDX holidays** — `backend/market/holidays.py` (update annually from the IDX calendar).
 
 ## Development commands
 

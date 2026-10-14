@@ -1,5 +1,6 @@
 import { NavLink } from 'react-router-dom'
 import { Activity, LayoutGrid, Star } from 'lucide-react'
+import MarketStatus from './MarketStatus'
 import ThemeToggle from './ThemeToggle'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -12,14 +13,17 @@ export default function NavBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-panel/90 backdrop-blur">
       <div className="flex w-full items-center justify-between gap-4 px-4 py-2">
-        <div className="flex items-center gap-2">
-          <div className="rounded-md bg-bull/10 p-1.5 text-bull">
-            <Activity size={18} />
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2">
+            <div className="rounded-md bg-bull/10 p-1.5 text-bull">
+              <Activity size={18} />
+            </div>
+            <div className="leading-none">
+              <h1 className="text-sm font-bold">Bursa</h1>
+              <p className="text-[10px] text-subtle">IDX Monitor</p>
+            </div>
           </div>
-          <div className="leading-none">
-            <h1 className="text-sm font-bold">Bursa</h1>
-            <p className="text-[10px] text-subtle">IDX Monitor</p>
-          </div>
+          <MarketStatus />
         </div>
 
         <div className="flex items-center gap-2">

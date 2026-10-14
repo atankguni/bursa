@@ -15,8 +15,7 @@ The heavy lifting lives in `market.sync` (batched downloads) and
 """
 
 import logging
-from datetime import datetime, time, timedelta
-from zoneinfo import ZoneInfo
+from datetime import datetime, timedelta
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -27,24 +26,15 @@ from database import AsyncSessionLocal, vacuum, wal_checkpoint
 from market.sync import sync_batch
 from market.tickers import all_tickers
 from models import StockPrice, Watchlist
+from services.market_clock import is_open
 
 log = logging.getLogger("bursa.scheduler")
 
 # Flat, de-duplicated ticker list used for the batched downloads.
 TICKERS: list[str] = all_tickers()
 
-WIB = ZoneInfo(settings.timezone)
-
 INTRADAY_INTERVAL = "1m"
 DAILY_INTERVAL = "1d"
-
-
-def _market_open(now: datetime | None = None) -> bool:
-    """True during IDX trading hours (Mon-Fri 09:00-16:00 WIB)."""
-    now = now or datetime.now(WIB)
-    if now.weekday() >= 5:  # Saturday / Sunday
-        return False
-    return time(9, 0) <= now.time() <= time(16, 0)
 
 
 # --------------------------------------------------------------------------- #
@@ -59,7 +49,7 @@ async def backfill_daily() -> None:
 
 async def sync_intraday() -> None:
     """Fetch intraday 1-minute candles for the whole universe (market hours only)."""
-    if not _market_open():
+    if not is_open():
         log.debug("Market closed — skipping intraday sync")
         return
     await sync_batch(TICKERS, period="1d", interval=INTRADAY_INTERVAL)

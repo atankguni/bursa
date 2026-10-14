@@ -23,6 +23,14 @@ class Settings(BaseSettings):
     fundamentals_stale_hours: int = 24
     fx_cache_hours: int = 6
 
+    # IDX trading sessions (local exchange time, "HH:MM"). Session 2 end is the
+    # point after which intraday data stops; the lunch break is skipped.
+    pre_open_start: str = "08:45"
+    session1_start: str = "09:00"
+    session1_end: str = "12:00"
+    session2_start: str = "13:30"
+    session2_end: str = "15:50"
+
     # Recommendation engine -------------------------------------------------
     # Category weights (must sum to ~1.0). Tune here; no code changes needed.
     recommendation_weights: dict[str, float] = {

@@ -24,6 +24,17 @@ class RecommendationSummary(BaseModel):
     strength: str
 
 
+class MarketStatusOut(BaseModel):
+    """Current IDX trading state for the navbar indicator."""
+
+    is_open: bool
+    session: str
+    timezone: str
+    server_time: datetime
+    next_change_at: datetime | None = None
+    next_change_label: str = ""
+
+
 class StockOut(StockBase):
     """A tracked stock enriched with its latest quote + daily change."""
 
