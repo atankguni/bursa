@@ -1,26 +1,14 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Bursa">
-  <!-- Theme-aware palette: green badge in light, dark badge + green candles in dark. -->
-  <style>
-    .badge { fill: #16a34a; }
-    .candle { fill: #ffffff; }
-    @media (prefers-color-scheme: dark) {
-      .badge { fill: #0f172a; }
-      .candle { fill: #22c55e; }
-    }
-  </style>
-
-  <!-- Rounded app badge -->
-  <rect class="badge" x="0" y="0" width="64" height="64" rx="14" />
+  <!-- Static, attribute-based fills: renders identically in every browser
+       (no <style>/media queries, which Chromium handles unreliably). -->
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#16a34a" />
 
   <!-- Three rising candlesticks (wick + body), painted wick-first -->
-  <g class="candle">
-    <!-- candle 1 (short) -->
+  <g fill="#ffffff">
     <rect x="16.9" y="30" width="2.2" height="26" rx="1.1" />
     <rect x="14" y="36" width="8" height="14" rx="2" />
-    <!-- candle 2 (medium) -->
     <rect x="30.9" y="20" width="2.2" height="32" rx="1.1" />
     <rect x="28" y="27" width="8" height="16" rx="2" />
-    <!-- candle 3 (tall) -->
     <rect x="44.9" y="11" width="2.2" height="33" rx="1.1" />
     <rect x="42" y="18" width="8" height="18" rx="2" />
   </g>
