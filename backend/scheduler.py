@@ -31,9 +31,12 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from database import AsyncSessionLocal
 from models import StockPrice
-from tickers import TICKERS
+from tickers import all_tickers
 
 log = logging.getLogger("bursa.scheduler")
+
+# Flat, de-duplicated ticker list used for the batched downloads.
+TICKERS: list[str] = all_tickers()
 
 INTRADAY_INTERVAL = "1m"
 DAILY_INTERVAL = "1d"
@@ -127,10 +130,34 @@ async def _upsert_rows(rows: list[dict]) -> int:
     return len(rows)
 
 
+async def _download_with_retry(
+    tickers: list[str], period: str, interval: str, attempts: int = 3
+) -> pd.DataFrame:
+    """Batch download with a few retries + backoff to survive transient blocks."""
+    last_exc: Exception | None = None
+    for attempt in range(1, attempts + 1):
+        try:
+            return await asyncio.to_thread(
+                _download_batch, tickers, period, interval
+            )
+        except Exception as exc:  # noqa: BLE001 - log and retry
+            last_exc = exc
+            log.warning(
+                "Download attempt %d/%d failed (%s/%s): %s",
+                attempt, attempts, period, interval, exc,
+            )
+            if attempt < attempts:
+                await asyncio.sleep(2 ** attempt)  # 2s, 4s backoff
+    log.error("All %d download attempts failed (%s/%s)", attempts, period, interval)
+    if last_exc:
+        raise last_exc
+    return pd.DataFrame()
+
+
 async def _sync(tickers: list[str], period: str, interval: str) -> int:
     """Download a batch, parse every ticker, upsert all rows."""
     try:
-        df = await asyncio.to_thread(_download_batch, tickers, period, interval)
+        df = await _download_with_retry(tickers, period, interval)
     except Exception as exc:  # network / yfinance failure -> never crash the job
         log.warning("Batch download failed (%s/%s): %s", period, interval, exc)
         return 0

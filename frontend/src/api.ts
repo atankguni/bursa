@@ -6,11 +6,22 @@ const baseURL = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
 
 export const api = axios.create({ baseURL, timeout: 15_000 })
 
+// Mirror of the backend INDEX_ORDER. Used as a fallback so the selector is
+// always fully populated, even before/if the /api/indexes request resolves.
+export const DEFAULT_INDEXES = [
+  'LQ45',
+  'IDX30',
+  'JII',
+  'ISSI',
+  'IDXHIDIV20',
+  'IDXBUMN20',
+]
+
 export interface Stock {
   id: number
   ticker: string
   name: string
-  index_name: string
+  indices: string[]
   last_price: number | null
   previous_close: number | null
   change: number | null
@@ -31,13 +42,20 @@ export interface PricePoint {
 export interface StockHistory {
   ticker: string
   name: string
-  index_name: string
+  indices: string[]
   interval: string
   points: PricePoint[]
 }
 
-export async function fetchStocks(): Promise<Stock[]> {
-  const { data } = await api.get<Stock[]>('/api/stocks')
+export async function fetchIndexes(): Promise<string[]> {
+  const { data } = await api.get<string[]>('/api/indexes')
+  return data
+}
+
+export async function fetchStocks(index?: string): Promise<Stock[]> {
+  const { data } = await api.get<Stock[]>('/api/stocks', {
+    params: index ? { index } : undefined,
+  })
   return data
 }
 

@@ -6,13 +6,14 @@ FastAPI application for "Bursa" — personal IDX stock monitor.
 Endpoints
 ~~~~~~~~~
 GET /api/health
-GET /api/stocks                          -> tracked stocks + latest price + change
+GET /api/indexes                         -> available index names (for the UI select)
+GET /api/stocks?index=LQ45               -> constituents + latest price + change
 GET /api/stocks/{ticker}/history         -> OHLCV bars for charting
 
 Startup
 ~~~~~~~
 * create SQLite tables (WAL enabled via database.engine event listener)
-* seed the tracked-stock universe
+* seed the tracked-stock universe + index memberships
 * kick off the daily backfill then start the APScheduler worker
 """
 
@@ -25,10 +26,10 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_session, init_db
-from models import Stock, StockPrice
+from models import Stock, StockIndex, StockPrice
 from scheduler import backfill_daily, start_scheduler, stop_scheduler
 from schemas import PricePoint, StockHistory, StockOut
-from tickers import TRACKED_STOCKS
+from tickers import INDEX_ORDER, all_tickers, associations, name_for
 
 logging.basicConfig(
     level=logging.INFO,
@@ -42,28 +43,49 @@ log = logging.getLogger("bursa")
 # --------------------------------------------------------------------------- #
 
 
-async def _seed_stocks() -> None:
-    """Insert the tracked universe once; keep existing rows untouched."""
+async def _seed() -> None:
+    """Seed stocks + index memberships once; existing rows are left untouched."""
     from database import AsyncSessionLocal
 
     async with AsyncSessionLocal() as session:
         existing = set(
             (await session.execute(select(Stock.ticker))).scalars().all()
         )
-        new_rows = [
-            Stock(**s) for s in TRACKED_STOCKS if s["ticker"] not in existing
+        new_stocks = [
+            Stock(ticker=t, name=name_for(t))
+            for t in all_tickers()
+            if t not in existing
         ]
-        if new_rows:
-            session.add_all(new_rows)
+        if new_stocks:
+            session.add_all(new_stocks)
+            await session.flush()
+
+        existing_links = set(
+            (await session.execute(
+                select(StockIndex.ticker, StockIndex.index_name)
+            )).all()
+        )
+        new_links = [
+            StockIndex(ticker=t, index_name=idx)
+            for t, idx in associations()
+            if (t, idx) not in existing_links
+        ]
+        if new_links:
+            session.add_all(new_links)
+
+        if new_stocks or new_links:
             await session.commit()
-            log.info("Seeded %d new stocks", len(new_rows))
+            log.info(
+                "Seeded %d stocks, %d index links",
+                len(new_stocks), len(new_links),
+            )
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Application lifespan: init DB -> seed -> backfill -> start scheduler."""
     await init_db()
-    await _seed_stocks()
+    await _seed()
 
     # Blocking initial backfill so charts have data immediately after boot.
     await backfill_daily()
@@ -79,14 +101,19 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="Bursa API",
     description="Personal IDX (Indonesian stock exchange) monitoring backend.",
-    version="1.0.0",
+    version="1.1.0",
     lifespan=lifespan,
 )
 
-# Permissive CORS for local dev (Vite runs on :5173).
+# CORS for local dev. NOTE: wildcard "*" + allow_credentials=True is invalid
+# per the CORS spec and browsers reject it, so we list explicit origins.
+ALLOWED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -103,13 +130,56 @@ async def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/api/indexes", response_model=list[str])
+async def list_indexes(session: AsyncSession = Depends(get_session)) -> list[str]:
+    """Distinct index names present in the DB, ordered for the UI selector."""
+    rows = (
+        await session.execute(select(StockIndex.index_name).distinct())
+    ).scalars().all()
+    known = [i for i in INDEX_ORDER if i in rows]
+    extra = sorted(set(rows) - set(INDEX_ORDER))
+    return known + extra
+
+
+async def _indices_map(
+    session: AsyncSession, tickers: list[str]
+) -> dict[str, list[str]]:
+    """Return {ticker: [index, ...]} ordered by INDEX_ORDER."""
+    if not tickers:
+        return {}
+    rows = (
+        await session.execute(
+            select(StockIndex.ticker, StockIndex.index_name).where(
+                StockIndex.ticker.in_(tickers)
+            )
+        )
+    ).all()
+    mapping: dict[str, list[str]] = {}
+    for ticker, index_name in rows:
+        mapping.setdefault(ticker, []).append(index_name)
+    order = {name: i for i, name in enumerate(INDEX_ORDER)}
+    for ticker in mapping:
+        mapping[ticker].sort(key=lambda n: order.get(n, 999))
+    return mapping
+
+
 @app.get("/api/stocks", response_model=list[StockOut])
-async def list_stocks(session: AsyncSession = Depends(get_session)) -> list[StockOut]:
+async def list_stocks(
+    index: str | None = Query(None, description="Filter by index name, e.g. LQ45"),
+    session: AsyncSession = Depends(get_session),
+) -> list[StockOut]:
     """
-    List every tracked stock with its latest daily close and the change versus
-    the previous close (absolute points + percent).
+    List tracked stocks (optionally filtered to one index) with the latest
+    daily close and the change versus the previous close.
     """
-    stocks = (await session.execute(select(Stock).order_by(Stock.ticker))).scalars().all()
+    stmt = select(Stock).order_by(Stock.ticker)
+    if index:
+        stmt = stmt.join(
+            StockIndex, StockIndex.ticker == Stock.ticker
+        ).where(StockIndex.index_name == index)
+    stocks = (await session.execute(stmt)).scalars().all()
+    tickers = [s.ticker for s in stocks]
+    index_map = await _indices_map(session, tickers)
 
     # Window function: rank the two most recent daily bars per ticker.
     rn = (
@@ -121,9 +191,11 @@ async def list_stocks(session: AsyncSession = Depends(get_session)) -> list[Stoc
         .label("rn")
     )
     ranked = (
-        select(StockPrice.ticker, StockPrice.close, StockPrice.volume,
-               StockPrice.timestamp, rn)
-        .where(StockPrice.interval == "1d")
+        select(
+            StockPrice.ticker, StockPrice.close, StockPrice.volume,
+            StockPrice.timestamp, rn,
+        )
+        .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
         .subquery()
     )
     recent = (
@@ -159,7 +231,7 @@ async def list_stocks(session: AsyncSession = Depends(get_session)) -> list[Stoc
                 id=stock.id,
                 ticker=stock.ticker,
                 name=stock.name,
-                index_name=stock.index_name,
+                indices=index_map.get(stock.ticker, []),
                 last_price=last,
                 previous_close=prev,
                 change=change,
@@ -193,14 +265,13 @@ async def stock_history(
         .limit(limit)
     )
     prices = (await session.execute(stmt)).scalars().all()
-    points = [
-        PricePoint.model_validate(p) for p in reversed(prices)
-    ]
+    points = [PricePoint.model_validate(p) for p in reversed(prices)]
 
+    index_map = await _indices_map(session, [ticker])
     return StockHistory(
         ticker=stock.ticker,
         name=stock.name,
-        index_name=stock.index_name,
+        indices=index_map.get(ticker, []),
         interval=interval,
         points=points,
     )

@@ -4,6 +4,8 @@ models.py
 SQLAlchemy 2.0 ORM models.
 
 `Stock`       -> static metadata for every tracked IDX ticker.
+`StockIndex`  -> many-to-many membership: which index a ticker belongs to
+                 (a stock can be in several indices at once).
 `StockPrice`  -> OHLCV rows (both daily and intraday bars).
 
 The `interval` column ("1d" for daily, "1m" for intraday) keeps the two series
@@ -36,15 +38,32 @@ class Stock(Base):
         String(20), unique=True, index=True, nullable=False
     )
     name: Mapped[str] = mapped_column(String(160), nullable=False)
-    index_name: Mapped[str] = mapped_column(
-        String(40), default="IDX", nullable=False
-    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return f"<Stock {self.ticker} ({self.index_name})>"
+        return f"<Stock {self.ticker}>"
+
+
+class StockIndex(Base):
+    """Association row linking a ticker to an index (LQ45, IDX30, JII, ...)."""
+
+    __tablename__ = "stock_indices"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
+        nullable=False,
+    )
+    index_name: Mapped[str] = mapped_column(String(40), index=True, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("ticker", "index_name", name="uq_ticker_index"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<StockIndex {self.ticker} @ {self.index_name}>"
 
 
 class StockPrice(Base):

@@ -3,43 +3,158 @@ tickers.py
 ----------
 Seed universe of IDX (Bursa Efek Indonesia) tickers.
 
-These are the default tracked constituents combining LQ45 / IDX30 blue chips.
-yfinance uses the ".JK" suffix for Indonesia. Edit this list to personalise.
+Because a stock can belong to several indices at once (e.g. BBRI is in LQ45,
+IDXBUMN20 and IDXHIDIV20), membership is modelled as a many-to-many mapping:
+
+    STOCK_NAMES : ticker -> company display name (metadata)
+    INDICES     : index name -> list of constituent tickers
+
+These are a reasonable snapshot of the IDX semi-annual evaluations. Index
+memberships change ~twice a year, so edit these lists freely.
+
+NOTE: ISSI (Indonesia Sharia Stock Index) actually contains hundreds of names;
+only a well-known subset is seeded here for performance. Extend as needed.
 """
 
-# ticker -> (display name, index membership)
-TRACKED_STOCKS: list[dict[str, str]] = [
-    {"ticker": "BBCA.JK", "name": "Bank Central Asia", "index_name": "IDX30"},
-    {"ticker": "BBRI.JK", "name": "Bank Rakyat Indonesia", "index_name": "IDX30"},
-    {"ticker": "BMRI.JK", "name": "Bank Mandiri", "index_name": "IDX30"},
-    {"ticker": "BBNI.JK", "name": "Bank Negara Indonesia", "index_name": "IDX30"},
-    {"ticker": "TLKM.JK", "name": "Telkom Indonesia", "index_name": "IDX30"},
-    {"ticker": "ASII.JK", "name": "Astra International", "index_name": "IDX30"},
-    {"ticker": "UNVR.JK", "name": "Unilever Indonesia", "index_name": "IDX30"},
-    {"ticker": "ICBP.JK", "name": "Indofood CBP Sukses Makmur", "index_name": "IDX30"},
-    {"ticker": "INDF.JK", "name": "Indofood Sukses Makmur", "index_name": "IDX30"},
-    {"ticker": "KLBF.JK", "name": "Kalbe Farma", "index_name": "IDX30"},
-    {"ticker": "ANTM.JK", "name": "Aneka Tambang", "index_name": "LQ45"},
-    {"ticker": "ADRO.JK", "name": "Adaro Energy", "index_name": "LQ45"},
-    {"ticker": "PTBA.JK", "name": "Bukit Asam", "index_name": "LQ45"},
-    {"ticker": "ITMG.JK", "name": "Indo Tambangraya Megah", "index_name": "LQ45"},
-    {"ticker": "INCO.JK", "name": "Vale Indonesia", "index_name": "LQ45"},
-    {"ticker": "MDKA.JK", "name": "Merdeka Copper Gold", "index_name": "LQ45"},
-    {"ticker": "BRPT.JK", "name": "Barito Pacific", "index_name": "LQ45"},
-    {"ticker": "TPIA.JK", "name": "Chandra Asri Pacific", "index_name": "LQ45"},
-    {"ticker": "CPIN.JK", "name": "Charoen Pokphand Indonesia", "index_name": "LQ45"},
-    {"ticker": "JPFA.JK", "name": "Japfa Comfeed Indonesia", "index_name": "LQ45"},
-    {"ticker": "SMGR.JK", "name": "Semen Indonesia", "index_name": "LQ45"},
-    {"ticker": "INTP.JK", "name": "Indocement Tunggal Prakarsa", "index_name": "LQ45"},
-    {"ticker": "BRIS.JK", "name": "Bank Syariah Indonesia", "index_name": "LQ45"},
-    {"ticker": "ARTO.JK", "name": "Bank Jago", "index_name": "LQ45"},
-    {"ticker": "GOTO.JK", "name": "GoTo Gojek Tokopedia", "index_name": "IDX30"},
-    {"ticker": "EXCL.JK", "name": "XL Axiata", "index_name": "LQ45"},
-    {"ticker": "TOWR.JK", "name": "Sarana Menara Nusantara", "index_name": "LQ45"},
-    {"ticker": "MTEL.JK", "name": "Dayamitra Telekomunikasi", "index_name": "LQ45"},
-    {"ticker": "PGAS.JK", "name": "Perusahaan Gas Negara", "index_name": "LQ45"},
-    {"ticker": "MEDC.JK", "name": "Medco Energi Internasional", "index_name": "LQ45"},
+# Display order of the index selector in the UI.
+INDEX_ORDER: list[str] = [
+    "LQ45",
+    "IDX30",
+    "JII",
+    "ISSI",
+    "IDXHIDIV20",
+    "IDXBUMN20",
 ]
 
-# Convenience: just the yfinance symbols.
-TICKERS: list[str] = [s["ticker"] for s in TRACKED_STOCKS]
+# ticker -> company name.
+STOCK_NAMES: dict[str, str] = {
+    "AADI.JK": "Adaro Andalan Indonesia",
+    "ACES.JK": "Ace Hardware Indonesia",
+    "ADHI.JK": "Adhi Karya",
+    "ADMR.JK": "Adaro Minerals Indonesia",
+    "ADRO.JK": "Adaro Energy",
+    "AGRO.JK": "Bank Raya Indonesia",
+    "AKRA.JK": "AKR Corporindo",
+    "AMRT.JK": "Sumber Alfaria Trijaya",
+    "ANTM.JK": "Aneka Tambang",
+    "ARTO.JK": "Bank Jago",
+    "ASII.JK": "Astra International",
+    "BBCA.JK": "Bank Central Asia",
+    "BBNI.JK": "Bank Negara Indonesia",
+    "BBRI.JK": "Bank Rakyat Indonesia",
+    "BBTN.JK": "Bank Tabungan Negara",
+    "BJBR.JK": "Bank Pembangunan Daerah Jawa Barat",
+    "BJTM.JK": "Bank Pembangunan Daerah Jawa Timur",
+    "BMRI.JK": "Bank Mandiri",
+    "BRIS.JK": "Bank Syariah Indonesia",
+    "BRPT.JK": "Barito Pacific",
+    "BSDE.JK": "Bumi Serpong Damai",
+    "CPIN.JK": "Charoen Pokphand Indonesia",
+    "CTRA.JK": "Ciputra Development",
+    "ELSA.JK": "Elnusa",
+    "ERAA.JK": "Erajaya Swasembada",
+    "EXCL.JK": "XL Axiata",
+    "GIAA.JK": "Garuda Indonesia",
+    "GOTO.JK": "GoTo Gojek Tokopedia",
+    "ICBP.JK": "Indofood CBP Sukses Makmur",
+    "INCO.JK": "Vale Indonesia",
+    "INDF.JK": "Indofood Sukses Makmur",
+    "INTP.JK": "Indocement Tunggal Prakarsa",
+    "ISAT.JK": "Indosat Ooredoo Hutchison",
+    "ITMG.JK": "Indo Tambangraya Megah",
+    "JPFA.JK": "Japfa Comfeed Indonesia",
+    "JSMR.JK": "Jasa Marga",
+    "KAEF.JK": "Kimia Farma",
+    "KLBF.JK": "Kalbe Farma",
+    "MAPI.JK": "Mitra Adiperkasa",
+    "MBMA.JK": "Merdeka Battery Materials",
+    "MDKA.JK": "Merdeka Copper Gold",
+    "MEDC.JK": "Medco Energi Internasional",
+    "MIKA.JK": "Mitra Keluarga Karyasehat",
+    "MTEL.JK": "Dayamitra Telekomunikasi",
+    "PGAS.JK": "Perusahaan Gas Negara",
+    "PGEO.JK": "Pertamina Geothermal Energy",
+    "PTBA.JK": "Bukit Asam",
+    "PTPP.JK": "PP (Pembangunan Perumahan)",
+    "PWON.JK": "Pakuwon Jati",
+    "SIDO.JK": "Sido Muncul",
+    "SMGR.JK": "Semen Indonesia",
+    "SMRA.JK": "Summarecon Agung",
+    "SRTG.JK": "Saratoga Investama Sedaya",
+    "TBIG.JK": "Tower Bersama Infrastructure",
+    "TINS.JK": "Timah",
+    "TLKM.JK": "Telkom Indonesia",
+    "TOWR.JK": "Sarana Menara Nusantara",
+    "TPIA.JK": "Chandra Asri Pacific",
+    "UNTR.JK": "United Tractors",
+    "UNVR.JK": "Unilever Indonesia",
+    "WSKT.JK": "Waskita Karya",
+}
+
+# index name -> constituent tickers.
+INDICES: dict[str, list[str]] = {
+    "LQ45": [
+        "AADI.JK", "ACES.JK", "ADMR.JK", "ADRO.JK", "AKRA.JK", "AMRT.JK",
+        "ANTM.JK", "ARTO.JK", "ASII.JK", "BBCA.JK", "BBNI.JK", "BBRI.JK",
+        "BBTN.JK", "BMRI.JK", "BRIS.JK", "BRPT.JK", "CPIN.JK", "CTRA.JK",
+        "EXCL.JK", "GOTO.JK", "ICBP.JK", "INCO.JK", "INDF.JK", "INTP.JK",
+        "ISAT.JK", "ITMG.JK", "JPFA.JK", "JSMR.JK", "KLBF.JK", "MAPI.JK",
+        "MBMA.JK", "MDKA.JK", "MEDC.JK", "PGAS.JK", "PGEO.JK", "PTBA.JK",
+        "SIDO.JK", "SMGR.JK", "SMRA.JK", "TLKM.JK", "TOWR.JK", "TPIA.JK",
+        "UNTR.JK", "UNVR.JK",
+    ],
+    "IDX30": [
+        "ACES.JK", "ADRO.JK", "AKRA.JK", "AMRT.JK", "ANTM.JK", "ARTO.JK",
+        "ASII.JK", "BBCA.JK", "BBNI.JK", "BBRI.JK", "BMRI.JK", "BRIS.JK",
+        "BRPT.JK", "CPIN.JK", "EXCL.JK", "GOTO.JK", "ICBP.JK", "INCO.JK",
+        "INDF.JK", "INTP.JK", "KLBF.JK", "MDKA.JK", "MEDC.JK", "PGAS.JK",
+        "PTBA.JK", "SMGR.JK", "TLKM.JK", "TOWR.JK", "TPIA.JK", "UNVR.JK",
+    ],
+    "JII": [  # Jakarta Islamic Index (30 sharia-compliant names)
+        "AADI.JK", "ADRO.JK", "AKRA.JK", "AMRT.JK", "ANTM.JK", "BRIS.JK",
+        "CPIN.JK", "CTRA.JK", "EXCL.JK", "ICBP.JK", "INCO.JK", "INDF.JK",
+        "INTP.JK", "ISAT.JK", "JPFA.JK", "JSMR.JK", "KLBF.JK", "MAPI.JK",
+        "MDKA.JK", "MEDC.JK", "PGAS.JK", "PGEO.JK", "PTBA.JK", "SMGR.JK",
+        "SMRA.JK", "TLKM.JK", "TOWR.JK", "TPIA.JK", "UNTR.JK", "UNVR.JK",
+    ],
+    "ISSI": [  # Indonesia Sharia Stock Index (seeded subset)
+        "AADI.JK", "ACES.JK", "ADRO.JK", "AKRA.JK", "AMRT.JK", "ANTM.JK",
+        "ARTO.JK", "BRIS.JK", "CPIN.JK", "CTRA.JK", "ERAA.JK", "EXCL.JK",
+        "ICBP.JK", "INCO.JK", "INDF.JK", "INTP.JK", "ISAT.JK", "JPFA.JK",
+        "JSMR.JK", "KLBF.JK", "MAPI.JK", "MDKA.JK", "MEDC.JK", "MIKA.JK",
+        "PGAS.JK", "PGEO.JK", "PTBA.JK", "PWON.JK", "SIDO.JK", "SMGR.JK",
+        "SMRA.JK", "SRTG.JK", "TBIG.JK", "TLKM.JK", "TOWR.JK", "TPIA.JK",
+        "UNTR.JK", "UNVR.JK",
+    ],
+    "IDXHIDIV20": [  # IDX High Dividend 20
+        "ADRO.JK", "ANTM.JK", "ASII.JK", "BBCA.JK", "BBNI.JK", "BBRI.JK",
+        "BMRI.JK", "EXCL.JK", "ICBP.JK", "INDF.JK", "INTP.JK", "ITMG.JK",
+        "MEDC.JK", "PGAS.JK", "PTBA.JK", "SMGR.JK", "TLKM.JK", "TOWR.JK",
+        "UNTR.JK", "UNVR.JK",
+    ],
+    "IDXBUMN20": [  # IDX BUMN20 (state-owned enterprises)
+        "AGRO.JK", "ANTM.JK", "BBNI.JK", "BBRI.JK", "BBTN.JK", "BJBR.JK",
+        "BJTM.JK", "BMRI.JK", "BRIS.JK", "ELSA.JK", "GIAA.JK", "JSMR.JK",
+        "KAEF.JK", "PGAS.JK", "PTBA.JK", "PTPP.JK", "SMGR.JK", "TINS.JK",
+        "TLKM.JK", "WSKT.JK",
+    ],
+}
+
+
+def all_tickers() -> list[str]:
+    """Every unique ticker across all indices (sorted for stable batches)."""
+    seen: dict[str, None] = {}
+    for members in INDICES.values():
+        for t in members:
+            seen[t] = None
+    return sorted(seen)
+
+
+def name_for(ticker: str) -> str:
+    """Company name, falling back to the bare ticker if unknown."""
+    return STOCK_NAMES.get(ticker, ticker.replace(".JK", ""))
+
+
+def associations() -> list[tuple[str, str]]:
+    """Flatten INDICES into (ticker, index_name) pairs."""
+    return [(t, idx) for idx, members in INDICES.items() for t in members]

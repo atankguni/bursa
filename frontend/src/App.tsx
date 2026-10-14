@@ -5,13 +5,20 @@ import {
   ArrowDownRight,
   ArrowUpRight,
   CandlestickChart,
+  ChevronDown,
   LineChart,
   RefreshCw,
   TrendingDown,
   TrendingUp,
   X,
 } from 'lucide-react'
-import { fetchHistory, fetchStocks, type Stock } from './api'
+import {
+  DEFAULT_INDEXES,
+  fetchHistory,
+  fetchIndexes,
+  fetchStocks,
+  type Stock,
+} from './api'
 import StockChart from './components/StockChart'
 
 // --------------------------------------------------------------------------- //
@@ -64,9 +71,14 @@ function StockDetail({ stock, onClose }: { stock: Stock; onClose: () => void }) 
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-xl font-semibold">{stock.ticker}</h2>
-              <span className="rounded bg-panelalt px-2 py-0.5 text-xs text-slate-300">
-                {stock.index_name}
-              </span>
+              {stock.indices.map((idx) => (
+                <span
+                  key={idx}
+                  className="rounded bg-panelalt px-2 py-0.5 text-xs text-slate-300"
+                >
+                  {idx}
+                </span>
+              ))}
             </div>
             <p className="text-sm text-slate-400">{stock.name}</p>
             <div className="mt-2 flex items-baseline gap-3">
@@ -145,14 +157,28 @@ function StockDetail({ stock, onClose }: { stock: Stock; onClose: () => void }) 
 // --------------------------------------------------------------------------- //
 
 export default function App() {
+  // Default index on every load is LQ45; user can switch via the header select.
+  const [index, setIndex] = useState('LQ45')
   const [selected, setSelected] = useState<Stock | null>(null)
+
+  const { data: serverIndexes } = useQuery({
+    queryKey: ['indexes'],
+    queryFn: fetchIndexes,
+  })
+
+  // Prefer the server list; fall back to the built-in list until it resolves.
+  const indexes =
+    serverIndexes && serverIndexes.length > 0 ? serverIndexes : DEFAULT_INDEXES
 
   const {
     data: stocks = [],
     isLoading,
     isFetching,
     refetch,
-  } = useQuery({ queryKey: ['stocks'], queryFn: fetchStocks })
+  } = useQuery({
+    queryKey: ['stocks', index],
+    queryFn: () => fetchStocks(index),
+  })
 
   // Aggregate market breadth for the summary header bar.
   const summary = useMemo(() => {
@@ -182,7 +208,29 @@ export default function App() {
             </div>
             <div>
               <h1 className="text-lg font-bold leading-tight">Bursa</h1>
-              <p className="text-xs text-slate-400">IDX Monitor · LQ45 &amp; IDX30</p>
+              <p className="text-xs text-slate-400">IDX Monitor · {index}</p>
+            </div>
+            {/* Index selector — defaults to LQ45 on every page load. */}
+            <div className="relative ml-2">
+              <select
+                value={index}
+                onChange={(e) => {
+                  setIndex(e.target.value)
+                  setSelected(null)
+                }}
+                className="appearance-none rounded-lg bg-panelalt py-1.5 pl-3 pr-8 text-sm text-slate-100 ring-1 ring-slate-700 outline-none transition hover:bg-slate-700 focus:ring-bull"
+                aria-label="Select index"
+              >
+                {indexes.map((idx) => (
+                  <option key={idx} value={idx}>
+                    {idx}
+                  </option>
+                ))}
+              </select>
+              <ChevronDown
+                size={14}
+                className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-400"
+              />
             </div>
           </div>
 
@@ -255,9 +303,16 @@ export default function App() {
                     <td className="px-4 py-3 font-semibold">{s.ticker.replace('.JK', '')}</td>
                     <td className="px-4 py-3 text-slate-300">{s.name}</td>
                     <td className="px-4 py-3">
-                      <span className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300">
-                        {s.index_name}
-                      </span>
+                      <div className="flex flex-wrap gap-1">
+                        {s.indices.map((idx) => (
+                          <span
+                            key={idx}
+                            className="rounded bg-slate-800 px-2 py-0.5 text-xs text-slate-300"
+                          >
+                            {idx}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-right font-medium">{fmtPrice(s.last_price)}</td>
                     <td className={`px-4 py-3 text-right ${tone}`}>{fmtChange(s.change)}</td>

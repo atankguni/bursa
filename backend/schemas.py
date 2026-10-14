@@ -14,13 +14,13 @@ class StockBase(BaseModel):
 
     ticker: str
     name: str
-    index_name: str
 
 
 class StockOut(StockBase):
     """A tracked stock enriched with its latest quote + daily change."""
 
     id: int
+    indices: list[str] = []
     last_price: float | None = None
     previous_close: float | None = None
     change: float | None = None          # absolute point change vs prev close
@@ -47,6 +47,6 @@ class StockHistory(BaseModel):
 
     ticker: str
     name: str
-    index_name: str
+    indices: list[str]
     interval: str
     points: list[PricePoint]
