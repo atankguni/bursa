@@ -1,19 +1,20 @@
-FROM python:3.11-slim
+FROM python:3.14-alpine
 
 # Prevent Python from writing .pyc files and enable unbuffered stdout/stderr
 # so FastAPI logs stream straight to the terminal.
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=1
+    PIP_NO_CACHE_DIR=1 \
+    TZ=Asia/Jakarta
 
-# System deps kept minimal; yfinance/pandas wheels are prebuilt for slim.
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
-    && rm -rf /var/lib/apt/lists/*
+# tzdata   -> zoneinfo has no data in Alpine; APScheduler needs "Asia/Jakarta".
+# libstdc++ -> runtime libs for numpy's musl wheel.
+RUN apk add --no-cache tzdata libstdc++
 
 WORKDIR /app
 
-# Install Python deps first (better Docker layer caching).
+# Install Python deps first (better Docker layer caching). All deps ship
+# musllinux wheels, so no compiler/toolchain is required.
 COPY requirements.txt .
 RUN pip install --upgrade pip && pip install -r requirements.txt
 

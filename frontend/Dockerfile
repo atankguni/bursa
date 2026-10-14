@@ -1,7 +1,7 @@
-# Development image for Vite + React.
+# Development image for Vite + React (Node 26 = newest, LTS on 2026-10-28).
 # The source is bind-mounted by docker-compose so HMR works out of the box;
 # node_modules is kept inside the container via an anonymous volume.
-FROM node:20-alpine
+FROM node:26-alpine
 
 WORKDIR /app
 
