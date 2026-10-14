@@ -45,7 +45,7 @@ export default function SearchBox() {
 
   return (
     <div className="relative">
-      <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1 pl-2.5 pr-2 text-xs ring-1 ring-line focus-within:ring-bull">
+      <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line focus-within:ring-bull">
         <Search size={13} className="text-muted" />
         <input
           value={q}
@@ -55,7 +55,7 @@ export default function SearchBox() {
           }}
           onFocus={() => setOpen(true)}
           placeholder="Search ticker…"
-          className="w-36 bg-transparent text-ink outline-none placeholder:text-subtle"
+          className="w-44 bg-transparent text-ink outline-none placeholder:text-subtle"
         />
       </div>
 

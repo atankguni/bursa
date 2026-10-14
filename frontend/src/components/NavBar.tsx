@@ -30,10 +30,10 @@ export default function NavBar() {
             </div>
           </div>
           <MarketStatus />
+          <SearchBox />
         </div>
 
         <div className="flex items-center gap-2">
-          <SearchBox />
           <nav className="flex items-center gap-1 rounded-md bg-panelalt/70 p-1 ring-1 ring-line">
             <NavLink to="/" end className={linkClass}>
               <LayoutGrid size={14} /> Home
