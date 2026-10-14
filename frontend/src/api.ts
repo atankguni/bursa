@@ -69,3 +69,74 @@ export async function fetchHistory(
   })
   return data
 }
+
+// --------------------------------------------------------------------------- //
+// Watchlist + fundamentals
+// --------------------------------------------------------------------------- //
+
+export interface Fundamental {
+  fiscal_year: number
+  total_shares: number | null
+  revenue: number | null
+  net_income: number | null
+  total_assets: number | null
+  total_liabilities: number | null
+  equity: number | null
+}
+
+export interface DerivedMetrics {
+  market_cap: number | null
+  book_value: number | null
+  pbv: number | null
+  roe: number | null
+}
+
+export interface WatchlistItem {
+  id: number
+  ticker: string
+  name: string
+  indices: string[]
+  added_at: string | null
+  last_price: number | null
+  change_percent: number | null
+  fundamental: Fundamental | null
+  metrics: DerivedMetrics
+}
+
+export interface FundamentalsResponse {
+  ticker: string
+  name: string
+  yearly: Fundamental[]
+  latest: Fundamental | null
+  metrics: DerivedMetrics
+}
+
+export async function fetchWatchlist(): Promise<WatchlistItem[]> {
+  const { data } = await api.get<WatchlistItem[]>('/api/watchlist')
+  return data
+}
+
+export async function addToWatchlist(ticker: string): Promise<WatchlistItem> {
+  const { data } = await api.post<WatchlistItem>(`/api/watchlist/${ticker}`)
+  return data
+}
+
+export async function removeFromWatchlist(ticker: string): Promise<void> {
+  await api.delete(`/api/watchlist/${ticker}`)
+}
+
+export async function refreshWatchlist(): Promise<{ tickers: number; rows: number }> {
+  const { data } = await api.post<{ tickers: number; rows: number }>(
+    '/api/watchlist/refresh',
+  )
+  return data
+}
+
+export async function fetchFundamentals(
+  ticker: string,
+): Promise<FundamentalsResponse> {
+  const { data } = await api.get<FundamentalsResponse>(
+    `/api/stocks/${ticker}/fundamentals`,
+  )
+  return data
+}

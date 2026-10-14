@@ -193,6 +193,25 @@ async def sync_intraday() -> None:
     await _sync(TICKERS, period="1d", interval=INTRADAY_INTERVAL)
 
 
+async def sync_watchlist_fundamentals() -> None:
+    """Refresh yearly fundamentals for every ticker currently on the watchlist."""
+    from sqlalchemy import select
+
+    from database import AsyncSessionLocal
+    from fundamentals import sync_many
+    from models import Watchlist
+
+    async with AsyncSessionLocal() as session:
+        tickers = (
+            await session.execute(select(Watchlist.ticker))
+        ).scalars().all()
+
+    if not tickers:
+        log.info("Watchlist empty — skipping fundamentals sync")
+        return
+    await sync_many(list(tickers), throttle=1.0)
+
+
 # --------------------------------------------------------------------------- #
 # Scheduler lifecycle
 # --------------------------------------------------------------------------- #
@@ -224,6 +243,16 @@ def start_scheduler() -> None:
         max_instances=1,
         coalesce=True,
         jitter=10,  # spread load slightly to avoid thundering herd
+    )
+
+    # Fundamentals: once per weekday evening (~18:00 WIB).
+    scheduler.add_job(
+        sync_watchlist_fundamentals,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=18, minute=0),
+        id="sync_fundamentals",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
     )
 
     scheduler.start()

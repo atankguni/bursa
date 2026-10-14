@@ -14,5 +14,6 @@ COPY . .
 
 EXPOSE 5173
 
-# --host makes the dev server reachable from outside the container.
-CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"]
+# Re-sync deps on start (the node_modules volume can outlive package.json
+# changes), then run the dev server reachable from outside the container.
+CMD ["sh", "-c", "npm install --no-audit --no-fund && npm run dev -- --host 0.0.0.0 --port 5173"]
