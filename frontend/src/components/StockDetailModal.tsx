@@ -27,6 +27,7 @@ import {
 } from '../hooks'
 import { fmtChange, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import { useSettings } from '../lib/settings'
+import { SPANS, spanStart } from '../lib/spans'
 import CompanyPanel from './CompanyPanel'
 import FundamentalsPanel from './FundamentalsPanel'
 import RecommendationPanel from './RecommendationPanel'
@@ -44,21 +45,6 @@ export interface StockLike {
   last_price: number | null
   change?: number | null
   change_percent?: number | null
-}
-
-const SPANS: { value: ChartSpan; label: string; days: number | null }[] = [
-  { value: '1m', label: '1M', days: 31 },
-  { value: '3m', label: '3M', days: 92 },
-  { value: '6m', label: '6M', days: 183 },
-  { value: '1y', label: '1Y', days: 366 },
-  { value: '5y', label: '5Y', days: 5 * 366 },
-  { value: 'max', label: 'Max', days: null },
-]
-
-/** ISO start of a span, or undefined for Max (fit everything). */
-const spanStart = (span: ChartSpan) => {
-  const days = SPANS.find((s) => s.value === span)?.days
-  return days == null ? undefined : new Date(Date.now() - days * 86_400_000).toISOString()
 }
 
 type Tab = 'chart' | 'fundamentals' | 'recommendation' | 'company'

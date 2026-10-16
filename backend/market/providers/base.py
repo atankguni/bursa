@@ -27,6 +27,7 @@ FX = "fx"
 PROFILE = "profile"
 SEARCH = "search"
 DIVIDENDS = "dividends"
+INDEX_QUOTES = "index_quotes"
 
 
 # --------------------------------------------------------------------------- #
@@ -93,6 +94,17 @@ class SymbolHit(TypedDict):
     type: str
 
 
+class IndexQuote(TypedDict):
+    """Latest value of a market index (provider symbol)."""
+
+    symbol: str
+    last: float
+    previous_close: float | None
+    open: float | None
+    high: float | None
+    low: float | None
+
+
 class DividendRow(TypedDict):
     ex_date: date
     amount: float
@@ -122,6 +134,10 @@ class MarketDataProvider(ABC):
 
     def search_symbols(self, query: str) -> list[SymbolHit]:
         """Optional: resolve a free-text query to symbols. Defaults to none."""
+        return []
+
+    def fetch_index_quotes(self, symbols: list[str]) -> list[IndexQuote]:
+        """Optional: latest value + previous close per index symbol. Defaults to none."""
         return []
 
     def fetch_dividends(self, ticker: str) -> list[DividendRow]:

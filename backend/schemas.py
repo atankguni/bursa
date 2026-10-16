@@ -498,3 +498,36 @@ class PreferencesOut(BaseModel):
 
 class PreferencesIn(BaseModel):
     investing_style: InvestingStyle
+
+
+class IndexOut(BaseModel):
+    """One IDX stock index (indeks saham) with its latest value."""
+
+    code: str
+    name: str
+    group: str
+    last: float | None = None
+    previous_close: float | None = None
+    change: float | None = None
+    change_percent: float | None = None
+    updated_at: datetime | None = None
+    has_history: bool = False
+    history_since: date | None = None
+
+
+class IndexBarOut(BaseModel):
+    """Daily index bar, shaped like PricePoint so the stock chart can draw it."""
+
+    timestamp: date
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int = 0
+
+
+class IndexHistoryOut(BaseModel):
+    code: str
+    name: str
+    has_history: bool
+    points: list[IndexBarOut]

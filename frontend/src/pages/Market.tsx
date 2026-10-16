@@ -2,6 +2,7 @@ import { type Mover } from '../api'
 import { useMarketOverview } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
+import IndicesPanel from '../components/IndicesPanel'
 
 function MoverList({
   title,
@@ -65,7 +66,13 @@ export default function Market() {
     <main className="w-full animate-fade-in px-4 py-4">
       <div className="mb-3">
         <h2 className="text-sm font-semibold tracking-tight">Market overview</h2>
-        <p className="text-[11px] text-subtle">Breadth, movers and sector performance</p>
+        <p className="text-[11px] text-subtle">
+          Indices, breadth, movers and sector performance
+        </p>
+      </div>
+
+      <div className="mb-3">
+        <IndicesPanel />
       </div>
 
       {isLoading ? (

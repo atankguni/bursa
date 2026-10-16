@@ -325,3 +325,39 @@ class Preference(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Preference {self.key}={self.value}>"
+
+
+class IndexQuote(Base):
+    """Latest value of an IDX stock index (see market/indices.py)."""
+
+    __tablename__ = "index_quotes"
+
+    code: Mapped[str] = mapped_column(String(20), primary_key=True)
+    last: Mapped[float] = mapped_column(Float, nullable=False)
+    previous_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # When the provider's full history was fetched (indices that have one).
+    full_history_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<IndexQuote {self.code} {self.last}>"
+
+
+class IndexBar(Base):
+    """Daily bar of an IDX index: provider history, or the app's own daily closes."""
+
+    __tablename__ = "index_bars"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    code: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    open: Mapped[float | None] = mapped_column(Float, nullable=True)
+    high: Mapped[float | None] = mapped_column(Float, nullable=True)
+    low: Mapped[float | None] = mapped_column(Float, nullable=True)
+    close: Mapped[float] = mapped_column(Float, nullable=False)
+    volume: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    __table_args__ = (UniqueConstraint("code", "day", name="uq_index_bar"),)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<IndexBar {self.code} {self.day} {self.close}>"

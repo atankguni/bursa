@@ -91,6 +91,13 @@ async def sync_intraday() -> None:
     await evaluate_alerts()
 
 
+async def refresh_index_quotes() -> None:
+    """Latest value of every IDX index (see market/indices.py)."""
+    from services.indices import refresh_quotes
+
+    await refresh_quotes()
+
+
 async def sync_watchlist_fundamentals() -> None:
     """Refresh yearly fundamentals for every ticker currently on the watchlist."""
     from services.fundamentals import sync_many
@@ -169,6 +176,25 @@ def start_scheduler() -> None:
         sync_intraday,
         trigger=CronTrigger(day_of_week="mon-fri", hour="9-15", minute="*/3"),
         id="sync_intraday",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Index values: every 15 min while trading, plus once after the close
+    # (16:05 WIB) to store the final daily values.
+    scheduler.add_job(
+        refresh_index_quotes,
+        trigger=CronTrigger(day_of_week="mon-fri", hour="9-15", minute="*/15"),
+        id="refresh_index_quotes",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    scheduler.add_job(
+        refresh_index_quotes,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=16, minute=5),
+        id="refresh_index_quotes_close",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

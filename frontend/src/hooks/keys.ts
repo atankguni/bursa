@@ -26,4 +26,7 @@ export const queryKeys = {
   company: (ticker: string) => ['company', ticker] as const,
   preferences: ['preferences'] as const,
   assistantStatus: ['assistant', 'status'] as const,
+  indices: ['indices'] as const,
+  indexHistory: (code: string, range: string) =>
+    ['indices', 'history', code, range] as const,
 }

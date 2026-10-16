@@ -37,7 +37,10 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   (not your watchlist).
 - **Browse IDX** — the full IDX catalog (~960 listed stocks) with search and a
   Track toggle; tracked stocks get intraday updates.
-- **Market overview** — breadth, top gainers/losers and a sector-performance view.
+- **Market overview** — **33 IDX stock indices** (indeks saham: IHSG, LQ45, IDX30, IDX80,
+  Kompas100, JII/JII70/ISSI, all 11 sector indices, ESG/thematic, boards) as headline cards
+  plus grouped, change-tinted tiles; IHSG/LQ45/JII charts go back decades, the others build
+  up daily. Plus breadth, top gainers/losers and a sector-performance view.
 - **Alerts** — price-above/below, %-change, and rating-change rules with in-app
   notifications (navbar bell); evaluated after each market sync.
 - **Chart indicators** — MA(20/50/200), volume, and RSI overlays on the detail chart.
@@ -185,6 +188,8 @@ bursa/
 | POST   | `/api/screener/sync` | Background sync of missing fundamentals (capped) |
 | GET    | `/api/screener/sync/status` | Progress of the sync job |
 | GET    | `/api/market/overview` | Breadth, top movers, sector performance |
+| GET    | `/api/indices` | Latest value + change of 33 IDX stock indices |
+| GET    | `/api/indices/{code}/history?range=1y\|5y\|max` | Daily bars for one index |
 | GET    | `/api/portfolio` | Holdings + totals (average-cost P/L) |
 | GET/POST/DELETE | `/api/portfolio/transactions` | Manage transactions |
 | GET    | `/api/portfolio/history` | Portfolio value over time |

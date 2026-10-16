@@ -21,12 +21,14 @@ from market.providers.base import (
     DIVIDENDS,
     FUNDAMENTALS,
     FX,
+    INDEX_QUOTES,
     INTRADAY,
     PRICES,
     PROFILE,
     SEARCH,
     DividendRow,
     FundamentalRow,
+    IndexQuote,
     MarketDataProvider,
     Officer,
     PriceBar,
@@ -240,7 +242,9 @@ def _profile_from_info(info: Mapping[str, Any]) -> ProfileData | None:
 # --------------------------------------------------------------------------- #
 class YahooProvider(MarketDataProvider):
     name = "yahoo"
-    capabilities = {PRICES, INTRADAY, FUNDAMENTALS, FX, PROFILE, SEARCH, DIVIDENDS}
+    capabilities = {
+        PRICES, INTRADAY, FUNDAMENTALS, FX, PROFILE, SEARCH, DIVIDENDS, INDEX_QUOTES,
+    }
 
     def __init__(self) -> None:
         self._fx_cache: dict[str, tuple[float, datetime]] = {}
@@ -371,6 +375,33 @@ class YahooProvider(MarketDataProvider):
                     "type": q.get("quoteType") or "",
                 }
             )
+        return out
+
+    # --- Index quotes -------------------------------------------------------
+    def fetch_index_quotes(self, symbols: list[str]) -> list[IndexQuote]:
+        """
+        Latest value + previous close per index. `fast_info` is used because
+        Yahoo's IDX `.JK` index symbols return only today's bar from history,
+        so the previous close can't be derived from bars.
+        """
+        def num(info: Any, key: str) -> float | None:
+            v = info.get(key)
+            return float(v) if v else None
+
+        out: list[IndexQuote] = []
+        for symbol in symbols:
+            try:
+                fi = yf.Ticker(symbol).fast_info
+                last = num(fi, "lastPrice")
+                if last is None:
+                    continue
+                out.append({
+                    "symbol": symbol, "last": last,
+                    "previous_close": num(fi, "previousClose"),
+                    "open": num(fi, "open"), "high": num(fi, "dayHigh"), "low": num(fi, "dayLow"),
+                })
+            except Exception as exc:  # noqa: BLE001 - one bad symbol mustn't stop the rest
+                log.warning("Index quote failed for %s: %s", symbol, exc)
         return out
 
     # --- Dividends ----------------------------------------------------------

@@ -36,6 +36,7 @@ from models import StockPrice
 from routers import (
     alerts,
     assistant,
+    indices,
     market,
     meta,
     portfolio,
@@ -48,6 +49,7 @@ from scheduler import (
     TICKERS,
     backfill_active,
     backfill_daily,
+    refresh_index_quotes,
     start_scheduler,
     stop_scheduler,
     sync_watchlist_fundamentals,
@@ -105,6 +107,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Refresh watchlist fundamentals in the background (non-blocking startup).
     _spawn(sync_watchlist_fundamentals())
+    _spawn(refresh_index_quotes())
 
     log.info("Bursa API ready")
     try:
@@ -143,3 +146,4 @@ app.include_router(market.router)
 app.include_router(alerts.router)
 app.include_router(preferences.router)
 app.include_router(assistant.router)
+app.include_router(indices.router)

@@ -34,6 +34,28 @@ export interface StockHistory {
 /** Chart span for daily bars; 5y/max load the stock's full history on first use. */
 export type ChartSpan = '1m' | '3m' | '6m' | '1y' | '5y' | 'max'
 
+/** An IDX stock index (indeks saham) with its latest value. */
+export interface MarketIndex {
+  code: string
+  name: string
+  group: string
+  last: number | null
+  previous_close: number | null
+  change: number | null
+  change_percent: number | null
+  updated_at: string | null
+  /** Provider has full history; otherwise it builds up daily from `history_since`. */
+  has_history: boolean
+  history_since: string | null
+}
+
+export interface IndexHistory {
+  code: string
+  name: string
+  has_history: boolean
+  points: PricePoint[]
+}
+
 export interface Fundamental {
   fiscal_year: number
   financial_currency: string | null
