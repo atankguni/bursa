@@ -92,3 +92,109 @@ async def test_statements_supersede_summary_rows(client, monkeypatch):
             .where(Fundamental.ticker == "BBCA.JK").order_by(Fundamental.fiscal_year)
         )).all()
     assert got == [(2024, "statements"), (2025, "statements")]
+
+
+def test_missed_jobs_run_on_wake_not_dropped():
+    import scheduler as sched
+
+    # APScheduler's default grace is 1s: a job missed while the host slept was lost.
+    assert sched.scheduler._job_defaults["misfire_grace_time"] >= 3600
+    assert sched.scheduler._job_defaults["coalesce"] is True
+
+
+async def test_catch_up_intraday_ignores_market_hours(monkeypatch):
+    import scheduler as sched
+
+    calls = []
+
+    async def fake_sync(tickers, period, interval):
+        calls.append((len(tickers), period, interval))
+        return 0
+
+    async def fake_active():
+        return ["BBCA.JK", "TLKM.JK"]
+
+    monkeypatch.setattr(sched, "sync_batch", fake_sync)
+    monkeypatch.setattr(sched, "active_tickers", fake_active)
+    monkeypatch.setattr(sched, "is_open", lambda: False)  # after the close / weekend
+    await sched.catch_up_intraday("5d")
+    assert calls == [(2, "5d", "1m")]
+
+
+async def _fake_sync_factory(monkeypatch, gives_data):
+    """sync_ticker stand-in: writes a profile when `gives_data(ticker)` is true."""
+    from database import AsyncSessionLocal
+    from models import StockProfile
+
+    calls: list[str] = []
+
+    async def fake(ticker, with_dividends=True):
+        calls.append(ticker)
+        if gives_data(ticker):
+            async with AsyncSessionLocal() as s:
+                s.add(StockProfile(ticker=ticker, sector="Tech"))
+                await s.commit()
+        return 0
+
+    monkeypatch.setattr(sync_job, "sync_ticker", fake)
+    return calls
+
+
+async def _wait_done():
+    import asyncio
+
+    for _ in range(200):
+        if not sync_job.status()["running"]:
+            return
+        await asyncio.sleep(0.05)
+    raise AssertionError("sync job did not finish")
+
+
+async def test_sync_all_works_through_every_never_tried_stock(client, monkeypatch):
+    from config import settings
+
+    for k, v in {"screener_sync_limit": 300, "screener_sync_batch_pause": 0,
+                 "screener_sync_throttle": 0}.items():
+        monkeypatch.setattr(settings, k, v)
+    calls = await _fake_sync_factory(monkeypatch, lambda t: True)
+    total = len(await sync_job.never_tried())
+
+    r = (await client.post("/api/screener/sync", params={"all": True})).json()
+    assert r["running"] and r["total"] == total
+    await _wait_done()
+    assert len(calls) == total and len(set(calls)) == total  # each once, in batches of 300
+    assert await sync_job.never_tried() == []
+
+
+async def test_sync_all_stops_when_batches_come_back_empty(client, monkeypatch):
+    from config import settings
+
+    for k, v in {"screener_sync_limit": 5, "screener_sync_batch_pause": 0,
+                 "screener_sync_blocked_wait": 0, "screener_sync_throttle": 0,
+                 "screener_sync_max_empty_batches": 2}.items():
+        monkeypatch.setattr(settings, k, v)
+    calls = await _fake_sync_factory(monkeypatch, lambda t: False)  # "blocked"
+    await sync_job.start_all()
+    await _wait_done()
+    assert len(calls) == 10  # two empty batches of 5, then it gives up
+    assert "rate-limiting" in sync_job.status()["last_error"]
+
+
+async def test_sync_all_can_be_cancelled(client, monkeypatch):
+    import asyncio
+
+    from config import settings
+
+    for k, v in {"screener_sync_limit": 5, "screener_sync_batch_pause": 30,
+                 "screener_sync_throttle": 0}.items():
+        monkeypatch.setattr(settings, k, v)
+    calls = await _fake_sync_factory(monkeypatch, lambda t: True)
+    await sync_job.start_all()
+    for _ in range(100):  # wait until the first batch is done and it's pausing
+        if len(calls) >= 5:
+            break
+        await asyncio.sleep(0.02)
+    r = (await client.post("/api/screener/sync/cancel")).json()
+    assert r["note"] == "Stopping…"
+    await _wait_done()  # stops during the 30s pause, not after it
+    assert len(calls) == 5

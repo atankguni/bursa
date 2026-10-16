@@ -1,4 +1,5 @@
 import { Mail } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { useStatus } from '../hooks'
 import { fmtTimeAgo } from '../lib/format'
 
@@ -31,6 +32,12 @@ export default function Footer() {
         </span>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link
+            to="/data"
+            className="underline-offset-2 transition hover:text-ink hover:underline"
+          >
+            Data health
+          </Link>
           <span>
             Last sync <span className="text-muted">{fmtTimeAgo(data?.last_sync)}</span>
           </span>

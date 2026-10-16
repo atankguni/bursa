@@ -19,11 +19,13 @@ from schemas import (
     RecommendationOut,
     RecommendationSummary,
     SearchResultOut,
+    SplitOut,
     StockHistory,
     StockOut,
     TrackStockIn,
     ValuationOut,
 )
+from services.corporate_actions import load_splits
 from services.dividends import list_dividends, trailing_dps
 from services.fundamentals import is_stale, sync_ticker
 from services.history import DEEP_RANGES, ensure_full_history, range_start
@@ -117,6 +119,7 @@ async def list_stocks(
                 id=stock.id,
                 ticker=stock.ticker,
                 name=stock.name,
+                board=stock.listing_board,
                 indices=index_map.get(stock.ticker, []),
                 last_price=last,
                 previous_close=prev,
@@ -164,6 +167,7 @@ async def get_stock(
         id=stock.id,
         ticker=stock.ticker,
         name=stock.name,
+        board=stock.listing_board,
         indices=index_map.get(ticker, []),
         last_price=last,
         previous_close=prev,
@@ -225,12 +229,14 @@ async def stock_history(
         points = [PricePoint.model_validate(p) for p in reversed(prices)]
 
     index_map = await indices_map(session, [ticker])
+    splits = (await load_splits(session, [ticker]))[ticker]
     return StockHistory(
         ticker=stock.ticker,
         name=stock.name,
         indices=index_map.get(ticker, []),
         interval=interval,
         points=points,
+        splits=[SplitOut(ex_date=d, ratio=r) for d, r in splits],
     )
 
 
@@ -442,6 +448,7 @@ async def catalog(
             CatalogRow(
                 ticker=s.ticker,
                 name=s.name,
+                board=s.listing_board,
                 tracked=s.tracked,
                 indices=index_map.get(s.ticker, []),
                 last_price=last,

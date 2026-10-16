@@ -180,7 +180,14 @@ function StackedRow({ label, children }: { label: string; children: ReactNode })
 
 export default function SettingsMenu() {
   const { settings, update, reset } = useSettings()
-  const { style, setStyle, isSaving, error: styleError } = usePreferences()
+  const {
+    style,
+    setStyle,
+    personalData,
+    setPersonalData,
+    isSaving,
+    error: styleError,
+  } = usePreferences()
   const [open, setOpen] = useState(false)
 
   const toggleColumn = (table: 'home' | 'watchlist', key: string) => {
@@ -266,6 +273,16 @@ export default function SettingsMenu() {
                         { value: 'trader', label: 'Trader' },
                       ]}
                       onChange={setStyle}
+                    />
+                  </ListRow>
+                  <ListRow
+                    label="Assistant sees my portfolio"
+                    hint="Lets the AI answer about your holdings & watchlist. They are sent to Google Gemini, whose free tier may use prompts for training."
+                  >
+                    <Switch
+                      checked={personalData}
+                      onChange={setPersonalData}
+                      label="Assistant sees my portfolio"
                     />
                   </ListRow>
                 </Section>

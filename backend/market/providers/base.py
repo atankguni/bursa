@@ -28,6 +28,7 @@ PROFILE = "profile"
 SEARCH = "search"
 DIVIDENDS = "dividends"
 INDEX_QUOTES = "index_quotes"
+SPLITS = "splits"
 
 
 # --------------------------------------------------------------------------- #
@@ -105,6 +106,13 @@ class IndexQuote(TypedDict):
     low: float | None
 
 
+class SplitRow(TypedDict):
+    """A stock split: `ratio` new shares per old share (5.0 = 5-for-1)."""
+
+    ex_date: date
+    ratio: float
+
+
 class DividendRow(TypedDict):
     ex_date: date
     amount: float
@@ -138,6 +146,10 @@ class MarketDataProvider(ABC):
 
     def fetch_index_quotes(self, symbols: list[str]) -> list[IndexQuote]:
         """Optional: latest value + previous close per index symbol. Defaults to none."""
+        return []
+
+    def fetch_splits(self, ticker: str) -> list[SplitRow]:
+        """Optional: historical stock splits. Defaults to none."""
         return []
 
     def fetch_dividends(self, ticker: str) -> list[DividendRow]:

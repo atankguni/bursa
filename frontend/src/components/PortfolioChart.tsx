@@ -1,5 +1,12 @@
 import { useEffect, useRef } from 'react'
-import { ColorType, createChart, type AreaData, type IChartApi } from 'lightweight-charts'
+import {
+  ColorType,
+  LineStyle,
+  createChart,
+  type AreaData,
+  type IChartApi,
+  type LineData,
+} from 'lightweight-charts'
 import type { EquityPoint } from '../api'
 import { useSettings } from '../lib/settings'
 
@@ -21,10 +28,13 @@ export default function PortfolioChart({
   data,
   height = 260,
   hideValues = false,
+  mode = 'value',
 }: {
   data: EquityPoint[]
   height?: number
   hideValues?: boolean
+  /** 'value' = portfolio value; 'return' = your time-weighted return vs IHSG, in %. */
+  mode?: 'value' | 'return'
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const { settings, resolvedTheme } = useSettings()
@@ -41,19 +51,51 @@ export default function PortfolioChart({
         textColor: c.text,
       },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      rightPriceScale: { borderColor: c.grid, visible: !hideValues },
+      rightPriceScale: { borderColor: c.grid, visible: mode === 'return' || !hideValues },
       timeScale: { borderColor: c.grid },
-      crosshair: { horzLine: { labelVisible: !hideValues } },
+      crosshair: { horzLine: { labelVisible: mode === 'return' || !hideValues } },
     })
-    const series = chart.addAreaSeries({
-      lineColor: c.line,
-      topColor: `${c.line}55`,
-      bottomColor: `${c.line}05`,
-      lineWidth: 2,
-      lastValueVisible: !hideValues,
-      priceLineVisible: !hideValues,
-    })
-    series.setData(data.map((p) => ({ time: p.date, value: p.value }) as AreaData))
+    if (mode === 'return') {
+      // Percentages only (no amounts), so this view is safe in hide-values mode.
+      const pct = {
+        type: 'custom' as const,
+        formatter: (v: number) => `${v.toFixed(1)}%`,
+      }
+      const mine = chart.addLineSeries({
+        color: c.line,
+        lineWidth: 2,
+        title: 'You',
+        priceFormat: pct,
+      })
+      mine.setData(
+        data
+          .filter((p) => p.return_pct != null)
+          .map((p) => ({ time: p.date, value: p.return_pct as number }) as LineData),
+      )
+      const bench = chart.addLineSeries({
+        color: resolvedTheme === 'dark' ? '#cbd5e1' : '#475569',
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        title: 'IHSG',
+        priceFormat: pct,
+        priceLineVisible: false,
+      })
+      bench.setData(
+        data
+          .filter((p) => p.benchmark_pct != null)
+          .map((p) => ({ time: p.date, value: p.benchmark_pct as number }) as LineData),
+      )
+    } else {
+      const series = chart.addAreaSeries({
+        lineColor: c.line,
+        topColor: `${c.line}55`,
+        bottomColor: `${c.line}05`,
+        lineWidth: 2,
+        lastValueVisible: !hideValues,
+        priceLineVisible: !hideValues,
+      })
+      series.setData(data.map((p) => ({ time: p.date, value: p.value }) as AreaData))
+    }
     chart.timeScale().fitContent()
 
     const observer = new ResizeObserver((entries) => {
@@ -65,7 +107,7 @@ export default function PortfolioChart({
       observer.disconnect()
       chart.remove()
     }
-  }, [data, height, hideValues, resolvedTheme, settings.highContrast])
+  }, [data, height, hideValues, mode, resolvedTheme, settings.highContrast])
 
   const last = data.length > 0 ? data[data.length - 1].value : null
   return (

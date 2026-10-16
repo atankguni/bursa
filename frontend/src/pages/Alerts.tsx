@@ -4,6 +4,7 @@ import { Bell, Trash2 } from 'lucide-react'
 import { createAlert, deleteAlert, toggleAlert, type AlertType } from '../api'
 import { useAlertEvents, useAlerts, useStocks } from '../hooks'
 import { fmtShortDateTime } from '../lib/format'
+import NotificationsCard from '../components/NotificationsCard'
 
 const TYPES: { value: AlertType; label: string }[] = [
   { value: 'price_above', label: 'Price above' },
@@ -51,11 +52,13 @@ export default function Alerts() {
         <Bell size={16} className="text-bull" />
         <h2 className="text-sm font-semibold tracking-tight">Alerts</h2>
         <p className="text-[11px] text-subtle">
-          In-app notifications — evaluated after each market sync
+          Evaluated after each market sync · in the app, and on Telegram if connected
         </p>
       </div>
 
       <div className="space-y-3">
+        <NotificationsCard />
+
         {/* Create */}
         <div className="surface flex flex-wrap items-end gap-3 p-3">
           <div>

@@ -5,6 +5,9 @@ import { deleteTransaction } from '../api'
 import { usePortfolio, usePortfolioHistory, useStatus, useTransactions } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
+import BoardBadge from '../components/BoardBadge'
+import DividendCalendar from '../components/DividendCalendar'
+import RiskPanel from '../components/RiskPanel'
 import TransactionModal from '../components/TransactionModal'
 
 const PortfolioChart = lazy(() => import('../components/PortfolioChart'))
@@ -74,6 +77,19 @@ export default function Portfolio() {
     if (!settings.colorizeChanges || v == null || v === 0) return 'text-muted'
     return v > 0 ? 'text-bull' : 'text-bear'
   }
+
+  const [chartMode, setChartMode] = useState<'value' | 'return'>('value')
+  // Latest time-weighted return vs IHSG over the same period.
+  const lastPoint = [...history]
+    .reverse()
+    .find((p) => p.return_pct != null && p.benchmark_pct != null)
+  const versus = lastPoint
+    ? {
+        since: history[0].date,
+        mine: lastPoint.return_pct as number,
+        ihsg: lastPoint.benchmark_pct as number,
+      }
+    : null
 
   const totals = pf?.totals
   const holdings = pf?.holdings ?? []
@@ -212,7 +228,18 @@ export default function Portfolio() {
                       className="bg-panel transition-colors hover:bg-panelalt/60"
                     >
                       <td className="px-4 py-2 font-semibold">
-                        {h.ticker.replace('.JK', '')}
+                        <span className="inline-flex items-center gap-1.5">
+                          {h.ticker.replace('.JK', '')}
+                          <BoardBadge board={h.board} compact />
+                          {h.split_adjusted && (
+                            <span
+                              title="Adjusted for a stock split: shares × ratio and price ÷ ratio, so invested capital is unchanged."
+                              className="rounded-sm bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
+                            >
+                              split-adj.
+                            </span>
+                          )}
+                        </span>
                       </td>
                       <td className="px-4 py-2 text-right font-medium tabular-nums">
                         <Secret hidden={hide}>{lotsOf(h.quantity, lotSize)}</Secret>
@@ -261,16 +288,57 @@ export default function Portfolio() {
             </div>
           </div>
 
+          <RiskPanel enabled={holdings.length > 0} />
+          <DividendCalendar hideValues={hide} />
+
           {/* Equity curve */}
           {history.length > 1 && (
             <div className="surface p-4">
-              <div className="mb-2 text-[10px] uppercase tracking-wider text-muted">
-                Portfolio value
+              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+                <div className="text-[10px] uppercase tracking-wider text-muted">
+                  {chartMode === 'value' ? 'Portfolio value' : 'Your return vs IHSG'}
+                </div>
+                <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+                  {(['value', 'return'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setChartMode(m)}
+                      aria-pressed={chartMode === m}
+                      className={`px-2.5 py-1 text-xs transition ${
+                        chartMode === m
+                          ? 'bg-active text-ink'
+                          : 'text-muted hover:text-ink'
+                      }`}
+                    >
+                      {m === 'value' ? 'Value' : 'Return vs IHSG'}
+                    </button>
+                  ))}
+                </div>
               </div>
+              {versus && (
+                <p className="mb-2 text-xs text-muted">
+                  Since {versus.since}: you{' '}
+                  <span className={`font-semibold ${tone(versus.mine)}`}>
+                    {signedPct(versus.mine)}
+                  </span>{' '}
+                  vs IHSG{' '}
+                  <span className={`font-semibold ${tone(versus.ihsg)}`}>
+                    {signedPct(versus.ihsg)}
+                  </span>{' '}
+                  → {versus.mine >= versus.ihsg ? 'ahead of' : 'behind'} the market by{' '}
+                  <span className="font-semibold text-ink">
+                    {Math.abs(versus.mine - versus.ihsg).toFixed(2)} pts
+                  </span>
+                  <span className="text-subtle">
+                    {' '}
+                    · time-weighted (buys/sells don’t count as gains)
+                  </span>
+                </p>
+              )}
               <Suspense
                 fallback={<div className="h-[260px] animate-pulse rounded bg-panelalt" />}
               >
-                <PortfolioChart data={history} hideValues={hide} />
+                <PortfolioChart data={history} hideValues={hide} mode={chartMode} />
               </Suspense>
             </div>
           )}

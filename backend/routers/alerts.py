@@ -7,7 +7,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
 from models import Alert, AlertEvent, Stock
-from schemas import AlertEventOut, AlertIn, AlertOut
+from schemas import AlertEventOut, AlertIn, AlertOut, NotificationStatusOut
+from services import notify
 from services.alerts import THRESHOLD_TYPES
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
@@ -85,3 +86,24 @@ async def delete_alert(
     await session.delete(alert)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/notifications", response_model=NotificationStatusOut)
+async def notification_status() -> NotificationStatusOut:
+    return NotificationStatusOut(telegram=notify.telegram_configured())
+
+
+@router.post("/notifications/test", response_model=NotificationStatusOut)
+async def notification_test() -> NotificationStatusOut:
+    """Send a test message through every configured channel."""
+    if not notify.telegram_configured():
+        raise HTTPException(
+            status_code=400,
+            detail="Telegram isn't set up: add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID "
+            "to backend/.env and restart the backend.",
+        )
+    try:
+        await notify.send("✅ Bursa test notification: alerts will arrive here.")
+    except notify.NotifyError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    return NotificationStatusOut(telegram=True, delivered=True)

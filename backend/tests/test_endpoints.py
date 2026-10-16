@@ -115,7 +115,7 @@ async def test_catalog_total_respects_search(client):
 
 async def test_preferences_default_and_switch(client):
     r = await client.get("/api/preferences")
-    assert r.status_code == 200 and r.json() == {"investing_style": "investor"}
+    assert r.status_code == 200 and r.json()["investing_style"] == "investor"
 
     r = await client.put("/api/preferences", json={"investing_style": "trader"})
     assert r.status_code == 200 and r.json()["investing_style"] == "trader"
@@ -208,3 +208,15 @@ async def test_history_ranges_fetch_full_history_once(client, monkeypatch):
 async def test_history_range_is_validated(client):
     r = await client.get("/api/stocks/BBCA.JK/history", params={"range": "10y"})
     assert r.status_code == 422
+
+
+async def test_assistant_personal_data_is_opt_in_and_partial_updates(client):
+    p = (await client.get("/api/preferences")).json()
+    assert p == {"investing_style": "investor", "assistant_personal_data": False}
+    assert (await client.get("/api/assistant/status")).json()["personal_data"] is False
+
+    p = (await client.put("/api/preferences", json={"assistant_personal_data": True})).json()
+    assert p == {"investing_style": "investor", "assistant_personal_data": True}  # style kept
+    p = (await client.put("/api/preferences", json={"investing_style": "trader"})).json()
+    assert p["assistant_personal_data"] is True  # not reset by an unrelated update
+    assert (await client.get("/api/assistant/status")).json()["personal_data"] is True

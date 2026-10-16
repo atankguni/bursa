@@ -50,6 +50,14 @@ class Stock(Base):
     # When the full daily history (since listing) was fetched on demand; the
     # regular sync only keeps ~1 year for the whole catalog.
     full_history_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # From the IDX listing (services/idx_listing): board ("Main", "Development",
+    # "Acceleration", "Watchlist" = special monitoring), listing date, official shares.
+    listing_board: Mapped[str | None] = mapped_column(String(24), nullable=True)
+    listed_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    idx_shares: Mapped[float | None] = mapped_column(Float, nullable=True)
+    idx_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Last time this stock's split history was checked (services/corporate_actions).
+    splits_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Last screener "sync missing" attempt, so tickers the provider has no
     # statements for rotate to the back of the queue instead of blocking it.
     fundamentals_checked_at: Mapped[datetime | None] = mapped_column(
@@ -361,3 +369,22 @@ class IndexBar(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<IndexBar {self.code} {self.day} {self.close}>"
+
+
+class Split(Base):
+    """A stock split. `ratio` = new shares per old share (5.0 means 5-for-1)."""
+
+    __tablename__ = "splits"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    ticker: Mapped[str] = mapped_column(
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
+        nullable=False,
+    )
+    ex_date: Mapped[date] = mapped_column(Date, nullable=False)
+    ratio: Mapped[float] = mapped_column(Float, nullable=False)
+
+    __table_args__ = (UniqueConstraint("ticker", "ex_date", name="uq_split"),)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<Split {self.ticker} {self.ex_date} x{self.ratio}>"

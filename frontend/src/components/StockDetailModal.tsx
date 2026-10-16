@@ -1,4 +1,4 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useMemo, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
@@ -21,6 +21,7 @@ import {
   useDividends,
   useFundamentals,
   useHistory,
+  useIndexHistory,
   useRecommendation,
   useValuation,
   useWatchlist,
@@ -28,6 +29,7 @@ import {
 import { fmtChange, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import { useSettings } from '../lib/settings'
 import { SPANS, spanStart } from '../lib/spans'
+import BoardBadge from './BoardBadge'
 import CompanyPanel from './CompanyPanel'
 import FundamentalsPanel from './FundamentalsPanel'
 import RecommendationPanel from './RecommendationPanel'
@@ -45,6 +47,7 @@ export interface StockLike {
   last_price: number | null
   change?: number | null
   change_percent?: number | null
+  board?: string | null
 }
 
 type Tab = 'chart' | 'fundamentals' | 'recommendation' | 'company'
@@ -78,6 +81,30 @@ export default function StockDetailModal({
 
   // --- Chart data -----------------------------------------------------------
   const history = useHistory(stock.ticker, range, span, tab === 'chart')
+  // Benchmark overlay: IHSG daily bars for the same span (daily view only).
+  const [vsIhsg, setVsIhsg] = useState(false)
+  const ihsg = useIndexHistory(
+    'COMPOSITE',
+    span,
+    tab === 'chart' && vsIhsg && range === '1d',
+  )
+  const splitMarkers = useMemo(
+    () =>
+      range === '1d'
+        ? (history.data?.splits ?? []).map((s) => ({
+            date: s.ex_date,
+            text: `Split ${s.ratio >= 1 ? `${s.ratio}:1` : `1:${Math.round(1 / s.ratio)}`}`,
+          }))
+        : undefined,
+    [range, history.data?.splits],
+  )
+  const compare = useMemo(
+    () =>
+      vsIhsg && range === '1d' && ihsg.data
+        ? { label: 'IHSG', points: ihsg.data.points }
+        : undefined,
+    [vsIhsg, range, ihsg.data],
+  )
   const visibleFrom = range === '1d' ? spanStart(span) : undefined
 
   // --- Fundamentals (fetched per sub-tab, cached) ---------------------------
@@ -132,6 +159,7 @@ export default function StockDetailModal({
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold">{stock.ticker}</h2>
+              <BoardBadge board={stock.board} />
               {stock.indices.map((idx) => (
                 <span
                   key={idx}
@@ -295,6 +323,20 @@ export default function StockDetailModal({
                       {label}
                     </button>
                   ))}
+                  {range === '1d' && (
+                    <button
+                      onClick={() => setVsIhsg((v) => !v)}
+                      aria-pressed={vsIhsg}
+                      title="Compare with IHSG: both lines in % change from the left edge of the chart"
+                      className={`rounded px-2 py-1 text-[11px] font-medium ring-1 transition ${
+                        vsIhsg
+                          ? 'bg-bull/15 text-bull ring-bull/30'
+                          : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
+                      }`}
+                    >
+                      vs IHSG
+                    </button>
+                  )}
                 </div>
               </div>
 
@@ -323,6 +365,8 @@ export default function StockDetailModal({
                       chartType={chartType}
                       indicators={ind}
                       visibleFrom={visibleFrom}
+                      compare={compare}
+                      markers={splitMarkers}
                     />
                   </Suspense>
                 ) : (

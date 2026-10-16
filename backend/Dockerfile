@@ -54,5 +54,8 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-
 #   docker build --target test -t bursa-backend-test ./backend
 #   docker run --rm bursa-backend-test
 FROM runtime AS test
-RUN python -m ensurepip && python -m pip install --no-cache-dir pytest pytest-asyncio httpx ruff
-CMD ["sh", "-c", "ruff check . && python -m pytest -q"]
+# nodejs: pyright's runtime (the pip package uses the system node when present).
+RUN apk add --no-cache nodejs npm \
+ && python -m ensurepip \
+ && python -m pip install --no-cache-dir pytest pytest-asyncio httpx ruff pyright
+CMD ["sh", "-c", "ruff check . && pyright && python -m pytest -q"]

@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchPreferences, updatePreferences, type InvestingStyle } from '../api'
+import { fetchPreferences, updatePreferences, type Preferences } from '../api'
 import { queryKeys } from './keys'
 
 // Everything that shows a signal / rating is re-scored when the style changes.
@@ -13,33 +13,43 @@ const SIGNAL_QUERIES = [
   ['alerts'],
 ] as const
 
-/** Server-side preferences (investing style). Defaults to investor until loaded. */
+/** Server-side preferences. Defaults (investor, no personal data) until loaded. */
 export function usePreferences() {
   const qc = useQueryClient()
   const query = useQuery({
     queryKey: queryKeys.preferences,
     queryFn: fetchPreferences,
-    staleTime: Infinity, // only changes through setStyle below
+    staleTime: Infinity, // only changes through the mutation below
   })
 
   const mutation = useMutation({
-    mutationFn: (style: InvestingStyle) => updatePreferences({ investing_style: style }),
-    // Flip the toggle immediately; roll back if the save fails.
-    onMutate: async (style) => {
+    mutationFn: (patch: Partial<Preferences>) => updatePreferences(patch),
+    // Apply immediately (merged, so one setting never resets another); roll back on error.
+    onMutate: async (patch) => {
       await qc.cancelQueries({ queryKey: queryKeys.preferences })
-      const previous = qc.getQueryData(queryKeys.preferences)
-      qc.setQueryData(queryKeys.preferences, { investing_style: style })
+      const previous = qc.getQueryData<Preferences>(queryKeys.preferences)
+      if (previous) qc.setQueryData(queryKeys.preferences, { ...previous, ...patch })
       return { previous }
     },
-    onError: (_err, _style, ctx) => qc.setQueryData(queryKeys.preferences, ctx?.previous),
-    onSuccess: () => {
-      SIGNAL_QUERIES.forEach((key) => qc.invalidateQueries({ queryKey: key }))
+    onError: (_err, _patch, ctx) => qc.setQueryData(queryKeys.preferences, ctx?.previous),
+    onSuccess: (saved, patch) => {
+      qc.setQueryData(queryKeys.preferences, saved)
+      if (patch.investing_style !== undefined) {
+        SIGNAL_QUERIES.forEach((key) => qc.invalidateQueries({ queryKey: key }))
+      }
+      if (patch.assistant_personal_data !== undefined) {
+        qc.invalidateQueries({ queryKey: queryKeys.assistantStatus })
+      }
     },
   })
 
   return {
     style: query.data?.investing_style ?? 'investor',
-    setStyle: mutation.mutate,
+    personalData: query.data?.assistant_personal_data ?? false,
+    setStyle: (investing_style: Preferences['investing_style']) =>
+      mutation.mutate({ investing_style }),
+    setPersonalData: (assistant_personal_data: boolean) =>
+      mutation.mutate({ assistant_personal_data }),
     isSaving: mutation.isPending,
     error: mutation.error,
   }

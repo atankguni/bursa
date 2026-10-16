@@ -103,6 +103,8 @@ async def sync_ticker(ticker: str, with_dividends: bool = True) -> int:
     # Dividends are best-effort (separate provider call, own session). Callers
     # that only need ratios/sector (e.g. the screener sync) pass False to halve
     # the number of provider calls.
+    if rows:
+        await reconcile_shares([ticker])
     if with_dividends:
         from services.dividends import sync_dividends
 
@@ -122,3 +124,44 @@ async def sync_many(
     if tickers:
         log.info("Fundamentals synced for %d tickers (%d rows)", len(tickers), total)
     return total
+
+
+# Yahoo's share count is sometimes far off (BBNI 0.58bn vs 37.3bn; AISA 3.8bn vs
+# 9.3bn); the IDX listing is the official register. Beyond this gap, use IDX.
+SHARES_TOLERANCE = 0.2
+
+
+async def reconcile_shares(tickers: list[str] | None = None) -> int:
+    """Replace the latest fundamentals row's share count with IDX's official one
+    where they disagree by more than SHARES_TOLERANCE. Returns rows fixed."""
+    from sqlalchemy import func, select
+
+    from models import Stock
+
+    fixed = 0
+    async with AsyncSessionLocal() as session:
+        latest = (
+            select(Fundamental.ticker, func.max(Fundamental.fiscal_year).label("fy"))
+            .group_by(Fundamental.ticker)
+            .subquery()
+        )
+        stmt = (
+            select(Fundamental, Stock.idx_shares)
+            .join(latest, (Fundamental.ticker == latest.c.ticker)
+                  & (Fundamental.fiscal_year == latest.c.fy))
+            .join(Stock, Stock.ticker == Fundamental.ticker)
+            .where(Stock.idx_shares.is_not(None))
+        )
+        if tickers is not None:
+            stmt = stmt.where(Fundamental.ticker.in_(tickers))
+        for f, idx_shares in (await session.execute(stmt)).all():
+            if idx_shares and (
+                not f.total_shares
+                or abs(f.total_shares - idx_shares) / idx_shares > SHARES_TOLERANCE
+            ):
+                log.info("Shares for %s: provider %s -> IDX %s", f.ticker, f.total_shares,
+                         idx_shares)
+                f.total_shares = idx_shares
+                fixed += 1
+        await session.commit()
+    return fixed

@@ -81,6 +81,17 @@ def last_trading_day(now: datetime | None = None) -> date:
     return d
 
 
+def last_closed_trading_day(now: datetime | None = None) -> date:
+    """The most recent trading day whose session has ended (final prices exist)."""
+    now = (now or datetime.now(WIB)).astimezone(WIB)
+    d = now.date()
+    if not (is_trading_day(d) and now.time() >= SESSION2_END):
+        d -= timedelta(days=1)
+        while not is_trading_day(d):
+            d -= timedelta(days=1)
+    return d
+
+
 def is_open(now: datetime | None = None) -> bool:
     """True while the exchange is actively trading (either session)."""
     return session(now) == "open"

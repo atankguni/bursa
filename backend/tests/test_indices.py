@@ -89,3 +89,12 @@ async def test_index_api_validation(client):
     assert (await client.get("/api/indices/NOPE/history")).status_code == 404
     bad = await client.get("/api/indices/LQ45/history", params={"range": "10y"})
     assert bad.status_code == 422
+
+
+def test_last_closed_trading_day():
+    from services.market_clock import last_closed_trading_day
+
+    fri = datetime(2026, 10, 16, 10, 0, tzinfo=WIB)
+    assert last_closed_trading_day(fri) == date(2026, 10, 15)  # today still trading
+    assert last_closed_trading_day(fri.replace(hour=16)) == date(2026, 10, 16)  # after close
+    assert last_closed_trading_day(datetime(2026, 10, 18, 9, tzinfo=WIB)) == date(2026, 10, 16)

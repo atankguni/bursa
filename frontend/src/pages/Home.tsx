@@ -14,6 +14,7 @@ import { DEFAULT_INDEXES, addToWatchlist, type Stock } from '../api'
 import { useIndexes, useStatus, useStocks, useWatchlist } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtChange, fmtDateTime, fmtPct, fmtPrice, fmtVolume } from '../lib/format'
+import BoardBadge from '../components/BoardBadge'
 import IndexMultiSelect from '../components/IndexMultiSelect'
 import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
@@ -259,7 +260,10 @@ export default function Home() {
                     className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60"
                   >
                     <td className="px-4 py-2 font-semibold tracking-tight">
-                      {s.ticker.replace('.JK', '')}
+                      <span className="inline-flex items-center gap-1.5">
+                        {s.ticker.replace('.JK', '')}
+                        <BoardBadge board={s.board} compact />
+                      </span>
                     </td>
                     <td className="px-4 py-2 text-muted">{s.name}</td>
                     {rec('index') && (

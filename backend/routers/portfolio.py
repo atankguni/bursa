@@ -1,41 +1,35 @@
 """Portfolio endpoints (transactions -> holdings + P/L)."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
 from models import Stock, Transaction
 from schemas import (
     EquityPoint,
+    ExpectedDividendOut,
     HoldingOut,
     PortfolioOut,
+    PortfolioRiskOut,
     PortfolioTotals,
     TransactionIn,
     TransactionOut,
 )
+from services import indices as index_service
+from services.corporate_actions import adjusted_transactions
+from services.dividend_calendar import dividend_calendar
 from services.portfolio import build_portfolio, equity_curve
+from services.portfolio_risk import portfolio_risk
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
 
 async def _held_quantity(session: AsyncSession, ticker: str) -> float:
-    buys = (
-        await session.execute(
-            select(func.coalesce(func.sum(Transaction.quantity), 0.0)).where(
-                Transaction.ticker == ticker, Transaction.side == "buy"
-            )
-        )
-    ).scalar_one()
-    sells = (
-        await session.execute(
-            select(func.coalesce(func.sum(Transaction.quantity), 0.0)).where(
-                Transaction.ticker == ticker, Transaction.side == "sell"
-            )
-        )
-    ).scalar_one()
-    return float(buys) - float(sells)
+    """Shares held now, in post-split terms (what a new sell is entered in)."""
+    txs = await adjusted_transactions(session, ticker)
+    return sum(t.quantity if t.side == "buy" else -t.quantity for t in txs)
 
 
 @router.get("", response_model=PortfolioOut)
@@ -108,4 +102,22 @@ async def delete_transaction(
 async def portfolio_history(
     session: AsyncSession = Depends(get_session),
 ) -> list[EquityPoint]:
+    # IHSG benchmark needs its history (fetched once, then stored).
+    await index_service.ensure_full_history(session, "COMPOSITE")
     return [EquityPoint(**p) for p in await equity_curve(session)]
+
+
+@router.get("/risk", response_model=PortfolioRiskOut)
+async def get_portfolio_risk(session: AsyncSession = Depends(get_session)) -> PortfolioRiskOut:
+    """Concentration, sectors, beta vs IHSG, stress test and max drawdown."""
+    await index_service.ensure_full_history(session, "COMPOSITE")
+    return PortfolioRiskOut.model_validate(await portfolio_risk(session))
+
+
+@router.get("/dividend-calendar", response_model=list[ExpectedDividendOut])
+async def get_dividend_calendar(
+    days: int = Query(180, ge=7, le=366),
+    session: AsyncSession = Depends(get_session),
+) -> list[ExpectedDividendOut]:
+    """Expected ex-dates for holdings + watchlist, projected from last year's."""
+    return [ExpectedDividendOut.model_validate(d) for d in await dividend_calendar(session, days)]

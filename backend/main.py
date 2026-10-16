@@ -24,6 +24,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Coroutine
 from contextlib import asynccontextmanager
+from datetime import datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,6 +37,7 @@ from models import StockPrice
 from routers import (
     alerts,
     assistant,
+    data_health,
     indices,
     market,
     meta,
@@ -49,12 +51,16 @@ from scheduler import (
     TICKERS,
     backfill_active,
     backfill_daily,
+    catch_up_intraday,
     refresh_index_quotes,
     start_scheduler,
     stop_scheduler,
+    sync_splits_active,
     sync_watchlist_fundamentals,
 )
 from services.bootstrap import purge_stale_fundamentals, seed
+from services.idx_listing import sync_if_stale as sync_idx_listing_if_stale
+from services.market_clock import last_closed_trading_day
 
 logging.basicConfig(
     level=logging.INFO,
@@ -74,14 +80,16 @@ def _spawn(coro: Coroutine[object, object, None]) -> None:
 
 
 async def _catalog_coverage() -> float:
-    """Fraction of catalog tickers that already have daily price data."""
+    """Fraction of catalog tickers that have the last *finished* trading day's bar."""
     from database import AsyncSessionLocal
 
+    day = last_closed_trading_day()
     async with AsyncSessionLocal() as session:
         have = (
             await session.execute(
                 select(func.count(func.distinct(StockPrice.ticker))).where(
-                    StockPrice.interval == "1d"
+                    StockPrice.interval == "1d",
+                    StockPrice.timestamp >= datetime.combine(day, datetime.min.time()),
                 )
             )
         ).scalar_one()
@@ -100,7 +108,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Fast startup backfill for the active set; the full catalog sync runs in
     # the background only when coverage is low (first boot), keeping restarts fast.
     await backfill_active()
-    if await _catalog_coverage() < 0.5:
+    # Catalog incomplete for the last finished trading day (first boot, or the
+    # 16:30 job was missed): fetch it in the background.
+    if await _catalog_coverage() < 0.8:
         _spawn(backfill_daily())
 
     start_scheduler()
@@ -108,6 +118,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # Refresh watchlist fundamentals in the background (non-blocking startup).
     _spawn(sync_watchlist_fundamentals())
     _spawn(refresh_index_quotes())
+    # Listing boards / IPOs from the IDX site, if more than a week old.
+    _spawn(sync_idx_listing_if_stale())
+    _spawn(sync_splits_active())
+    # Fill 1-minute gaps from while the app was down or the host slept.
+    _spawn(catch_up_intraday("5d"))
 
     log.info("Bursa API ready")
     try:
@@ -147,3 +162,4 @@ app.include_router(alerts.router)
 app.include_router(preferences.router)
 app.include_router(assistant.router)
 app.include_router(indices.router)
+app.include_router(data_health.router)

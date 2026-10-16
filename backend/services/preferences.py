@@ -41,3 +41,28 @@ async def set_investing_style(session: AsyncSession, style: InvestingStyle) -> b
     await session.execute(delete(RatingState))
     await session.commit()
     return True
+
+
+ASSISTANT_PERSONAL_KEY = "assistant_personal_data"
+
+
+async def get_assistant_personal_data(session: AsyncSession) -> bool:
+    """Whether the AI assistant may read the watchlist/portfolio (opt-in).
+    Falls back to the `assistant_personal_data` setting until the user chooses."""
+    from config import settings
+
+    value = (
+        await session.execute(
+            select(Preference.value).where(Preference.key == ASSISTANT_PERSONAL_KEY)
+        )
+    ).scalar_one_or_none()
+    return settings.assistant_personal_data if value is None else value == "true"
+
+
+async def set_assistant_personal_data(session: AsyncSession, enabled: bool) -> None:
+    value = "true" if enabled else "false"
+    stmt = sqlite_insert(Preference).values(key=ASSISTANT_PERSONAL_KEY, value=value)
+    await session.execute(
+        stmt.on_conflict_do_update(index_elements=["key"], set_={"value": value})
+    )
+    await session.commit()

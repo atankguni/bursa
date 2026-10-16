@@ -101,6 +101,15 @@ def _apply_light_migrations(conn: Connection) -> None:
         conn.exec_driver_sql(
             "ALTER TABLE stocks ADD COLUMN tracked BOOLEAN NOT NULL DEFAULT 0"
         )
+    for name, coltype in {
+        "listing_board": "VARCHAR(24)",
+        "listed_on": "DATE",
+        "idx_shares": "FLOAT",
+        "idx_synced_at": "DATETIME",
+        "splits_checked_at": "DATETIME",
+    }.items():
+        if stocks and name not in stocks:
+            conn.exec_driver_sql(f"ALTER TABLE stocks ADD COLUMN {name} {coltype}")
     if stocks and "full_history_at" not in stocks:
         conn.exec_driver_sql("ALTER TABLE stocks ADD COLUMN full_history_at DATETIME")
     if stocks and "fundamentals_checked_at" not in stocks:

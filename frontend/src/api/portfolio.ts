@@ -1,5 +1,12 @@
 import { api } from './client'
-import type { EquityPoint, Portfolio, Transaction, TransactionInput } from './types'
+import type {
+  EquityPoint,
+  ExpectedDividend,
+  Portfolio,
+  PortfolioRisk,
+  Transaction,
+  TransactionInput,
+} from './types'
 
 export async function fetchPortfolio(): Promise<Portfolio> {
   const { data } = await api.get<Portfolio>('/api/portfolio')
@@ -22,5 +29,18 @@ export async function deleteTransaction(id: number): Promise<void> {
 
 export async function fetchPortfolioHistory(): Promise<EquityPoint[]> {
   const { data } = await api.get<EquityPoint[]>('/api/portfolio/history')
+  return data
+}
+
+export async function fetchPortfolioRisk(): Promise<PortfolioRisk> {
+  const { data } = await api.get<PortfolioRisk>('/api/portfolio/risk')
+  return data
+}
+
+export async function fetchDividendCalendar(days = 180): Promise<ExpectedDividend[]> {
+  const { data } = await api.get<ExpectedDividend[]>('/api/portfolio/dividend-calendar', {
+    params: { days },
+    timeout: 60_000, // first call may fetch dividend history for new tickers
+  })
   return data
 }

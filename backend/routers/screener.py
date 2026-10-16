@@ -56,8 +56,19 @@ async def screener_sync_status() -> SyncStatusOut:
 @router.post("/screener/sync", response_model=SyncStartOut)
 async def screener_sync(
     limit: int | None = Query(None, ge=1, le=200, description="Cap tickers per run"),
+    all_missing: bool = Query(
+        False, alias="all",
+        description="Work through every never-tried stock in paced batches",
+    ),
 ) -> SyncStartOut:
     """Queue a background fundamentals sync for stocks missing data."""
+    if all_missing:
+        started = await sync_job.start_all()
+        st = sync_job.status()
+        return SyncStartOut(
+            running=st["running"], queued=st["total"] if started else 0,
+            total=st["total"], remaining=st["remaining"],
+        )
     missing = await sync_job.missing_tickers()
     cap = limit or settings.screener_sync_limit
     tickers = missing[:cap]
@@ -72,3 +83,10 @@ async def screener_sync(
         total=st["total"],
         remaining=st["remaining"],
     )
+
+
+@router.post("/screener/sync/cancel", response_model=SyncStatusOut)
+async def screener_sync_cancel() -> SyncStatusOut:
+    """Stop the running sync after the current stock."""
+    sync_job.cancel()
+    return SyncStatusOut(**sync_job.status(), missing=await sync_job.missing_count())

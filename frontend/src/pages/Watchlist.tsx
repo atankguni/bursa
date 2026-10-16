@@ -5,6 +5,7 @@ import { refreshWatchlist, removeFromWatchlist, type WatchlistItem } from '../ap
 import { useWatchlist } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtCompact, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
+import BoardBadge from '../components/BoardBadge'
 import StockDetailModal from '../components/StockDetailModal'
 import SignalBadge from '../components/SignalBadge'
 import SortHeader, { type SortState } from '../components/SortHeader'
@@ -225,6 +226,7 @@ export default function Watchlist() {
                     <td className="px-4 py-2 font-semibold tracking-tight">
                       <span className="inline-flex items-center gap-1.5">
                         {it.ticker.replace('.JK', '')}
+                        <BoardBadge board={it.board} compact />
                         {f?.financial_currency && f.financial_currency !== 'IDR' && (
                           <span
                             title={`Reported in ${f.financial_currency}, converted to IDR`}

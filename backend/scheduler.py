@@ -16,10 +16,12 @@ The heavy lifting lives in `market.sync` (batched downloads) and
 
 import logging
 from datetime import datetime, timedelta
+from typing import Any, cast
 
+from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 
 from config import settings
 from database import AsyncSessionLocal, vacuum, wal_checkpoint
@@ -98,6 +100,29 @@ async def refresh_index_quotes() -> None:
     await refresh_quotes()
 
 
+async def catch_up_intraday(period: str = "1d") -> None:
+    """
+    Re-fetch 1-minute bars to fill gaps (e.g. the host slept mid-session).
+    Runs after the close for the day ("1d") and at startup for the whole
+    retention window ("5d"). Not gated on market hours, unlike sync_intraday.
+    """
+    await sync_batch(await active_tickers(), period=period, interval=INTRADAY_INTERVAL)
+
+
+async def sync_idx_listing() -> None:
+    """Listing boards, dates, official shares and new IPOs from the IDX site."""
+    from services.idx_listing import sync_listing
+
+    await sync_listing()
+
+
+async def sync_splits_active() -> None:
+    """Stock splits for the active set, re-checked weekly per stock."""
+    from services.corporate_actions import sync_due
+
+    await sync_due(await active_tickers())
+
+
 async def sync_watchlist_fundamentals() -> None:
     """Refresh yearly fundamentals for every ticker currently on the watchlist."""
     from services.fundamentals import sync_many
@@ -117,12 +142,12 @@ async def prune_intraday() -> None:
     """Delete old 1m bars, then checkpoint the WAL. Keeps the DB from growing."""
     cutoff = datetime.utcnow() - timedelta(days=settings.intraday_retention_days)
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
+        result = cast(CursorResult[Any], await session.execute(
             delete(StockPrice).where(
                 StockPrice.interval == INTRADAY_INTERVAL,
                 StockPrice.timestamp < cutoff,
             )
-        )
+        ))
         await session.commit()
     await wal_checkpoint()
     log.info(
@@ -153,7 +178,39 @@ async def log_provider_stats() -> None:
 # Lifecycle
 # --------------------------------------------------------------------------- #
 
-scheduler = AsyncIOScheduler(timezone=settings.timezone)
+# APScheduler drops a run that is late by more than `misfire_grace_time`
+# (default: 1 second). On a laptop, Docker pauses while the host sleeps, so a
+# 09:00 backfill would silently never happen. Run missed jobs once on wake
+# instead (within 6h), collapsing any backlog into a single run.
+scheduler = AsyncIOScheduler(
+    timezone=settings.timezone,
+    job_defaults={"misfire_grace_time": 6 * 3600, "coalesce": True},
+)
+
+
+# Last outcome per job id, for the data-health page (in-memory; single process).
+job_runs: dict[str, dict[str, object]] = {}
+
+
+def _record_job(event: JobExecutionEvent) -> None:
+    job_runs[event.job_id] = {
+        "last_run": datetime.utcnow(),
+        "ok": event.exception is None,
+        "error": str(event.exception)[:300] if event.exception else None,
+    }
+
+
+def job_report() -> list[dict[str, object]]:
+    """Every scheduled job with its next run and last outcome (if any yet)."""
+    return [
+        {
+            "id": job.id,
+            "description": (job.func.__doc__ or job.id).strip().splitlines()[0],
+            "next_run": job.next_run_time,
+            **job_runs.get(job.id, {"last_run": None, "ok": None, "error": None}),
+        }
+        for job in sorted(scheduler.get_jobs(), key=lambda j: j.id)
+    ]
 
 
 def start_scheduler() -> None:
@@ -161,10 +218,12 @@ def start_scheduler() -> None:
     if scheduler.running:
         return
 
-    # Daily backfill: at startup, then each weekday at 09:00 WIB.
+    # Daily bars for the whole catalog: weekdays at 16:30 WIB, after the close,
+    # so every stock gets the day's final bar (at 09:00 the day had barely begun
+    # and most stocks only got yesterday's bar the next morning).
     scheduler.add_job(
         backfill_daily,
-        trigger=CronTrigger(day_of_week="mon-fri", hour=9, minute=0),
+        trigger=CronTrigger(day_of_week="mon-fri", hour=16, minute=30),
         id="backfill_daily",
         replace_existing=True,
         max_instances=1,
@@ -176,6 +235,36 @@ def start_scheduler() -> None:
         sync_intraday,
         trigger=CronTrigger(day_of_week="mon-fri", hour="9-15", minute="*/3"),
         id="sync_intraday",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # IDX listing (boards / special monitoring, IPOs): weekly, Monday 08:00 WIB.
+    scheduler.add_job(
+        sync_idx_listing,
+        trigger=CronTrigger(day_of_week="mon", hour=8, minute=0),
+        id="sync_idx_listing",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Stock splits for the active set (each stock re-checked weekly): daily 07:30.
+    scheduler.add_job(
+        sync_splits_active,
+        trigger=CronTrigger(hour=7, minute=30),
+        id="sync_splits",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # After the close: fill any 1-minute gaps from the day (host sleep etc.).
+    scheduler.add_job(
+        catch_up_intraday,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=16, minute=10),
+        id="catch_up_intraday",
         replace_existing=True,
         max_instances=1,
         coalesce=True,
@@ -240,6 +329,7 @@ def start_scheduler() -> None:
         coalesce=True,
     )
 
+    scheduler.add_listener(_record_job, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
     scheduler.start()
     log.info("Scheduler started with %d jobs", len(scheduler.get_jobs()))
 

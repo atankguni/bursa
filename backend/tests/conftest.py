@@ -35,3 +35,19 @@ async def client():
         side = _TEST_DB.with_name(_TEST_DB.name + suffix)
         if side.exists():
             side.unlink()
+
+
+@pytest_asyncio.fixture(autouse=True)
+async def _no_network(monkeypatch):
+    """
+    Tests must never reach Yahoo. Block yfinance's network entry points; a test
+    that fakes yfinance (monkeypatching these itself) overrides the guard.
+    """
+    import yfinance as yf
+
+    def blocked(*args, **kwargs):
+        raise AssertionError("test tried to reach Yahoo (yfinance network call)")
+
+    for name in ("download", "Ticker", "Search"):
+        monkeypatch.setattr(yf, name, blocked)
+    yield

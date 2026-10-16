@@ -40,9 +40,17 @@ export async function fetchSyncStatus(): Promise<SyncStatus> {
   return data
 }
 
-export async function startScreenerSync(limit?: number): Promise<SyncStart> {
-  const { data } = await api.post<SyncStart>('/api/screener/sync', null, {
-    params: limit ? { limit } : undefined,
-  })
+export async function startScreenerSync(
+  opts: { limit?: number; all?: boolean } = {},
+): Promise<SyncStart> {
+  const params: Record<string, string | number> = {}
+  if (opts.limit) params.limit = opts.limit
+  if (opts.all) params.all = 'true'
+  const { data } = await api.post<SyncStart>('/api/screener/sync', null, { params })
+  return data
+}
+
+export async function cancelScreenerSync(): Promise<SyncStatus> {
+  const { data } = await api.post<SyncStatus>('/api/screener/sync/cancel')
   return data
 }

@@ -15,6 +15,7 @@ from sqlalchemy import select
 from config import settings
 from database import AsyncSessionLocal
 from models import Alert, AlertEvent, RatingState
+from services.notify import send_quietly
 from services.prices import latest_daily
 from services.recommendation import compute_universe_cached
 
@@ -86,6 +87,7 @@ async def evaluate_alerts() -> int:
         }
 
         cooldown = timedelta(hours=settings.alert_cooldown_hours)
+        outbox: list[str] = []  # sent after the events are safely committed
         now = datetime.utcnow()
         created = 0
 
@@ -128,20 +130,24 @@ async def evaluate_alerts() -> int:
             ):
                 continue
 
+            message = _message(a, value, rating, prev_rating)
             session.add(
                 AlertEvent(
                     alert_id=a.id,
                     ticker=a.ticker,
                     triggered_at=now,
                     value=value,
-                    message=_message(a, value, rating, prev_rating),
+                    message=message,
                 )
             )
             a.last_triggered_at = now
             created += 1
+            outbox.append(message)
 
         await session.commit()
 
     if created:
         log.info("Alerts: %d event(s) created", created)
+    for message in outbox:  # in-app events are recorded first; delivery is best-effort
+        await send_quietly(f"🔔 Bursa: {message}")
     return created

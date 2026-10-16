@@ -54,6 +54,7 @@ async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
                 id=stock.id,
                 ticker=stock.ticker,
                 name=stock.name,
+                board=stock.listing_board,
                 indices=index_map.get(stock.ticker, []),
                 added_at=link.added_at,
                 last_price=last,

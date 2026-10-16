@@ -1,8 +1,9 @@
 """One-time startup bootstrap: seed the universe and clean stale data."""
 
 import logging
+from typing import Any, cast
 
-from sqlalchemy import delete, select
+from sqlalchemy import CursorResult, delete, select
 
 from database import AsyncSessionLocal
 from market.tickers import all_tickers, associations, name_for
@@ -50,9 +51,9 @@ async def seed() -> None:
 async def purge_stale_fundamentals() -> None:
     """Remove fundamentals rows lacking a currency tag (pre-conversion rows)."""
     async with AsyncSessionLocal() as session:
-        result = await session.execute(
+        result = cast(CursorResult[Any], await session.execute(
             delete(Fundamental).where(Fundamental.financial_currency.is_(None))
-        )
+        ))
         await session.commit()
         if result.rowcount:
             log.info("Purged %d stale fundamentals rows", result.rowcount)

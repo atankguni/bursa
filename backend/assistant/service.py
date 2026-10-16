@@ -36,7 +36,7 @@ from assistant.providers import (
 )
 from assistant.tools import Tool, available_tools
 from config import settings
-from services.preferences import get_investing_style
+from services.preferences import get_assistant_personal_data, get_investing_style
 
 log = logging.getLogger("bursa.assistant")
 
@@ -155,10 +155,11 @@ async def ask(
         )
     _usage[_today()] = _usage.get(_today(), 0) + 1
 
-    tools = available_tools(settings.assistant_personal_data)
+    personal = await get_assistant_personal_data(session)
+    tools = available_tools(personal)
     system = SYSTEM_PROMPT.format(
         style=await get_investing_style(session),
-        personal=_PERSONAL_ON if settings.assistant_personal_data else _PERSONAL_OFF,
+        personal=_PERSONAL_ON if personal else _PERSONAL_OFF,
         today=datetime.now(ZoneInfo(settings.timezone)).strftime("%A %d %B %Y, %H:%M"),
         context=f"\nThe user is currently looking at: {context}." if context else "",
     )

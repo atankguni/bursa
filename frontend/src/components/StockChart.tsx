@@ -3,10 +3,12 @@ import {
   ColorType,
   CrosshairMode,
   LineStyle,
+  PriceScaleMode,
   createChart,
   type CandlestickData,
   type HistogramData,
   type IChartApi,
+  type ISeriesApi,
   type LineData,
   type UTCTimestamp,
 } from 'lightweight-charts'
@@ -117,6 +119,8 @@ export default function StockChart({
   height = 400,
   indicators,
   visibleFrom,
+  compare,
+  markers,
 }: {
   data: PricePoint[]
   chartType: 'candle' | 'line'
@@ -124,6 +128,13 @@ export default function StockChart({
   indicators?: Indicators
   /** ISO date: start the view here (older data stays scrollable). Omit to fit all. */
   visibleFrom?: string
+  /**
+   * Overlay a benchmark (e.g. IHSG). The price scale switches to % change from
+   * the first visible bar, so both lines start at 0% and rebase as you scroll.
+   */
+  compare?: { label: string; points: PricePoint[] }
+  /** Event markers (e.g. stock splits), snapped to the first bar on/after `date`. */
+  markers?: { date: string; text: string }[]
 }) {
   const mainRef = useRef<HTMLDivElement>(null)
   const rsiRef = useRef<HTMLDivElement>(null)
@@ -147,6 +158,7 @@ export default function StockChart({
       timeScale: { borderColor: c.border, timeVisible: true, secondsVisible: false },
     })
 
+    let main: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>
     if (chartType === 'candle') {
       const series = chart.addCandlestickSeries({
         upColor: c.bull,
@@ -164,6 +176,7 @@ export default function StockChart({
         close: p.close,
       }))
       series.setData(bars)
+      main = series
     } else {
       const series = chart.addLineSeries({ color: c.line, lineWidth: 2 })
       const pts: LineData[] = data.map((p) => ({
@@ -171,6 +184,29 @@ export default function StockChart({
         value: p.close,
       }))
       series.setData(pts)
+      main = series
+    }
+
+    // Snap each marker to the first bar on/after its date (markers need a bar time).
+    if (markers?.length && data.length) {
+      const times = data.map((p) => toTime(p.timestamp))
+      const placed = markers
+        .map((m) => {
+          const at = toTime(m.date)
+          const t = times.find((x) => x >= at)
+          return t == null ? null : { time: t, text: m.text }
+        })
+        .filter((m): m is { time: UTCTimestamp; text: string } => m != null)
+        .sort((a, b) => a.time - b.time)
+      main.setMarkers(
+        placed.map((m) => ({
+          time: m.time,
+          position: 'aboveBar' as const,
+          shape: 'arrowDown' as const,
+          color: resolvedTheme === 'dark' ? '#fbbf24' : '#b45309',
+          text: m.text,
+        })),
+      )
     }
 
     if (ind?.volume) {
@@ -185,6 +221,20 @@ export default function StockChart({
         color: p.close >= p.open ? `${c.bull}66` : `${c.bear}66`,
       }))
       vol.setData(bars)
+    }
+
+    if (compare && compare.points.length > 1) {
+      chart.priceScale('right').applyOptions({ mode: PriceScaleMode.Percentage })
+      const bench = chart.addLineSeries({
+        color: resolvedTheme === 'dark' ? '#cbd5e1' : '#475569',
+        lineWidth: 2,
+        lineStyle: LineStyle.Dashed,
+        title: compare.label,
+        priceLineVisible: false,
+      })
+      bench.setData(
+        compare.points.map((p) => ({ time: toTime(p.timestamp), value: p.close })),
+      )
     }
 
     if (ind?.ma20 || ind?.ma50 || ind?.ma200) {
@@ -275,13 +325,15 @@ export default function StockChart({
     ind?.volume,
     ind?.rsi,
     visibleFrom,
+    compare,
+    markers,
   ])
 
   const last = data.length > 0 ? data[data.length - 1].close : null
   const label =
-    last != null
+    (last != null
       ? `Price chart with ${data.length} points; latest close ${last}`
-      : 'Price chart'
+      : 'Price chart') + (compare ? `, compared with ${compare.label} in % change` : '')
 
   return (
     <div className="w-full" role="img" aria-label={label}>

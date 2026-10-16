@@ -282,6 +282,7 @@ def score_universe(
     raw: dict[str, RawFactors],
     traded_value: dict[str, float] | None = None,
     style: InvestingStyle = "investor",
+    special_monitoring: set[str] | None = None,
 ) -> dict[str, RecommendationOut]:
     """
     Turn raw per-ticker factor values into recommendation objects.
@@ -291,6 +292,7 @@ def score_universe(
     computed across the eligible tickers (the cross-section). Investor: when
     `traded_value` is given, Buy/Strong Buy is capped at Hold below
     `recommendation_min_traded_value` (traders never see illiquid names at all).
+    Both styles cap stocks on IDX's special-monitoring board at Hold.
     """
     spec = _SPECS[style]
     weights = spec.weights()
@@ -333,6 +335,11 @@ def score_universe(
                 reasons.append(
                     f"Thinly traded (Rp {liquidity / 1e6:,.0f}M/day) — capped at Hold"
                 )
+        if special_monitoring and ticker in special_monitoring and rating in _BUY_RATINGS:
+            rating = "Hold"
+            reasons.append(
+                "Under IDX special monitoring (Papan Pemantauan Khusus) — capped at Hold"
+            )
         results[ticker] = RecommendationOut(
             ticker=ticker,
             score=round(composite, 1),
@@ -367,9 +374,14 @@ async def compute_universe(
 
     closes_map = await daily_closes(session, tickers)
     liquidity = await median_traded_value(session, tickers)
+    special = set(
+        (await session.execute(
+            select(Stock.ticker).where(Stock.listing_board == "Watchlist")
+        )).scalars().all()
+    )
     if style == "trader":
         raw = {t: trader_factors(closes_map.get(t, [])) for t in tickers}
-        return score_universe(raw, liquidity, style)
+        return score_universe(raw, liquidity, style, special)
 
     funds_map = await fundamental_series(session, tickers)
     prof_map = await profiles(session, tickers)
@@ -384,7 +396,7 @@ async def compute_universe(
         )
         for t in tickers
     }
-    return score_universe(raw, liquidity, style)
+    return score_universe(raw, liquidity, style, special)
 
 
 # In-process TTL cache per style: the cross-section only changes when data syncs

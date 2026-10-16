@@ -4,6 +4,8 @@ export interface Stock {
   id: number
   ticker: string
   name: string
+  /** IDX listing board; 'Watchlist' = special monitoring (Papan Pemantauan Khusus). */
+  board?: string | null
   indices: string[]
   last_price: number | null
   previous_close: number | null
@@ -29,6 +31,8 @@ export interface StockHistory {
   indices: string[]
   interval: string
   points: PricePoint[]
+  /** Stock splits (ratio = new shares per old share), for chart markers. */
+  splits?: { ex_date: string; ratio: number }[]
 }
 
 /** Chart span for daily bars; 5y/max load the stock's full history on first use. */
@@ -80,6 +84,8 @@ export interface WatchlistItem {
   id: number
   ticker: string
   name: string
+  /** IDX listing board; 'Watchlist' = special monitoring (Papan Pemantauan Khusus). */
+  board?: string | null
   indices: string[]
   added_at: string | null
   last_price: number | null
@@ -140,6 +146,8 @@ export interface AssistantStatus {
 
 export interface Preferences {
   investing_style: InvestingStyle
+  /** Opt-in: the AI assistant may read the watchlist and portfolio. */
+  assistant_personal_data: boolean
 }
 
 export interface Recommendation {
@@ -200,6 +208,9 @@ export interface TransactionInput {
 export interface Holding {
   ticker: string
   name: string
+  board?: string | null
+  /** Some trades were re-expressed in post-split shares. */
+  split_adjusted?: boolean
   quantity: number
   avg_cost: number
   price: number | null
@@ -229,9 +240,42 @@ export interface Portfolio {
   holdings: Holding[]
 }
 
+/** A projected (not announced) dividend, from last year's ex-date. */
+export interface ExpectedDividend {
+  ticker: string
+  name: string
+  expected_ex_date: string
+  based_on: string
+  amount_per_share: number
+  regular: boolean
+  shares_held: number | null
+  expected_income: number | null
+  in_portfolio: boolean
+  in_watchlist: boolean
+}
+
+export interface PortfolioRisk {
+  holdings: { ticker: string; weight: number; sector: string; beta: number | null }[]
+  sectors: { sector: string; weight: number }[]
+  effective_holdings: number | null
+  top_weight: number | null
+  top3_weight: number | null
+  beta: number | null
+  stress_ihsg_pct: number
+  stress_portfolio_pct: number | null
+  last_day_portfolio_pct: number | null
+  last_day_ihsg_pct: number | null
+  max_drawdown_pct: number | null
+  warnings: string[]
+}
+
 export interface EquityPoint {
   date: string
   value: number
+  /** Cumulative time-weighted return (%), with deposits/withdrawals taken out. */
+  return_pct: number | null
+  /** IHSG's cumulative change (%) over the same days. */
+  benchmark_pct: number | null
 }
 
 // --- Screener / search / market overview -----------------------------------
@@ -239,6 +283,7 @@ export interface EquityPoint {
 export interface ScreenerRow {
   ticker: string
   name: string
+  board?: string | null
   indices: string[]
   sector: string | null
   price: number | null
@@ -260,6 +305,10 @@ export interface ScreenerPage {
 
 export interface SyncStatus {
   running: boolean
+  /** 'batch' = one capped run; 'all' = paced batches until every stock is tried. */
+  mode: 'batch' | 'all'
+  /** What the job is doing now, e.g. "Pausing 60s between batches". */
+  note: string | null
   total: number
   done: number
   remaining: number
@@ -270,6 +319,7 @@ export interface SyncStatus {
 export interface CatalogRow {
   ticker: string
   name: string
+  board?: string | null
   tracked: boolean
   indices: string[]
   last_price: number | null

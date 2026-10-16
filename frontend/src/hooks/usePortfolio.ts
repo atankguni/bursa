@@ -1,5 +1,11 @@
 import { useQuery } from '@tanstack/react-query'
-import { fetchPortfolio, fetchPortfolioHistory, fetchTransactions } from '../api'
+import {
+  fetchDividendCalendar,
+  fetchPortfolio,
+  fetchPortfolioHistory,
+  fetchPortfolioRisk,
+  fetchTransactions,
+} from '../api'
 import { useSettings } from '../lib/settings'
 import { queryKeys } from './keys'
 
@@ -24,5 +30,22 @@ export function usePortfolioHistory() {
   return useQuery({
     queryKey: queryKeys.portfolioHistory,
     queryFn: fetchPortfolioHistory,
+  })
+}
+
+/** Concentration, sectors, beta vs IHSG, stress test and drawdown (percentages only). */
+export function usePortfolioRisk(enabled = true) {
+  return useQuery({
+    queryKey: queryKeys.portfolioRisk,
+    queryFn: fetchPortfolioRisk,
+    enabled,
+  })
+}
+
+/** Expected (projected) dividends for holdings + watchlist over the next 6 months. */
+export function useDividendCalendar() {
+  return useQuery({
+    queryKey: queryKeys.dividendCalendar,
+    queryFn: () => fetchDividendCalendar(),
   })
 }

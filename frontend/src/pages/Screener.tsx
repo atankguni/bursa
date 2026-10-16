@@ -7,10 +7,11 @@ import {
   RefreshCw,
   SlidersHorizontal,
 } from 'lucide-react'
-import { startScreenerSync, type ScreenerRow } from '../api'
+import { cancelScreenerSync, startScreenerSync, type ScreenerRow } from '../api'
 import { useMarketOverview, useScreener, useSyncStatus } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
+import BoardBadge from '../components/BoardBadge'
 import Pagination from '../components/Pagination'
 import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
@@ -67,8 +68,12 @@ export default function Screener() {
   // Background "sync missing data" job.
   const { data: sync } = useSyncStatus()
   const startSync = useMutation({
-    mutationFn: () => startScreenerSync(),
+    mutationFn: (all: boolean) => startScreenerSync({ all }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['screener', 'sync'] }),
+  })
+  const stopSync = useMutation({
+    mutationFn: cancelScreenerSync,
+    onSuccess: (st) => qc.setQueryData(['screener', 'sync'], st),
   })
 
   // When a run finishes (running: true -> false), refresh dependent data.
@@ -162,22 +167,53 @@ export default function Screener() {
             {missing > 0 && <>{missing} missing · </>}
             {isFetching ? 'Loading…' : `${total} matched`}
           </span>
-          <button
-            onClick={() => startSync.mutate()}
-            disabled={sync?.running || startSync.isPending}
-            title="Fetch fundamentals for stocks missing data (fundamentals only, capped)"
-            className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
-          >
-            {sync?.running ? (
-              <Loader2 size={13} className="animate-spin" />
-            ) : (
-              <RefreshCw
-                size={13}
-                className={startSync.isPending ? 'animate-spin' : ''}
-              />
-            )}
-            {sync?.running ? `Syncing ${sync.done}/${sync.total}` : 'Sync missing'}
-          </button>
+          {sync?.running ? (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="flex items-center gap-1.5 text-muted" aria-live="polite">
+                <Loader2 size={13} className="animate-spin" />
+                {sync.mode === 'all' ? 'Syncing all' : 'Syncing'} {sync.done}/{sync.total}
+                {sync.note && <span className="text-subtle">· {sync.note}</span>}
+              </span>
+              <button
+                onClick={() => stopSync.mutate()}
+                disabled={stopSync.isPending}
+                className="rounded px-2.5 py-1.5 font-medium text-bear ring-1 ring-bear/30 transition hover:bg-bear/10 disabled:opacity-50"
+              >
+                Stop
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              {sync?.last_error && (
+                <span
+                  className="max-w-[16rem] truncate text-[11px] text-bear"
+                  title={sync.last_error}
+                >
+                  {sync.last_error}
+                </span>
+              )}
+              <button
+                onClick={() => startSync.mutate(false)}
+                disabled={startSync.isPending}
+                title="Fetch fundamentals for up to 40 stocks missing data"
+                className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+              >
+                <RefreshCw
+                  size={13}
+                  className={startSync.isPending ? 'animate-spin' : ''}
+                />
+                Sync 40
+              </button>
+              <button
+                onClick={() => startSync.mutate(true)}
+                disabled={startSync.isPending || missing === 0}
+                title="Work through every stock never synced, in batches of 40 with a pause between them. Runs in the background; you can leave this page or stop it."
+                className="rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+              >
+                Sync all
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -242,7 +278,10 @@ export default function Screener() {
                     className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60"
                   >
                     <td className="px-4 py-2 font-semibold">
-                      {r.ticker.replace('.JK', '')}
+                      <span className="inline-flex items-center gap-1.5">
+                        {r.ticker.replace('.JK', '')}
+                        <BoardBadge board={r.board} compact />
+                      </span>
                     </td>
                     <td className="px-4 py-2 text-muted">{r.name}</td>
                     <td className="px-4 py-2 text-subtle">{r.sector ?? '—'}</td>
@@ -332,6 +371,7 @@ export default function Screener() {
             indices: selected.indices,
             last_price: selected.price,
             change_percent: selected.change_percent,
+            board: selected.board,
           }}
           onClose={() => setSelected(null)}
         />

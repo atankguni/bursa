@@ -58,6 +58,7 @@ def _row(r: ScreenerRowData) -> dict[str, Any]:
         "indices": r["indices"], "price": r["price"], "change_pct": r["change_percent"],
         "pbv": r["pbv"], "roe": r["roe"], "signal_score": r["score"],
         "rating": r["rating"], "conviction": r["strength"],
+        "special_monitoring": r["board"] == "Watchlist",
     }
 
 

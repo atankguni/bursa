@@ -6,7 +6,10 @@ export async function fetchPreferences(): Promise<Preferences> {
   return data
 }
 
-export async function updatePreferences(prefs: Preferences): Promise<Preferences> {
+/** Partial update: only the fields sent change. */
+export async function updatePreferences(
+  prefs: Partial<Preferences>,
+): Promise<Preferences> {
   const { data } = await api.put<Preferences>('/api/preferences', prefs)
   return data
 }

@@ -18,6 +18,8 @@ class StockBase(BaseModel):
 
     ticker: str
     name: str
+    # IDX listing board; "Watchlist" = special monitoring (Papan Pemantauan Khusus).
+    board: str | None = None
 
 
 class RecommendationSummary(BaseModel):
@@ -109,6 +111,8 @@ class TransactionOut(BaseModel):
 
 
 class HoldingOut(BaseModel):
+    board: str | None = None
+    split_adjusted: bool = False
     """A current position with average-cost P/L."""
 
     ticker: str
@@ -145,6 +149,8 @@ class PortfolioOut(BaseModel):
 class EquityPoint(BaseModel):
     date: date
     value: float
+    return_pct: float | None = None  # cumulative time-weighted return, %
+    benchmark_pct: float | None = None  # IHSG cumulative change over the same days, %
 
 
 # --------------------------------------------------------------------------- #
@@ -177,6 +183,7 @@ class ScreenerRow(BaseModel):
     rating: str | None = None
     strength: str | None = None
     has_fundamentals: bool = False
+    board: str | None = None
 
 
 class ScreenerPage(BaseModel):
@@ -192,6 +199,8 @@ class SyncStatusOut(BaseModel):
     """Progress of the background 'sync missing data' job."""
 
     running: bool
+    mode: str = "batch"  # "batch" | "all"
+    note: str | None = None
     total: int = 0
     done: int = 0
     remaining: int = 0
@@ -339,6 +348,7 @@ class CatalogRow(BaseModel):
 
     ticker: str
     name: str
+    board: str | None = None
     tracked: bool = False
     indices: list[str] = []
     last_price: float | None = None
@@ -367,6 +377,11 @@ class PricePoint(BaseModel):
     volume: int
 
 
+class SplitOut(BaseModel):
+    ex_date: date
+    ratio: float
+
+
 class StockHistory(BaseModel):
     """Full history payload for one ticker."""
 
@@ -375,6 +390,7 @@ class StockHistory(BaseModel):
     indices: list[str]
     interval: str
     points: list[PricePoint]
+    splits: list[SplitOut] = []  # for chart markers
 
 
 class FundamentalOut(BaseModel):
@@ -494,10 +510,15 @@ class PreferencesOut(BaseModel):
     """Server-side user preferences (single-user app)."""
 
     investing_style: InvestingStyle = "investor"
+    # Opt-in: the AI assistant may read the watchlist and portfolio.
+    assistant_personal_data: bool = False
 
 
 class PreferencesIn(BaseModel):
-    investing_style: InvestingStyle
+    """Partial update: only the fields that are sent change."""
+
+    investing_style: InvestingStyle | None = None
+    assistant_personal_data: bool | None = None
 
 
 class IndexOut(BaseModel):
@@ -531,3 +552,54 @@ class IndexHistoryOut(BaseModel):
     name: str
     has_history: bool
     points: list[IndexBarOut]
+
+
+class HoldingRiskOut(BaseModel):
+    ticker: str
+    weight: float
+    sector: str
+    beta: float | None = None
+
+
+class SectorWeightOut(BaseModel):
+    sector: str
+    weight: float
+
+
+class PortfolioRiskOut(BaseModel):
+    """Concentration, sector exposure, beta vs IHSG, stress test, drawdown (all in %)."""
+
+    holdings: list[HoldingRiskOut]
+    sectors: list[SectorWeightOut]
+    effective_holdings: float | None = None
+    top_weight: float | None = None
+    top3_weight: float | None = None
+    beta: float | None = None
+    stress_ihsg_pct: float
+    stress_portfolio_pct: float | None = None
+    last_day_portfolio_pct: float | None = None
+    last_day_ihsg_pct: float | None = None
+    max_drawdown_pct: float | None = None
+    warnings: list[str] = []
+
+
+class NotificationStatusOut(BaseModel):
+    """Which out-of-app channels are configured (and whether a test was delivered)."""
+
+    telegram: bool
+    delivered: bool | None = None
+
+
+class ExpectedDividendOut(BaseModel):
+    """A projected (not announced) dividend, from last year's ex-date."""
+
+    ticker: str
+    name: str
+    expected_ex_date: date
+    based_on: date
+    amount_per_share: float
+    regular: bool
+    shares_held: float | None = None
+    expected_income: float | None = None
+    in_portfolio: bool
+    in_watchlist: bool

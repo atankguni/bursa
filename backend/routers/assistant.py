@@ -9,12 +9,13 @@ from assistant.providers.registry import parse_entry
 from config import settings
 from deps import get_session
 from schemas import AssistantChatIn, AssistantChatOut, AssistantStatusOut
+from services.preferences import get_assistant_personal_data
 
 router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
 
 @router.get("/status", response_model=AssistantStatusOut)
-async def assistant_status() -> AssistantStatusOut:
+async def assistant_status(session: AsyncSession = Depends(get_session)) -> AssistantStatusOut:
     models = []
     for entry in settings.assistant_chain:
         try:
@@ -25,7 +26,7 @@ async def assistant_status() -> AssistantStatusOut:
         configured=service.configured(),
         models=models,
         setup_hint=setup_hint(),
-        personal_data=settings.assistant_personal_data,
+        personal_data=await get_assistant_personal_data(session),
         remaining_today=service.remaining_today(),
         daily_limit=settings.assistant_daily_limit,
     )

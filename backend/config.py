@@ -45,6 +45,10 @@ class Settings(BaseSettings):
 
     # Alerts: minimum time before the same alert may fire again.
     alert_cooldown_hours: int = 12
+    # Optional Telegram delivery of triggered alerts (backend/.env, never commit).
+    # Token from @BotFather; chat id = your own chat with the bot.
+    telegram_bot_token: str | None = None
+    telegram_chat_id: str | None = None
 
     # Outbound provider governance (anti-burst / anti-blacklist).
     provider_max_concurrency: int = 2
@@ -60,6 +64,12 @@ class Settings(BaseSettings):
     # Screener "sync missing data" job (manual; fundamentals-only, bounded).
     screener_sync_limit: int = 40
     screener_sync_throttle: float = 0.4
+    # "Sync all" mode: batches of `screener_sync_limit`, with a pause between
+    # them; a batch with no data at all looks like a block -> wait longer, and
+    # stop after this many empty batches in a row.
+    screener_sync_batch_pause: float = 60.0
+    screener_sync_blocked_wait: float = 900.0
+    screener_sync_max_empty_batches: int = 3
 
     # IDX trading sessions (local exchange time, "HH:MM"). Session 2 end is the
     # point after which intraday data stops; the lunch break is skipped.

@@ -26,3 +26,18 @@ export async function toggleAlert(id: number): Promise<Alert> {
 export async function deleteAlert(id: number): Promise<void> {
   await api.delete(`/api/alerts/${id}`)
 }
+
+export interface NotificationStatus {
+  telegram: boolean
+  delivered: boolean | null
+}
+
+export async function fetchNotificationStatus(): Promise<NotificationStatus> {
+  const { data } = await api.get<NotificationStatus>('/api/alerts/notifications')
+  return data
+}
+
+export async function sendTestNotification(): Promise<NotificationStatus> {
+  const { data } = await api.post<NotificationStatus>('/api/alerts/notifications/test')
+  return data
+}

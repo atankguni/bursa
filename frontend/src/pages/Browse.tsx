@@ -5,6 +5,7 @@ import { setTracked, type CatalogRow } from '../api'
 import { useCatalog } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
+import BoardBadge from '../components/BoardBadge'
 import Pagination from '../components/Pagination'
 import StockDetailModal from '../components/StockDetailModal'
 
@@ -133,7 +134,10 @@ export default function Browse() {
                     className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60 focus-visible:bg-panelalt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bull"
                   >
                     <td className="px-4 py-2 font-semibold">
-                      {r.ticker.replace('.JK', '')}
+                      <span className="inline-flex items-center gap-1.5">
+                        {r.ticker.replace('.JK', '')}
+                        <BoardBadge board={r.board} compact />
+                      </span>
                     </td>
                     <td className="max-w-[22rem] truncate px-4 py-2 text-muted">
                       {r.name}

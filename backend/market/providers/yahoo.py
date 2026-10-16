@@ -8,10 +8,11 @@ means adding a sibling adapter and registering it, not touching the services.
 """
 
 import logging
+import math
 from collections.abc import Hashable, Mapping
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import pandas as pd
 import yfinance as yf
@@ -26,6 +27,7 @@ from market.providers.base import (
     PRICES,
     PROFILE,
     SEARCH,
+    SPLITS,
     DividendRow,
     FundamentalRow,
     IndexQuote,
@@ -33,6 +35,7 @@ from market.providers.base import (
     Officer,
     PriceBar,
     ProfileData,
+    SplitRow,
     SymbolHit,
 )
 
@@ -67,7 +70,7 @@ _BS_SHARES = ["Ordinary Shares Number", "Share Issued"]
 # --------------------------------------------------------------------------- #
 # Price parsing helpers (module-level so they are easy to unit-test)
 # --------------------------------------------------------------------------- #
-def _download_batch(tickers: list[str], period: str, interval: str) -> pd.DataFrame:
+def _download_batch(tickers: list[str], period: str, interval: str) -> pd.DataFrame | None:
     """
     Blocking grouped download. NOTE: yfinance still issues ~one HTTP request per
     symbol internally, so callers must pass reasonably sized chunks.
@@ -84,42 +87,45 @@ def _download_batch(tickers: list[str], period: str, interval: str) -> pd.DataFr
     )
 
 
-def _frame_for_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
+def _frame_for_ticker(df: pd.DataFrame | None, ticker: str) -> pd.DataFrame:
     """Per-ticker sub-frame, tolerating MultiIndex and flat layouts."""
     if df is None or df.empty:
         return pd.DataFrame()
     if isinstance(df.columns, pd.MultiIndex):
         if ticker not in df.columns.get_level_values(0):
             return pd.DataFrame()
-        return df[ticker].dropna(subset=["Close"])
+        df = cast(pd.DataFrame, df[ticker])
     return df.dropna(subset=["Close"])
+
+
+_OHLCV = ["Open", "High", "Low", "Close", "Volume"]
 
 
 def _to_rows(df: pd.DataFrame, ticker: str, interval: str) -> list[PriceBar]:
     """Convert a per-ticker OHLCV frame into upsert-ready dicts."""
+    if df.empty or any(c not in df.columns for c in _OHLCV):
+        return []
+    values = df[_OHLCV].to_numpy(dtype=float, na_value=math.nan)
     rows: list[PriceBar] = []
-    for ts, row in df.iterrows():
-        try:
-            dt = ts.to_pydatetime()
-            if dt.tzinfo is not None:
-                dt = dt.astimezone(UTC).replace(tzinfo=None)
-            close = float(row["Close"])
-            if pd.isna(close):
-                continue
-            rows.append(
-                {
-                    "ticker": ticker,
-                    "timestamp": dt,
-                    "interval": interval,
-                    "open": float(row["Open"]),
-                    "high": float(row["High"]),
-                    "low": float(row["Low"]),
-                    "close": close,
-                    "volume": int(row["Volume"]) if not pd.isna(row["Volume"]) else 0,
-                }
-            )
-        except (KeyError, TypeError, ValueError) as exc:  # skip malformed bars
-            log.debug("Skipping bar for %s at %s: %s", ticker, ts, exc)
+    for stamp, (o, h, lo, c, v) in zip(pd.DatetimeIndex(df.index), values, strict=True):
+        if math.isnan(c):
+            continue  # no close -> no bar
+        dt = stamp.to_pydatetime()
+        if dt.tzinfo is not None:
+            dt = dt.astimezone(UTC).replace(tzinfo=None)
+        rows.append(
+            {
+                "ticker": ticker,
+                "timestamp": dt,
+                "interval": interval,
+                # A bar with a close but a missing open/high/low is drawn flat.
+                "open": c if math.isnan(o) else float(o),
+                "high": c if math.isnan(h) else float(h),
+                "low": c if math.isnan(lo) else float(lo),
+                "close": float(c),
+                "volume": 0 if math.isnan(v) else int(v),
+            }
+        )
     return rows
 
 
@@ -156,7 +162,9 @@ def _shares_outstanding(info: Mapping[str, Any], balance: pd.DataFrame | None) -
     (market cap ÷ price) and the balance-sheet count agree with reality, so
     they win; `sharesOutstanding` is only a last resort.
     """
-    latest_col = balance.columns[0] if balance is not None and not balance.empty else None
+    latest_col: Hashable | None = (
+        cast(Hashable, balance.columns[0]) if balance is not None and not balance.empty else None
+    )
     for candidate in (
         info.get("impliedSharesOutstanding"),
         _pick(balance, _BS_SHARES, latest_col),
@@ -243,7 +251,7 @@ def _profile_from_info(info: Mapping[str, Any]) -> ProfileData | None:
 class YahooProvider(MarketDataProvider):
     name = "yahoo"
     capabilities = {
-        PRICES, INTRADAY, FUNDAMENTALS, FX, PROFILE, SEARCH, DIVIDENDS, INDEX_QUOTES,
+        PRICES, INTRADAY, FUNDAMENTALS, FX, PROFILE, SEARCH, DIVIDENDS, INDEX_QUOTES, SPLITS,
     }
 
     def __init__(self) -> None:
@@ -404,6 +412,22 @@ class YahooProvider(MarketDataProvider):
                 log.warning("Index quote failed for %s: %s", symbol, exc)
         return out
 
+    # --- Splits -------------------------------------------------------------
+    def fetch_splits(self, ticker: str) -> list[SplitRow]:
+        """Historical stock splits (ratio = new shares per old share)."""
+        try:
+            splits = yf.Ticker(ticker).splits
+        except Exception as exc:  # noqa: BLE001 - network / parse failure
+            log.warning("Split fetch failed for %s: %s", ticker, exc)
+            return []
+        out: list[SplitRow] = []
+        if splits is not None:
+            for ts, ratio in splits.items():
+                stamp = pd.Timestamp(cast(Any, ts))
+                if isinstance(stamp, pd.Timestamp) and float(ratio) > 0:
+                    out.append({"ex_date": stamp.date(), "ratio": float(ratio)})
+        return out
+
     # --- Dividends ----------------------------------------------------------
     def fetch_dividends(self, ticker: str) -> list[DividendRow]:
         """Historical cash dividends as [{ex_date, amount}]."""
@@ -417,8 +441,10 @@ class YahooProvider(MarketDataProvider):
         if divs is not None:
             for ts, amount in divs.items():
                 try:
-                    ex_date = ts.date() if hasattr(ts, "date") else ts
-                    out.append({"ex_date": ex_date, "amount": float(amount)})
-                except (AttributeError, TypeError, ValueError):
+                    stamp = pd.Timestamp(cast(Any, ts))
+                    if not isinstance(stamp, pd.Timestamp):  # NaT: unusable date
+                        continue
+                    out.append({"ex_date": stamp.date(), "amount": float(amount)})
+                except (TypeError, ValueError):
                     continue
         return out

@@ -17,7 +17,8 @@ from typing import Protocol, TypedDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Stock, StockPrice, Transaction
+from models import IndexBar, Stock, StockPrice, Transaction
+from services.corporate_actions import AdjustedTx, adjusted_transactions
 
 log = logging.getLogger("bursa.portfolio")
 
@@ -45,6 +46,8 @@ class Book(TypedDict):
 
 class Holding(TypedDict):
     ticker: str
+    board: str | None
+    split_adjusted: bool  # some trades were re-expressed in post-split shares
     name: str
     quantity: float
     avg_cost: float
@@ -73,9 +76,14 @@ class Totals(TypedDict):
 class EquityPointData(TypedDict):
     date: date
     value: float
+    # Cumulative time-weighted return (%): performance with deposits/withdrawals
+    # (buys/sells) taken out, so adding money doesn't count as profit.
+    return_pct: float | None
+    # IHSG's cumulative change (%) over the same days, for comparison.
+    benchmark_pct: float | None
 
 
-def apply_transactions(txs: Sequence[Trade]) -> dict[str, Book]:
+def apply_transactions(txs: Sequence[Trade | Transaction | AdjustedTx]) -> dict[str, Book]:
     """
     Fold trades into positions using weighted-average cost.
 
@@ -108,11 +116,8 @@ def apply_transactions(txs: Sequence[Trade]) -> dict[str, Book]:
 
 async def build_portfolio(session: AsyncSession) -> tuple[Totals, list[Holding]]:
     """Return (totals, holdings) enriched with the latest prices."""
-    txs = (
-        await session.execute(
-            select(Transaction).order_by(Transaction.trade_date, Transaction.id)
-        )
-    ).scalars().all()
+    # In today's shares: split-adjusted (shares x ratio, price / ratio).
+    txs = await adjusted_transactions(session)
     books = apply_transactions(txs)
 
     open_books = {t: b for t, b in books.items() if b["quantity"] > 0}
@@ -160,6 +165,10 @@ async def build_portfolio(session: AsyncSession) -> tuple[Totals, list[Holding]]
             {
                 "ticker": ticker,
                 "name": stocks[ticker].name if ticker in stocks else ticker,
+                "board": stocks[ticker].listing_board if ticker in stocks else None,
+                "split_adjusted": any(
+                    t.ticker == ticker and t.split_factor != 1.0 for t in txs
+                ),
                 "quantity": qty,
                 "avg_cost": round(avg_cost, 2),
                 "price": close,
@@ -218,11 +227,8 @@ def _close_on_or_before(series: list[tuple[date, float]], d: date) -> float | No
 
 async def equity_curve(session: AsyncSession) -> list[EquityPointData]:
     """Daily portfolio value reconstructed from transactions + stored closes."""
-    txs = (
-        await session.execute(
-            select(Transaction).order_by(Transaction.trade_date, Transaction.id)
-        )
-    ).scalars().all()
+    # In today's shares: split-adjusted (shares x ratio, price / ratio).
+    txs = await adjusted_transactions(session)
     if not txs:
         return []
 
@@ -245,18 +251,40 @@ async def equity_curve(session: AsyncSession) -> list[EquityPointData]:
     start = min(t.trade_date for t in txs)
     dates = [d for d in dates if d >= start]
 
-    tx_by_date: dict[date, list[Transaction]] = defaultdict(list)
+    tx_by_date: dict[date, list[AdjustedTx]] = defaultdict(list)
     for t in txs:
         tx_by_date[t.trade_date].append(t)
     tx_dates = sorted(tx_by_date)
 
+    # IHSG over the same period (index bars; empty if never fetched).
+    ihsg = [
+        (day, close)
+        for day, close in (
+            await session.execute(
+                select(IndexBar.day, IndexBar.close)
+                .where(IndexBar.code == "COMPOSITE")
+                .order_by(IndexBar.day)
+            )
+        ).all()
+    ]
+    ihsg_base = _close_on_or_before(ihsg, dates[0]) if dates else None
+
     qty: dict[str, float] = defaultdict(float)
     ti = 0
+    prev_value = 0.0
+    growth = 1.0  # chained (1 + daily return)
     curve: list[EquityPointData] = []
     for d in dates:
+        flow = 0.0  # money put in (+) or taken out (-) on this day
         while ti < len(tx_dates) and tx_dates[ti] <= d:
             for t in tx_by_date[tx_dates[ti]]:
-                qty[t.ticker] += t.quantity if t.side == "buy" else -t.quantity
+                gross = t.quantity * t.price
+                if t.side == "buy":
+                    qty[t.ticker] += t.quantity
+                    flow += gross + (t.fees or 0.0)
+                else:
+                    qty[t.ticker] -= t.quantity
+                    flow -= gross - (t.fees or 0.0)
             ti += 1
         value = 0.0
         for ticker, q in qty.items():
@@ -265,5 +293,18 @@ async def equity_curve(session: AsyncSession) -> list[EquityPointData]:
             close = _close_on_or_before(series.get(ticker, []), d)
             if close is not None:
                 value += q * close
-        curve.append({"date": d, "value": round(value, 2)})
+        # Daily return with the day's flow at the start (Modified Dietz, daily).
+        base = prev_value + flow
+        if base > 0:
+            growth *= 1 + (value - prev_value - flow) / base
+        prev_value = value
+        bench = _close_on_or_before(ihsg, d) if ihsg_base else None
+        curve.append({
+            "date": d,
+            "value": round(value, 2),
+            "return_pct": round((growth - 1) * 100, 2),
+            "benchmark_pct": (
+                round((bench / ihsg_base - 1) * 100, 2) if bench and ihsg_base else None
+            ),
+        })
     return curve

@@ -21,7 +21,8 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   fundamentals are rated, thinly traded names (< Rp 1bn/day) are capped at Hold, and
   financials skip leverage-based Health. Heuristic, not financial advice — measure
   changes with `python scripts/evaluate_signals.py` (point-in-time backtest).
-- **Charts** — candlestick or line, daily (1d) and intraday (1m), via Lightweight Charts.
+- **Charts** — candlestick or line, daily (1d) and intraday (1m), 1M–Max spans, an
+  optional **vs IHSG** overlay (% change) and stock-split markers, via Lightweight Charts.
 - **Theme** — light / dark / **follow system** (set from Settings).
 - **Settings** (gear in the navbar) — theme, display **density** (compact/medium/large),
   reduce motion, default indices, chart defaults, auto-refresh, number format,
@@ -42,7 +43,18 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
   plus grouped, change-tinted tiles; IHSG/LQ45/JII charts go back decades, the others build
   up daily. Plus breadth, top gainers/losers and a sector-performance view.
 - **Alerts** — price-above/below, %-change, and rating-change rules with in-app
-  notifications (navbar bell); evaluated after each market sync.
+  notifications (navbar bell) and optional **Telegram** delivery; evaluated after each
+  market sync.
+- **Portfolio analytics** — **return vs IHSG** (time-weighted, so buys/sells don't count
+  as gains), a **risk view** (diversification, sector exposure, beta vs IHSG, "if IHSG
+  falls 10%" stress test, max drawdown) and an **expected dividend calendar** (projected
+  from last year's ex-dates). Holdings are **split-adjusted** automatically.
+- **Special monitoring** — stocks on IDX's Papan Pemantauan Khusus get a warning badge
+  everywhere and their signals are capped at Hold (boards, IPOs and official share
+  counts come from the IDX listing, weekly).
+- **Data health** (`/data`, footer link) — scheduled jobs, provider calls, price
+  freshness, fundamentals coverage and suspicious values; missed jobs (e.g. while the
+  host slept) run on wake and 1-minute gaps are back-filled.
 - **Chart indicators** — MA(20/50/200), volume, and RSI overlays on the detail chart.
 - **Relative valuation** — where current PBV/RoE sit within the stock's own history.
 - **Dividends** — dividend history, trailing yield, and projected annual income for holdings.
@@ -189,6 +201,11 @@ bursa/
 | GET    | `/api/screener/sync/status` | Progress of the sync job |
 | GET    | `/api/market/overview` | Breadth, top movers, sector performance |
 | GET    | `/api/indices` | Latest value + change of 33 IDX stock indices |
+| GET    | `/api/portfolio/risk` | Concentration, sectors, beta vs IHSG, stress test, drawdown |
+| GET    | `/api/portfolio/dividend-calendar` | Expected (projected) dividends for holdings + watchlist |
+| POST   | `/api/screener/sync?all=true` · `/api/screener/sync/cancel` | Paced "sync all missing" / stop |
+| GET/POST | `/api/alerts/notifications` · `/api/alerts/notifications/test` | Telegram status / test message |
+| GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values |
 | GET    | `/api/indices/{code}/history?range=1y\|5y\|max` | Daily bars for one index |
 | GET    | `/api/portfolio` | Holdings + totals (average-cost P/L) |
 | GET/POST/DELETE | `/api/portfolio/transactions` | Manage transactions |
@@ -262,6 +279,8 @@ trigger to add a shared cache/lock, not before.
 - **Rate-limiting** — `provider_max_concurrency`, `provider_min_interval_ms`,
   `provider_chunk_size`, `intraday_max_symbols`, `search_cache_seconds` in
   `backend/config.py`.
+- **Telegram alerts** — `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `backend/.env`
+  (setup steps are shown on the Alerts page); optional.
 - **AI assistant** — put `GEMINI_API_KEY=...` in `backend/.env` (git- and
   Docker-ignored; passed to the container via `env_file`). Models, daily question cap,
   tool-round cap and personal-data access are `assistant_*` settings in `backend/config.py`.
@@ -279,7 +298,7 @@ pyright                 # type check
 python -m pytest -q     # tests
 python scripts/evaluate_signals.py   # backtest the recommendation engine
 
-# Or, with no local Python: lint + tests in the production package set
+# Or, with no local Python: lint + type check + tests in the production package set
 docker build --target test -t bursa-backend-test ./backend && docker run --rm bursa-backend-test
 ```
 
