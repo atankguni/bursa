@@ -8,8 +8,9 @@ from config import settings
 from deps import get_session
 from market.providers.governor import governor
 from market.providers.registry import available as available_providers
+from market.sync import last_synced_at
 from market.tickers import INDEX_ORDER
-from models import Stock, StockIndex, StockPrice
+from models import Stock, StockIndex
 from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, ProviderStat, StatusOut
 from services.market_clock import status as market_status
 
@@ -25,9 +26,6 @@ async def health() -> dict[str, str]:
 async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
     """Global status for the app footer (sync time, provider, session, ...)."""
     st = market_status()
-    last_sync = (
-        await session.execute(select(func.max(StockPrice.timestamp)))
-    ).scalar_one_or_none()
     tracked = (
         await session.execute(select(func.count()).select_from(Stock))
     ).scalar_one()
@@ -36,7 +34,7 @@ async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
         server_time=st["server_time"],
         timezone=st["timezone"],
         session=st["session"],
-        last_sync=last_sync,
+        last_sync=last_synced_at(),
         stocks_tracked=int(tracked),
         providers={
             "price": settings.price_provider,

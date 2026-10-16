@@ -5,10 +5,17 @@ Provider-agnostic batched price ingestion (anti rate-limit).
 
 Symbols are split into chunks and each chunk is one governed download call, so
 the governor paces work and no single call fans out across the whole universe.
+
+Intraday syncs also roll today's 1-minute bars up into a provisional daily bar.
+Every read path (latest price, change %, signals, alerts) uses daily bars, and
+the official daily bar is only fetched at 09:00 / startup, so without the rollup
+prices would stay frozen at the opening snapshot all session.
 """
 
 import asyncio
 import logging
+from datetime import UTC, date, datetime, time
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
@@ -20,6 +27,51 @@ from market.providers.registry import price_provider
 from models import StockPrice
 
 log = logging.getLogger("bursa.market.sync")
+
+INTRADAY_INTERVAL = "1m"
+DAILY_INTERVAL = "1d"
+
+# Wall-clock time (UTC) of the last chunk that actually wrote bars. Bar
+# timestamps can't stand in for this: daily bars are dated midnight and the
+# newest bar may be hours older than the sync that fetched it.
+_last_synced_at: datetime | None = None
+
+
+def last_synced_at() -> datetime | None:
+    return _last_synced_at
+
+
+def rollup_daily(bars: list[PriceBar], day: date) -> list[PriceBar]:
+    """
+    Aggregate `day`'s intraday bars (UTC timestamps) into one daily bar per ticker.
+
+    Keyed like provider daily bars (naive midnight of the exchange-local date), so
+    the upsert updates today's row and the next official daily sync overwrites it.
+    Bars from other days are ignored so a finished day's official bar is never
+    replaced by a partial aggregate.
+    """
+    tz = ZoneInfo(settings.timezone)
+    by_ticker: dict[str, list[PriceBar]] = {}
+    for bar in bars:
+        if bar["timestamp"].replace(tzinfo=UTC).astimezone(tz).date() == day:
+            by_ticker.setdefault(bar["ticker"], []).append(bar)
+
+    daily: list[PriceBar] = []
+    for ticker, rows in by_ticker.items():
+        rows.sort(key=lambda b: b["timestamp"])
+        daily.append(
+            {
+                "ticker": ticker,
+                "timestamp": datetime.combine(day, time()),
+                "interval": DAILY_INTERVAL,
+                "open": rows[0]["open"],
+                "high": max(b["high"] for b in rows),
+                "low": min(b["low"] for b in rows),
+                "close": rows[-1]["close"],
+                "volume": sum(b["volume"] for b in rows),
+            }
+        )
+    return daily
 
 
 async def _upsert_rows(rows: list[PriceBar]) -> int:
@@ -93,11 +145,13 @@ async def sync_batch(tickers: list[str], period: str, interval: str) -> int:
     be split into chunks (each chunk is one governed download call, so the
     governor paces between chunks).
     """
+    global _last_synced_at
     if not tickers:
         return 0
     provider = price_provider()
     size = max(1, settings.provider_chunk_size)
     written = 0
+    today = datetime.now(ZoneInfo(settings.timezone)).date()
 
     for start in range(0, len(tickers), size):
         chunk = tickers[start : start + size]
@@ -112,15 +166,21 @@ async def sync_batch(tickers: list[str], period: str, interval: str) -> int:
             )
             continue
         rows = [row for r in per_ticker.values() for row in r]
+        if interval == INTRADAY_INTERVAL:
+            rows += rollup_daily(rows, today)
         # Persist each chunk immediately so a long run makes durable progress;
         # a failed write must not abort the remaining chunks.
         try:
-            written += await _upsert_rows(rows)
+            n = await _upsert_rows(rows)
         except Exception as exc:  # noqa: BLE001 - keep the run alive
             log.warning(
                 "Upsert failed (%s/%s, chunk %d): %s",
                 period, interval, start // size, exc,
             )
+            continue
+        written += n
+        if n:
+            _last_synced_at = datetime.now(UTC)
 
     log.info(
         "[%s] synced %d bars across %d tickers",

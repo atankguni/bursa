@@ -11,7 +11,7 @@ import {
   TrendingUp,
 } from 'lucide-react'
 import { DEFAULT_INDEXES, addToWatchlist, type Stock } from '../api'
-import { useIndexes, useStocks, useWatchlist } from '../hooks'
+import { useIndexes, useStatus, useStocks, useWatchlist } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtChange, fmtDateTime, fmtPct, fmtPrice, fmtVolume } from '../lib/format'
 import IndexMultiSelect from '../components/IndexMultiSelect'
@@ -51,6 +51,9 @@ export default function Home() {
 
   const { data: stocks = [], isLoading, isFetching, refetch } = useStocks(selectedIndexes)
 
+  // Real time of the last successful price sync (same source as the footer).
+  const { data: status, refetch: refetchStatus } = useStatus()
+
   const { data: watchlist = [] } = useWatchlist()
   const watchSet = useMemo(() => new Set(watchlist.map((w) => w.ticker)), [watchlist])
 
@@ -69,8 +72,7 @@ export default function Home() {
       else if (s.change_percent < 0) losers++
       else unchanged++
     }
-    const updated = stocks.find((s) => s.updated_at)?.updated_at ?? null
-    return { gainers, losers, unchanged, updated }
+    return { gainers, losers, unchanged }
   }, [stocks])
 
   const signals = useMemo(() => {
@@ -158,7 +160,10 @@ export default function Home() {
             Buy only
           </button>
           <button
-            onClick={() => refetch()}
+            onClick={() => {
+              refetch()
+              refetchStatus()
+            }}
             className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
           >
             <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
@@ -356,9 +361,9 @@ export default function Home() {
         </div>
       </div>
 
-      {summary.updated && (
+      {status?.last_sync && (
         <p className="mt-3 text-[11px] text-subtle">
-          Last sync: {fmtDateTime(summary.updated)} · signals relative to the tracked
+          Last sync: {fmtDateTime(status.last_sync)} · signals relative to the tracked
           universe
         </p>
       )}

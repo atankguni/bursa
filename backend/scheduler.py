@@ -23,7 +23,7 @@ from sqlalchemy import delete, select
 
 from config import settings
 from database import AsyncSessionLocal, vacuum, wal_checkpoint
-from market.sync import sync_batch
+from market.sync import DAILY_INTERVAL, INTRADAY_INTERVAL, sync_batch
 from market.tickers import all_tickers
 from models import Stock, StockIndex, StockPrice, Transaction, Watchlist
 from services.market_clock import is_open
@@ -32,9 +32,6 @@ log = logging.getLogger("bursa.scheduler")
 
 # Full IDX catalog (daily sync target).
 TICKERS: list[str] = all_tickers()
-
-INTRADAY_INTERVAL = "1m"
-DAILY_INTERVAL = "1d"
 
 
 async def active_tickers() -> list[str]:
