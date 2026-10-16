@@ -1,5 +1,7 @@
 fastapi==0.143.2
-uvicorn[standard]==0.54.0
+# Plain uvicorn: the [standard] extras (uvloop, httptools, websockets,
+# watchfiles, PyYAML) add ~19 MB and aren't needed for this single-user API.
+uvicorn==0.54.0
 # 2.1.x has cp314 musllinux wheels (2.0.x has none); matches 2.0-style API.
 sqlalchemy==2.1.4
 aiosqlite==0.22.1

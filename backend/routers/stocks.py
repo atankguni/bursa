@@ -27,8 +27,8 @@ from schemas import (
 from services.dividends import list_dividends, trailing_dps
 from services.fundamentals import is_stale, sync_ticker
 from services.metrics import derive_metrics
-from services.prices import indices_map, latest_daily
 from services.preferences import get_investing_style
+from services.prices import indices_map, latest_daily
 from services.recommendation import compute_universe_cached
 from services.search import search
 from services.valuation import valuation

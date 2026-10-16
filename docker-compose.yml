@@ -13,7 +13,9 @@
 services:
   backend:
     image: bursa-backend
-    build: ./backend
+    build:
+      context: ./backend
+      target: runtime # the Dockerfile also has a `test` stage
     environment:
       - DATABASE_URL=sqlite+aiosqlite:////app/data/bursa.db
     volumes:

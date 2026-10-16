@@ -265,6 +265,9 @@ ruff check .            # lint
 pyright                 # type check
 python -m pytest -q     # tests
 python scripts/evaluate_signals.py   # backtest the recommendation engine
+
+# Or, with no local Python: lint + tests in the production package set
+docker build --target test -t bursa-backend-test ./backend && docker run --rm bursa-backend-test
 ```
 
 Frontend:
