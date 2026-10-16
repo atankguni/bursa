@@ -111,3 +111,31 @@ async def test_catalog_total_respects_search(client):
     page = (await client.get("/api/catalog", params={"q": "BBCA"})).json()
     assert page["total"] == len(page["items"]) >= 1
     assert all("BBCA" in r["ticker"] or "bbca" in r["name"].lower() for r in page["items"])
+
+
+async def test_preferences_default_and_switch(client):
+    r = await client.get("/api/preferences")
+    assert r.status_code == 200 and r.json() == {"investing_style": "investor"}
+
+    r = await client.put("/api/preferences", json={"investing_style": "trader"})
+    assert r.status_code == 200 and r.json()["investing_style"] == "trader"
+    assert (await client.get("/api/preferences")).json()["investing_style"] == "trader"
+
+    bad = await client.put("/api/preferences", json={"investing_style": "gambler"})
+    assert bad.status_code == 422
+
+
+async def test_switching_style_resets_rating_alert_baselines(client):
+    from sqlalchemy import func, select
+
+    from database import AsyncSessionLocal
+    from models import RatingState
+
+    async with AsyncSessionLocal() as s:
+        s.add(RatingState(ticker="BBCA.JK", rating="Buy", strength="Strong"))
+        await s.commit()
+
+    await client.put("/api/preferences", json={"investing_style": "trader"})
+    async with AsyncSessionLocal() as s:
+        left = (await s.execute(select(func.count()).select_from(RatingState))).scalar_one()
+    assert left == 0  # no spurious "rating changed" alerts after a style switch

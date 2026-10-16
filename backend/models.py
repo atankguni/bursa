@@ -304,3 +304,18 @@ class Dividend(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Dividend {self.ticker} {self.ex_date} {self.amount}>"
+
+
+class Preference(Base):
+    """A server-side user preference (key/value; this is a single-user app)."""
+
+    __tablename__ = "preferences"
+
+    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<Preference {self.key}={self.value}>"

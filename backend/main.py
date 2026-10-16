@@ -33,7 +33,7 @@ from sqlalchemy import func, select
 from config import settings
 from database import init_db
 from models import StockPrice
-from routers import alerts, market, meta, portfolio, screener, stocks, watchlist
+from routers import alerts, market, meta, portfolio, preferences, screener, stocks, watchlist
 from scheduler import (
     TICKERS,
     backfill_active,
@@ -131,3 +131,4 @@ app.include_router(portfolio.router)
 app.include_router(screener.router)
 app.include_router(market.router)
 app.include_router(alerts.router)
+app.include_router(preferences.router)

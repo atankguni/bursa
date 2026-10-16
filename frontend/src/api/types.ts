@@ -84,6 +84,13 @@ export interface RecommendationSummary {
   strength: string
 }
 
+/** Long-term fundamentals vs short-term (swing, 1-4 weeks) price action. */
+export type InvestingStyle = 'investor' | 'trader'
+
+export interface Preferences {
+  investing_style: InvestingStyle
+}
+
 export interface Recommendation {
   ticker: string
   score: number
@@ -93,6 +100,7 @@ export interface Recommendation {
   categories: Category[]
   reasons: string[]
   disclaimer: string
+  style: InvestingStyle
 }
 
 export interface MarketStatus {

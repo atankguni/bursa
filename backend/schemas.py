@@ -9,6 +9,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+# How the user invests: long-term fundamentals vs short-term (swing) price action.
+InvestingStyle = Literal["investor", "trader"]
+
 
 class StockBase(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -421,6 +424,7 @@ class RecommendationOut(BaseModel):
     categories: list[CategoryOut] = []
     reasons: list[str] = []
     disclaimer: str = ""
+    style: InvestingStyle = "investor"  # which model produced this score
 
 
 class WatchlistItemOut(StockBase):
@@ -444,3 +448,13 @@ class FundamentalsResponse(BaseModel):
     yearly: list[FundamentalOut]
     latest: FundamentalOut | None = None
     metrics: DerivedMetrics = DerivedMetrics()
+
+
+class PreferencesOut(BaseModel):
+    """Server-side user preferences (single-user app)."""
+
+    investing_style: InvestingStyle = "investor"
+
+
+class PreferencesIn(BaseModel):
+    investing_style: InvestingStyle

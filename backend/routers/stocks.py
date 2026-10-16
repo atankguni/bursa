@@ -28,6 +28,7 @@ from services.dividends import list_dividends, trailing_dps
 from services.fundamentals import is_stale, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily
+from services.preferences import get_investing_style
 from services.recommendation import compute_universe_cached
 from services.search import search
 from services.valuation import valuation
@@ -282,14 +283,16 @@ async def stock_recommendation(
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
 
-    recommendations = await compute_universe_cached(session)
-    rec = recommendations.get(ticker)
+    style = await get_investing_style(session)
+    rec = (await compute_universe_cached(session, style)).get(ticker)
     if rec is None:
-        # Only stocks with fundamentals are rated (see services/recommendation).
-        raise HTTPException(
-            status_code=404,
-            detail=f"{ticker} is not rated yet: it needs fundamentals data",
+        # Eligibility differs per style (see services/recommendation._eligible).
+        need = (
+            "it is too thinly traded or has under 21 days of prices"
+            if style == "trader"
+            else "it needs fundamentals data"
         )
+        raise HTTPException(status_code=404, detail=f"{ticker} is not rated ({style}): {need}")
     return rec
 
 

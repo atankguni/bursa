@@ -6,10 +6,17 @@ import {
   RotateCcw,
   Settings as SettingsIcon,
   SlidersHorizontal,
+  TrendingUp,
   X,
 } from 'lucide-react'
-import { DEFAULT_INDEXES } from '../api'
+import { DEFAULT_INDEXES, type InvestingStyle } from '../api'
+import { usePreferences } from '../hooks'
 import { useSettings, type Density, type NumberFormat, type Theme } from '../lib/settings'
+
+const STYLE_HINT: Record<InvestingStyle, string> = {
+  investor: 'Long term · quality & value from yearly fundamentals',
+  trader: 'Swing, 1–4 weeks · calm, liquid price action (no fundamentals needed)',
+}
 
 const HOME_COLUMNS = [
   { key: 'index', label: 'Index' },
@@ -173,6 +180,7 @@ function StackedRow({ label, children }: { label: string; children: ReactNode })
 
 export default function SettingsMenu() {
   const { settings, update, reset } = useSettings()
+  const { style, setStyle, isSaving, error: styleError } = usePreferences()
   const [open, setOpen] = useState(false)
 
   const toggleColumn = (table: 'home' | 'watchlist', key: string) => {
@@ -240,6 +248,28 @@ export default function SettingsMenu() {
 
               {/* Body */}
               <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+                <Section icon={TrendingUp} title="Investing">
+                  <ListRow
+                    label="Style"
+                    hint={
+                      styleError
+                        ? 'Could not save — try again'
+                        : isSaving
+                          ? 'Re-scoring signals…'
+                          : STYLE_HINT[style]
+                    }
+                  >
+                    <Segmented<InvestingStyle>
+                      value={style}
+                      options={[
+                        { value: 'investor', label: 'Investor' },
+                        { value: 'trader', label: 'Trader' },
+                      ]}
+                      onChange={setStyle}
+                    />
+                  </ListRow>
+                </Section>
+
                 <Section icon={Palette} title="Appearance">
                   <ListRow label="Theme">
                     <Segmented<Theme>

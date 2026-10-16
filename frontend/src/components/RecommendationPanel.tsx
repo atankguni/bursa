@@ -1,5 +1,6 @@
 import { AlertCircle, Info } from 'lucide-react'
-import type { Recommendation } from '../api'
+import type { InvestingStyle, Recommendation } from '../api'
+import { usePreferences } from '../hooks'
 
 interface Props {
   data?: Recommendation
@@ -17,10 +18,23 @@ const ratingTone = (rating: string) =>
 const barTone = (score: number) =>
   score >= 65 ? 'bg-bull' : score <= 40 ? 'bg-bear' : 'bg-active'
 
+const STYLE_LABEL: Record<InvestingStyle, string> = {
+  investor: 'Investor view · long term',
+  trader: 'Trader view · 1–4 weeks',
+}
+
+const NOT_RATED_HINT: Record<InvestingStyle, string> = {
+  investor:
+    'Investor signals need fundamentals. Open the Fundamentals tab to fetch them, then check back here.',
+  trader:
+    'Trader signals cover liquid stocks only (≥ Rp 1bn traded per day, 21+ days of prices).',
+}
+
 const strengthDots = (strength: string) =>
   ({ Weak: 1, Moderate: 2, Strong: 3, 'Very Strong': 4 })[strength] ?? 0
 
 export default function RecommendationPanel({ data, isLoading, isError }: Props) {
+  const { style } = usePreferences()
   if (isLoading) {
     return (
       <div className="flex h-[300px] items-center justify-center text-muted">
@@ -34,8 +48,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
         <AlertCircle size={20} />
         <span className="text-sm">Not rated yet.</span>
         <span className="max-w-xs text-center text-[11px] text-subtle">
-          Signals need fundamentals. Open the Fundamentals tab to fetch them, then check
-          back here.
+          {NOT_RATED_HINT[style]}
         </span>
       </div>
     )
@@ -72,7 +85,10 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
           </span>
         </div>
         <div className="ml-auto text-right text-[11px] text-subtle">
-          Data coverage
+          <div className="mb-1 inline-block rounded-sm bg-panel px-1.5 py-0.5 font-medium text-muted ring-1 ring-line">
+            {STYLE_LABEL[data.style ?? 'investor']}
+          </div>
+          <div>Data coverage</div>
           <div className="font-medium text-muted">
             {(data.coverage * 100).toFixed(0)}%
           </div>

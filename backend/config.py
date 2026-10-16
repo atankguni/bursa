@@ -88,6 +88,15 @@ class Settings(BaseSettings):
     # * Buy / Strong Buy need this median daily traded value (IDR, last 20 days);
     #   thinly traded names are capped at Hold.
     recommendation_min_traded_value: float = 1_000_000_000
+    # Trader (swing, 1-4 weeks) style: price behaviour only, for liquid stocks.
+    # From the factor research: low volatility, a tight range near the 20-day
+    # high, and recent pullbacks predicted 1-4 week returns; classic momentum
+    # did not (it was slightly negative). Measured in a falling market only.
+    recommendation_trader_weights: dict[str, float] = {
+        "stability": 0.50,
+        "setup": 0.30,
+        "pullback": 0.20,
+    }
     # Leverage ratios are structural for balance-sheet businesses (bank deposits
     # are liabilities), so Health (Debt/Equity, equity ratio) is not scored here.
     recommendation_no_leverage_sectors: list[str] = ["Financial Services"]

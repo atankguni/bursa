@@ -1,10 +1,13 @@
 """
 Evaluate the recommendation engine against what prices actually did next.
 
-Runs the app's own `raw_factors` / `score_universe` at monthly as-of dates using
+Runs the app's own factor functions / `score_universe` at past as-of dates using
 only data that existed then (point-in-time), and reports forward returns per
 rating plus the rank IC (Spearman correlation of score vs forward return).
 Read-only: opens the SQLite file immutably.
+
+Styles: `investor` (monthly as-of dates, 1m/3m horizons) and `trader`
+(weekly as-of dates, 1w/2w/4w horizons; price factors only).
 
 Look-ahead guards: prices are truncated at the as-of date; fundamentals are
 limited to fiscal years already published (annual reports land ~March/April);
@@ -13,7 +16,7 @@ sector. Caveats: survivorship (current listings), overlapping 3m windows, and
 the history is only as long as the stored daily bars (~1y by default).
 
 Usage (inside the backend environment):
-    python scripts/evaluate_signals.py [--db data/bursa.db]
+    python scripts/evaluate_signals.py [--style investor|trader] [--db data/bursa.db]
 
 Rule of thumb for the IC: ~0 = noise, > 0.05 useful, > 0.10 good.
 """
@@ -31,11 +34,25 @@ from typing import Any, TypedDict
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from config import settings  # noqa: E402
-from services.recommendation import raw_factors, score_universe  # noqa: E402
+from schemas import InvestingStyle  # noqa: E402
+from services.recommendation import (  # noqa: E402
+    CATEGORY_ORDER,
+    TRADER_CATEGORY_ORDER,
+    raw_factors,
+    score_universe,
+    trader_factors,
+)
 
 RATINGS = ["Strong Buy", "Buy", "Hold", "Reduce", "Avoid"]
-CATEGORIES = ["Quality", "Valuation", "Growth", "Momentum", "Health"]
-HORIZONS = {"1m": 21, "3m": 63}
+CATEGORIES: dict[InvestingStyle, list[str]] = {
+    "investor": CATEGORY_ORDER,
+    "trader": TRADER_CATEGORY_ORDER,
+}
+# Forward-return horizons in trading days.
+HORIZONS: dict[InvestingStyle, dict[str, int]] = {
+    "investor": {"1m": 21, "3m": 63},
+    "trader": {"1w": 5, "2w": 10, "4w": 20},
+}
 
 
 class Bar(TypedDict):
@@ -132,12 +149,17 @@ def median_traded_value(bars: list[Bar], upto: int, days: int = 20) -> float:
 def monthly_asofs(calendar: list[str]) -> list[str]:
     """Trading days nearest the 15th of each month with enough history and future."""
     earliest = calendar[min(len(calendar) - 1, 63)]  # momentum needs ~3 months
-    latest = calendar[max(0, len(calendar) - 1 - HORIZONS["1m"])]
+    latest = calendar[max(0, len(calendar) - 1 - HORIZONS["investor"]["1m"])]
     out: list[str] = []
     for day in calendar:
         if earliest <= day <= latest and day[8:] >= "15" and (not out or out[-1][:7] != day[:7]):
             out.append(day)
     return out
+
+
+def weekly_asofs(calendar: list[str]) -> list[str]:
+    """Every 5th trading day with enough history and at least a week of future."""
+    return calendar[63 : max(63, len(calendar) - HORIZONS["trader"]["1w"]) : 5]
 
 
 def backtest(
@@ -146,6 +168,7 @@ def backtest(
     sectors: dict[str, str | None],
     asofs: list[str],
     calendar: list[str],
+    style: InvestingStyle = "investor",
 ) -> list[Sample]:
     samples: list[Sample] = []
     for asof in asofs:
@@ -157,20 +180,21 @@ def backtest(
             idx = next((i for i in range(len(bars) - 1, -1, -1) if bars[i]["day"] <= asof), None)
             if idx is None or idx < 63 or bars[idx]["day"] < stale_before:
                 continue  # too little history, or not trading around the as-of date
-            visible = [f for f in funds.get(ticker, []) if f.fiscal_year <= published]
-            raw[ticker] = raw_factors(
-                [b["close"] for b in bars[: idx + 1]],
-                visible,
-                sector_only_profile(sectors.get(ticker)),
-                bars[idx]["close"],
-            )
+            closes = [b["close"] for b in bars[: idx + 1]]
+            if style == "trader":
+                raw[ticker] = trader_factors(closes)
+            else:
+                visible = [f for f in funds.get(ticker, []) if f.fiscal_year <= published]
+                raw[ticker] = raw_factors(
+                    closes, visible, sector_only_profile(sectors.get(ticker)), closes[-1]
+                )
             liquidity[ticker] = median_traded_value(bars, idx)
             entry = bars[idx]["close"]
             forward[ticker] = {
                 name: (bars[idx + h]["close"] / entry - 1 if idx + h < len(bars) else None)
-                for name, h in HORIZONS.items()
+                for name, h in HORIZONS[style].items()
             }
-        for ticker, rec in score_universe(raw, liquidity).items():
+        for ticker, rec in score_universe(raw, liquidity, style).items():
             samples.append(
                 Sample(
                     asof=asof, ticker=ticker, score=rec.score, rating=rec.rating,
@@ -184,7 +208,7 @@ def backtest(
 
 def report(
     samples: list[Sample], asofs: list[str], horizon: str, title: str,
-    keep: Callable[[Sample], bool],
+    keep: Callable[[Sample], bool], categories: list[str],
 ) -> None:
     sel = [s for s in samples if s["forward"][horizon] is not None and keep(s)]
     if not sel:
@@ -224,26 +248,33 @@ def report(
             f"rank IC (score): mean={st.mean(ics):+.3f}  mean/sd={st.mean(ics) / spread:+.2f}  "
             f"per date={' '.join(f'{x:+.2f}' for x in ics)}"
         )
-    for cat in CATEGORIES:
+    for cat in categories:
         cics = ic_series(lambda s, c=cat: s["categories"].get(c))
         if cics:
             print(f"   IC {cat:9} mean={st.mean(cics):+.3f}")
 
 
 def snapshot(
-    prices: dict[str, list[Bar]], funds: dict[str, list[Any]], sectors: dict[str, str | None]
+    prices: dict[str, list[Bar]],
+    funds: dict[str, list[Any]],
+    sectors: dict[str, str | None],
+    style: InvestingStyle,
 ) -> None:
     """Ratings as of the latest bar (sector-only profile, like the backtest)."""
     raw, liquidity = {}, {}
     for ticker, bars in prices.items():
-        raw[ticker] = raw_factors(
-            [b["close"] for b in bars], funds.get(ticker, []),
-            sector_only_profile(sectors.get(ticker)), bars[-1]["close"],
+        closes = [b["close"] for b in bars]
+        raw[ticker] = (
+            trader_factors(closes)
+            if style == "trader"
+            else raw_factors(
+                closes, funds.get(ticker, []), sector_only_profile(sectors.get(ticker)), closes[-1]
+            )
         )
         liquidity[ticker] = median_traded_value(bars, len(bars) - 1)
-    recs = score_universe(raw, liquidity)
+    recs = score_universe(raw, liquidity, style)
     counts = collections.Counter(r.rating for r in recs.values())
-    print(f"=== SNAPSHOT: {len(recs)} of {len(prices)} stocks rated ===")
+    print(f"=== {style.upper()} SNAPSHOT: {len(recs)} of {len(prices)} stocks rated ===")
     print("  ".join(f"{r}={counts.get(r, 0)}" for r in RATINGS))
     capped = sum(any("Thinly traded" in x for x in r.reasons) for r in recs.values())
     print(f"capped at Hold for thin trading: {capped}")
@@ -252,25 +283,28 @@ def snapshot(
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0] if __doc__ else None)
     parser.add_argument("--db", default=str(Path(__file__).resolve().parents[1] / "data/bursa.db"))
+    parser.add_argument("--style", choices=list(HORIZONS), default="investor")
     args = parser.parse_args()
+    style: InvestingStyle = args.style
 
     prices, funds, sectors = load(args.db)
     if not prices:
         sys.exit("No daily prices in the database.")
     calendar = sorted({b["day"] for bars in prices.values() for b in bars})
-    asofs = monthly_asofs(calendar)
+    asofs = weekly_asofs(calendar) if style == "trader" else monthly_asofs(calendar)
 
-    snapshot(prices, funds, sectors)
-    samples = backtest(prices, funds, sectors, asofs, calendar)
+    snapshot(prices, funds, sectors, style)
+    samples = backtest(prices, funds, sectors, asofs, calendar, style)
     print(f"\n=== BACKTEST {asofs[0]} -> {asofs[-1]} ({len(samples)} rated stock-dates) ===")
 
     floor = settings.recommendation_min_traded_value
-    for horizon in HORIZONS:
-        report(samples, asofs, horizon, "ALL rated", lambda s: True)
-        report(
-            samples, asofs, horizon, f"LIQUID (>= Rp {floor / 1e9:g}bn/day)",
-            lambda s: s["liquidity"] >= floor,
-        )
+    for horizon in HORIZONS[style]:
+        report(samples, asofs, horizon, "ALL rated", lambda s: True, CATEGORIES[style])
+        if style == "investor":  # trader only rates liquid stocks already
+            report(
+                samples, asofs, horizon, f"LIQUID (>= Rp {floor / 1e9:g}bn/day)",
+                lambda s: s["liquidity"] >= floor, CATEGORIES[style],
+            )
 
 
 if __name__ == "__main__":

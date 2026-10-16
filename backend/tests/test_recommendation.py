@@ -159,3 +159,34 @@ def test_negative_equity_ranks_worst_not_missing():
     from services.recommendation import _fmt
 
     assert "negative equity" in _fmt(math.inf, "ratio")  # shown instead of "inf"
+
+
+def test_trader_factors_from_closes():
+    from services.recommendation import trader_factors
+
+    closes = [100.0] * 21 + [100.0 + i for i in range(1, 20)]  # steady climb to 119
+    raw = trader_factors(closes)
+    assert raw["from_high_20d"] == 0.0  # closing at the 20-day high
+    assert raw["ret_20d"] == 119 / 100 - 1
+    assert raw["from_low_20d"] is not None and raw["from_low_20d"] > 0
+    assert raw["volatility_20d"] is not None and raw["volatility_20d"] < 0.01
+    # Not enough history -> nothing to score.
+    assert all(v is None for v in trader_factors([100.0] * 10).values())
+
+
+def test_trader_style_rates_liquid_price_only_stocks():
+    from services.recommendation import trader_factors
+
+    calm = [100.0 + (i % 2) * 0.5 for i in range(40)]
+    wild = [100.0 * (1.08 if i % 2 else 0.93) for i in range(40)]
+    raw = {"CALM.JK": trader_factors(calm), "WILD.JK": trader_factors(wild),
+           "THIN.JK": trader_factors(calm)}
+    traded = {"CALM.JK": 5e9, "WILD.JK": 5e9, "THIN.JK": 0.1e9}
+
+    rec = score_universe(raw, traded, "trader")
+    assert set(rec) == {"CALM.JK", "WILD.JK"}  # illiquid names are not rated for traders
+    assert rec["CALM.JK"].score > rec["WILD.JK"].score  # stability is rewarded
+    assert rec["CALM.JK"].style == "trader"
+    assert [c.name for c in rec["CALM.JK"].categories] == ["Stability", "Setup", "Pullback"]
+    # Investor style still refuses price-only data.
+    assert score_universe({"CALM.JK": _raw(ret_3m=0.1)}, traded, "investor") == {}

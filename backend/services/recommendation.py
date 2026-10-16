@@ -1,22 +1,28 @@
 """
 services/recommendation.py
 --------------------------
-Explainable, cross-sectional buy-signal score.
+Explainable, cross-sectional buy-signal score, in two investing styles.
 
-For each tracked stock we compute a handful of factors (valuation, quality,
-growth, momentum, health), rank each factor as a percentile WITHIN the tracked
-universe (so scores are relative, not absolute), average within categories, then
-take a weighted composite (0-100). The composite maps to a rating and a
-conviction ("strength") that also accounts for factor agreement and data
-coverage.
+For each stock we compute a handful of factors, rank each factor as a
+percentile WITHIN the rated universe (so scores are relative, not absolute),
+average within categories, then take a weighted composite (0-100). The
+composite maps to a rating and a conviction ("strength") that also accounts for
+factor agreement and data coverage.
 
-Everything is transparent and testable — no black-box model.
+* investor (long term): quality, valuation, growth, momentum, health from
+  yearly fundamentals + prices. Only stocks with fundamentals are rated.
+* trader (swing, 1-4 weeks): stability, setup, pullback from daily prices.
+  Any stock liquid enough to trade is rated, fundamentals or not.
+
+Both models were chosen with scripts/evaluate_signals.py (point-in-time
+backtest). Everything is transparent and testable — no black-box model.
 """
 
 import logging
 import math
 import time
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from statistics import pstdev
 
 from sqlalchemy import select
@@ -24,7 +30,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from models import Fundamental, Stock, StockProfile
-from schemas import CategoryOut, RecommendationOut
+from schemas import CategoryOut, InvestingStyle, RecommendationOut
+from services.preferences import get_investing_style
 from services.prices import (
     daily_closes,
     fundamental_series,
@@ -63,6 +70,42 @@ _BUY_RATINGS = ("Strong Buy", "Buy")
 
 # factor key -> raw value (None when the input data is missing).
 type RawFactors = dict[str, float | None]
+type Factor = tuple[str, str, str, str, str]
+
+TRADER_DISCLAIMER = (
+    "Short-term (1-4 week) score from daily price behaviour — favours calm, "
+    "orderly stocks over recent winners. Backtested in a falling market only; "
+    "for personal reference, not financial advice."
+)
+TRADER_CATEGORY_ORDER = ["Stability", "Setup", "Pullback"]
+TRADER_FACTORS: list[Factor] = [
+    ("volatility_20d", "Stability", "lower", "20-day volatility", "pct"),
+    ("from_high_20d", "Setup", "higher", "vs 20-day high", "pct"),
+    ("from_low_20d", "Setup", "lower", "Above 20-day low", "pct"),
+    ("ret_20d", "Pullback", "lower", "20-day return", "pct"),
+]
+_TRADER_KEYS = [f[0] for f in TRADER_FACTORS]
+
+
+@dataclass(frozen=True)
+class _StyleSpec:
+    factors: list[Factor]
+    categories: list[str]
+    weights: Callable[[], dict[str, float]]  # read lazily so settings stay tunable
+    disclaimer: str
+
+
+_SPECS: dict[InvestingStyle, _StyleSpec] = {
+    "investor": _StyleSpec(
+        FACTORS, CATEGORY_ORDER, lambda: settings.recommendation_weights, DISCLAIMER
+    ),
+    "trader": _StyleSpec(
+        TRADER_FACTORS,
+        TRADER_CATEGORY_ORDER,
+        lambda: settings.recommendation_trader_weights,
+        TRADER_DISCLAIMER,
+    ),
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -150,6 +193,21 @@ def raw_factors(
     return raw
 
 
+def trader_factors(closes: list[float]) -> RawFactors:
+    """Swing-trading factors from ascending daily closes (needs >= 21 closes)."""
+    raw: RawFactors = dict.fromkeys(_TRADER_KEYS)
+    if len(closes) < 21:
+        return raw
+    last = closes[-1]
+    window = closes[-20:]
+    rets = [b / a - 1 for a, b in zip(closes[-21:-1], window, strict=True) if a]
+    raw["volatility_20d"] = pstdev(rets) if len(rets) >= 10 else None
+    raw["from_high_20d"] = last / max(window) - 1 if max(window) else None
+    raw["from_low_20d"] = last / min(window) - 1 if min(window) else None
+    raw["ret_20d"] = last / closes[-21] - 1 if closes[-21] else None
+    return raw
+
+
 def percentile(values: Sequence[float | None], v: float) -> float:
     """Percentile rank (0-100) of `v` within `values` (None entries ignored)."""
     vals = [x for x in values if x is not None]
@@ -200,22 +258,44 @@ def _reasons(scored: list[tuple[str, str, str, float, float]]) -> list[str]:
     return out
 
 
+def _eligible(
+    raw: dict[str, RawFactors],
+    traded_value: dict[str, float] | None,
+    style: InvestingStyle,
+) -> dict[str, RawFactors]:
+    """Which tickers get a rating at all, per style."""
+    if style == "trader":
+        # Price behaviour only, but only for stocks liquid enough to swing-trade.
+        floor = settings.recommendation_min_traded_value
+        return {
+            t: v
+            for t, v in raw.items()
+            if all(v.get(k) is not None for k in _TRADER_KEYS)
+            and (traded_value is None or traded_value.get(t, 0.0) >= floor)
+        }
+    # Investor: needs fundamentals (price-only scores backtested as noise).
+    return {t: v for t, v in raw.items() if any(v.get(k) is not None for k in _FUNDAMENTAL_KEYS)}
+
+
 def score_universe(
-    raw: dict[str, RawFactors], traded_value: dict[str, float] | None = None
+    raw: dict[str, RawFactors],
+    traded_value: dict[str, float] | None = None,
+    style: InvestingStyle = "investor",
 ) -> dict[str, RecommendationOut]:
     """
     Turn raw per-ticker factor values into recommendation objects.
 
-    `raw` maps ticker -> {factor_key: value or None}. Only tickers with
-    fundamentals (any Quality/Valuation factor) are rated; percentiles are
-    computed across those (the cross-section). When `traded_value` is given,
-    Buy/Strong Buy is capped at Hold below `recommendation_min_traded_value`.
+    `raw` maps ticker -> {factor_key: value or None} for the given `style`
+    (`raw_factors` for investor, `trader_factors` for trader). Percentiles are
+    computed across the eligible tickers (the cross-section). Investor: when
+    `traded_value` is given, Buy/Strong Buy is capped at Hold below
+    `recommendation_min_traded_value` (traders never see illiquid names at all).
     """
-    weights = settings.recommendation_weights
-    rated = {
-        t: v for t, v in raw.items() if any(v.get(k) is not None for k in _FUNDAMENTAL_KEYS)
-    }
-    distributions = {k: [rated[t].get(k) for t in rated] for k in _FACTOR_KEYS}
+    spec = _SPECS[style]
+    weights = spec.weights()
+    rated = _eligible(raw, traded_value, style)
+    keys = [f[0] for f in spec.factors]
+    distributions = {k: [rated[t].get(k) for t in rated] for k in keys}
     results: dict[str, RecommendationOut] = {}
 
     for ticker, values in rated.items():
@@ -223,7 +303,7 @@ def score_universe(
         scored: list[tuple[str, str, str, float, float]] = []  # key, display, fmt, score, value
         n_present = 0
 
-        for key, category, direction, display, fmt in FACTORS:
+        for key, category, direction, display, fmt in spec.factors:
             v = values.get(key)
             if v is None:
                 continue
@@ -240,12 +320,12 @@ def score_universe(
             if total_w > 0
             else 50.0
         )
-        coverage = n_present / len(FACTORS)
+        coverage = n_present / len(spec.factors)
 
         scored.sort(key=lambda f: f[3], reverse=True)
         rating = _rating(composite)
         reasons = _reasons(scored)
-        if traded_value is not None and rating in _BUY_RATINGS:
+        if style == "investor" and traded_value is not None and rating in _BUY_RATINGS:
             liquidity = traded_value.get(ticker, 0.0)
             if liquidity < settings.recommendation_min_traded_value:
                 rating = "Hold"
@@ -262,11 +342,12 @@ def score_universe(
                 CategoryOut(
                     name=c, weight=weights.get(c.lower(), 0.0), score=round(cat_scores[c], 1)
                 )
-                for c in CATEGORY_ORDER
+                for c in spec.categories
                 if c in cat_scores
             ],
             reasons=reasons,
-            disclaimer=DISCLAIMER,
+            disclaimer=spec.disclaimer,
+            style=style,
         )
     return results
 
@@ -275,17 +356,23 @@ def score_universe(
 # Data-loading entrypoint
 # --------------------------------------------------------------------------- #
 async def compute_universe(
-    session: AsyncSession, tickers: list[str] | None = None
+    session: AsyncSession,
+    style: InvestingStyle = "investor",
+    tickers: list[str] | None = None,
 ) -> dict[str, RecommendationOut]:
-    """Load stored data and score every ticker (or just `tickers`)."""
+    """Load stored data and score every ticker (or just `tickers`) in `style`."""
     if tickers is None:
         tickers = list((await session.execute(select(Stock.ticker))).scalars().all())
 
     closes_map = await daily_closes(session, tickers)
+    liquidity = await median_traded_value(session, tickers)
+    if style == "trader":
+        raw = {t: trader_factors(closes_map.get(t, [])) for t in tickers}
+        return score_universe(raw, liquidity, style)
+
     funds_map = await fundamental_series(session, tickers)
     prof_map = await profiles(session, tickers)
     price_map = await latest_daily(session, tickers)
-    liquidity = await median_traded_value(session, tickers)
 
     raw = {
         t: raw_factors(
@@ -296,26 +383,33 @@ async def compute_universe(
         )
         for t in tickers
     }
-    return score_universe(raw, liquidity)
+    return score_universe(raw, liquidity, style)
 
 
-# In-process TTL cache: the cross-section only changes when data syncs (prices
-# every 3 min, fundamentals daily), so recomputing on every 60s poll is wasteful.
-_cache: tuple[float, dict[str, RecommendationOut]] | None = None
+# In-process TTL cache per style: the cross-section only changes when data syncs
+# (prices every 3 min, fundamentals daily), so recomputing on every poll is wasteful.
+_cache: dict[InvestingStyle, tuple[float, dict[str, RecommendationOut]]] = {}
 
 
-async def compute_universe_cached(session: AsyncSession) -> dict[str, RecommendationOut]:
-    """Whole-universe scores, cached for `recommendation_cache_seconds`."""
-    global _cache
+async def compute_universe_cached(
+    session: AsyncSession, style: InvestingStyle | None = None
+) -> dict[str, RecommendationOut]:
+    """
+    Whole-universe scores, cached for `recommendation_cache_seconds`.
+
+    Defaults to the user's saved investing style, so every page (and alerts)
+    follow the Settings choice without passing it around.
+    """
+    style = style or await get_investing_style(session)
     now = time.monotonic()
-    if _cache is not None and now - _cache[0] < settings.recommendation_cache_seconds:
-        return _cache[1]
-    data = await compute_universe(session)
-    _cache = (now, data)
+    cached = _cache.get(style)
+    if cached is not None and now - cached[0] < settings.recommendation_cache_seconds:
+        return cached[1]
+    data = await compute_universe(session, style)
+    _cache[style] = (now, data)
     return data
 
 
 def invalidate_cache() -> None:
     """Drop the cached universe scores (e.g. after a manual refresh)."""
-    global _cache
-    _cache = None
+    _cache.clear()

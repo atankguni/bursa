@@ -23,4 +23,5 @@ export const queryKeys = {
   valuation: (ticker: string) => ['valuation', ticker] as const,
   dividends: (ticker: string) => ['dividends', ticker] as const,
   company: (ticker: string) => ['company', ticker] as const,
+  preferences: ['preferences'] as const,
 }
