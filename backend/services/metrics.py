@@ -29,9 +29,11 @@ def derive_metrics(price: float | None, f: Fundamental | None) -> DerivedMetrics
         if market_cap and book_value and book_value > 0
         else None
     )
+    # RoE is meaningless on non-positive equity (a loss over negative equity
+    # would read as a large *positive* return), so it is left blank there.
     roe = (
         round(f.net_income / f.equity, 4)
-        if f.net_income is not None and f.equity not in (None, 0)
+        if f.net_income is not None and f.equity is not None and f.equity > 0
         else None
     )
     return DerivedMetrics(market_cap=market_cap, book_value=book_value, pbv=pbv, roe=roe)

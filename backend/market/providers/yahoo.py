@@ -135,6 +135,26 @@ def _col_for_year(df: pd.DataFrame | None, year: int) -> Hashable | None:
     return None
 
 
+def _shares_outstanding(info: Mapping[str, Any], balance: pd.DataFrame | None) -> float | None:
+    """
+    Current share count, from the most reliable source available.
+
+    Yahoo's `sharesOutstanding` is wrong for some IDX listings (BBNI 0.58bn vs
+    37.3bn actual, BCIC 0.28M vs 18.1bn), which made PBV ~0. The implied count
+    (market cap ÷ price) and the balance-sheet count agree with reality, so
+    they win; `sharesOutstanding` is only a last resort.
+    """
+    latest_col = balance.columns[0] if balance is not None and not balance.empty else None
+    for candidate in (
+        info.get("impliedSharesOutstanding"),
+        _pick(balance, _BS_SHARES, latest_col),
+        info.get("sharesOutstanding"),
+    ):
+        if candidate and candidate > 0:
+            return float(candidate)
+    return None
+
+
 def _profile_from_info(info: Mapping[str, Any]) -> ProfileData | None:
     """Extract optional info-derived metrics + company profile (may all be None)."""
     officers: list[Officer] = [
@@ -244,15 +264,7 @@ class YahooProvider(MarketDataProvider):
             )
             return [], profile
 
-        shares: float | None = info.get("sharesOutstanding")
-        if shares is None:
-            shares = _pick(
-                balance,
-                _BS_SHARES,
-                balance.columns[0]
-                if balance is not None and not balance.empty
-                else None,
-            )
+        shares = _shares_outstanding(info, balance)
 
         def money(value: float | None) -> float | None:
             return None if value is None else value * rate

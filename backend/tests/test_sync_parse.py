@@ -132,3 +132,20 @@ async def test_sync_batch_records_wall_clock_sync_time(monkeypatch):
     synced = sync.last_synced_at()
     assert synced is not None and synced.tzinfo is not None
     assert synced >= before
+
+
+def test_shares_outstanding_prefers_implied_then_balance_sheet():
+    from market.providers.yahoo import _shares_outstanding
+
+    col = pd.Timestamp("2025-12-31")
+    balance = pd.DataFrame({col: [37.26e9]}, index=["Ordinary Shares Number"])
+
+    # Real BBNI shape: sharesOutstanding is off by ~64x; implied is right.
+    info = {"sharesOutstanding": 5.787e8, "impliedSharesOutstanding": 3.726e10}
+    assert _shares_outstanding(info, balance) == 3.726e10
+    # No implied count -> balance sheet, still not the broken field.
+    assert _shares_outstanding({"sharesOutstanding": 5.787e8}, balance) == 37.26e9
+    # Nothing better available -> sharesOutstanding as a last resort.
+    assert _shares_outstanding({"sharesOutstanding": 5.787e8}, None) == 5.787e8
+    # Zero / missing values are skipped.
+    assert _shares_outstanding({"impliedSharesOutstanding": 0}, None) is None

@@ -60,3 +60,16 @@ def test_none_fundamentals_is_all_none():
     assert m.market_cap is None
     assert m.pbv is None
     assert m.roe is None
+
+
+def test_roe_blank_on_negative_equity():
+    from models import Fundamental
+    from services.metrics import derive_metrics
+
+    f = Fundamental(
+        ticker="X.JK", fiscal_year=2025, total_shares=1000.0, net_income=-500.0,
+        total_assets=4_000.0, total_liabilities=5_000.0, equity=-1_000.0,
+    )
+    m = derive_metrics(100.0, f)
+    assert m.roe is None  # was +0.5: a loss over negative equity
+    assert m.pbv is None  # book value <= 0 -> PBV undefined
