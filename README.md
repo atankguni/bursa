@@ -7,6 +7,12 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 
 ---
 
+## App Overview
+
+![Bursa Graph overview](screenshots/Screenshot-1792192796.png)
+
+![Bursa Market overview](screenshots/Screenshot-1792192834.png)
+
 ## Features
 
 - **Multi-index tracking** — LQ45, IDX30, JII, ISSI, IDXHIDIV20, IDXBUMN20.
