@@ -149,3 +149,20 @@ def test_shares_outstanding_prefers_implied_then_balance_sheet():
     assert _shares_outstanding({"sharesOutstanding": 5.787e8}, None) == 5.787e8
     # Zero / missing values are skipped.
     assert _shares_outstanding({"impliedSharesOutstanding": 0}, None) is None
+
+
+async def test_concurrent_price_requests_get_distinct_single_flight_keys(monkeypatch):
+    import market.sync as sync
+
+    keys: list[str] = []
+
+    async def fake_call(provider, key, fn, *args):
+        keys.append(key)
+        return {}
+
+    monkeypatch.setattr(sync.governor, "call", fake_call)
+    provider = type("P", (), {"name": "fake", "fetch_price_rows": None})()
+    await sync._fetch_with_retry(provider, ["BBCA.JK"], "max", "1d")
+    await sync._fetch_with_retry(provider, ["BBCA.JK", "TLKM.JK"], "1d", "1m")
+    # Previously both used the key "prices", so one could receive the other's bars.
+    assert len(set(keys)) == 2

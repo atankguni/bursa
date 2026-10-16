@@ -101,6 +101,8 @@ def _apply_light_migrations(conn: Connection) -> None:
         conn.exec_driver_sql(
             "ALTER TABLE stocks ADD COLUMN tracked BOOLEAN NOT NULL DEFAULT 0"
         )
+    if stocks and "full_history_at" not in stocks:
+        conn.exec_driver_sql("ALTER TABLE stocks ADD COLUMN full_history_at DATETIME")
     if stocks and "fundamentals_checked_at" not in stocks:
         conn.exec_driver_sql(
             "ALTER TABLE stocks ADD COLUMN fundamentals_checked_at DATETIME"

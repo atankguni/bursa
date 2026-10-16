@@ -117,7 +117,10 @@ async def _fetch_with_retry(
         try:
             return await governor.call(
                 provider.name,
-                "prices",
+                # Single-flight key must identify the request: a shared key made a
+                # concurrent call (e.g. on-demand history vs. the intraday sync)
+                # receive the other request's bars.
+                f"prices:{interval}:{period}:{','.join(tickers)}",
                 provider.fetch_price_rows,
                 tickers,
                 period,

@@ -157,3 +157,54 @@ async def test_screener_paginates_whole_universe(client):
 async def test_screener_total_counts_filtered_matches(client):
     page = (await client.get("/api/screener", params={"buy_only": True})).json()
     assert page["total"] == len(page["items"])  # no data in tests -> nothing is a Buy
+
+
+async def _insert_daily_bars(ticker: str, days: int) -> None:
+    from datetime import datetime, timedelta
+
+    from sqlalchemy.dialects.sqlite import insert
+
+    from database import AsyncSessionLocal
+    from models import StockPrice
+
+    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    rows = [
+        {"ticker": ticker, "timestamp": today - timedelta(days=d), "interval": "1d",
+         "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0 + d, "volume": 1000}
+        for d in range(days)
+    ]
+    async with AsyncSessionLocal() as s:
+        await s.execute(insert(StockPrice).values(rows).on_conflict_do_nothing())
+        await s.commit()
+
+
+async def test_history_ranges_fetch_full_history_once(client, monkeypatch):
+    import services.history as history
+
+    await _insert_daily_bars("BBCA.JK", 400)  # ~1y+ like the regular sync stores
+    calls: list[tuple] = []
+
+    async def fake_sync(tickers, period, interval):
+        calls.append((tuple(tickers), period, interval))
+        await _insert_daily_bars("BBCA.JK", 3000)  # "since listing"
+        return 3000
+
+    monkeypatch.setattr(history, "sync_batch", fake_sync)
+
+    short = (await client.get("/api/stocks/BBCA.JK/history", params={"range": "1m"})).json()
+    assert 28 <= len(short["points"]) <= 32 and calls == []  # stored data, no provider call
+    pts = [p["timestamp"] for p in short["points"]]
+    assert pts == sorted(pts)  # ascending for the chart
+
+    full = (await client.get("/api/stocks/BBCA.JK/history", params={"range": "max"})).json()
+    assert len(full["points"]) == 3000
+    assert calls == [(("BBCA.JK",), "max", "1d")]
+
+    five = (await client.get("/api/stocks/BBCA.JK/history", params={"range": "5y"})).json()
+    assert 1820 <= len(five["points"]) <= 1832
+    assert len(calls) == 1  # full history is fetched once, then kept
+
+
+async def test_history_range_is_validated(client):
+    r = await client.get("/api/stocks/BBCA.JK/history", params={"range": "10y"})
+    assert r.status_code == 422

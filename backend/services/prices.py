@@ -103,19 +103,39 @@ async def latest_fundamentals(
     return best
 
 
+# ~1 trading year. Signals/valuation are defined on this window; some stocks
+# store their full history (chart "5Y"/"Max"), which must not change them.
+TRADING_YEAR = 252
+
+
 async def daily_closes(
-    session: AsyncSession, tickers: list[str]
+    session: AsyncSession, tickers: list[str], last: int | None = TRADING_YEAR
 ) -> dict[str, list[float]]:
-    """Ascending list of daily closes per ticker (for momentum/technicals)."""
+    """Ascending daily closes per ticker: the most recent `last` (None = all)."""
     if not tickers:
         return {}
-    rows = (
-        await session.execute(
+    base = select(StockPrice.ticker, StockPrice.close, StockPrice.timestamp).where(
+        StockPrice.interval == "1d", StockPrice.ticker.in_(tickers)
+    )
+    if last is not None:
+        rn = (
+            func.row_number()
+            .over(partition_by=StockPrice.ticker, order_by=StockPrice.timestamp.desc())
+            .label("rn")
+        )
+        ranked = base.add_columns(rn).subquery()
+        stmt = (
+            select(ranked.c.ticker, ranked.c.close)
+            .where(ranked.c.rn <= last)
+            .order_by(ranked.c.ticker, ranked.c.timestamp)
+        )
+    else:
+        stmt = (
             select(StockPrice.ticker, StockPrice.close)
             .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
             .order_by(StockPrice.ticker, StockPrice.timestamp)
         )
-    ).all()
+    rows = (await session.execute(stmt)).all()
     series: dict[str, list[float]] = {}
     for ticker, close in rows:
         series.setdefault(ticker, []).append(close)

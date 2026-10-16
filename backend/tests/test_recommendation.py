@@ -190,3 +190,11 @@ def test_trader_style_rates_liquid_price_only_stocks():
     assert [c.name for c in rec["CALM.JK"].categories] == ["Stability", "Setup", "Pullback"]
     # Investor style still refuses price-only data.
     assert score_universe({"CALM.JK": _raw(ret_3m=0.1)}, traded, "investor") == {}
+
+
+def test_52_week_position_ignores_older_history():
+    from services.recommendation import _momentum
+
+    last_year = [50.0 + (i % 51) for i in range(251)] + [75.0]  # range 50..100, ends at 75
+    deep = [1000.0] * 3000 + last_year  # an old all-time high far above
+    assert _momentum(deep)["pos_52w"] == _momentum(last_year)["pos_52w"] == 0.5

@@ -47,6 +47,9 @@ class Stock(Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     # User-pinned symbols added to the high-frequency (intraday) sync set.
     tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # When the full daily history (since listing) was fetched on demand; the
+    # regular sync only keeps ~1 year for the whole catalog.
+    full_history_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Last screener "sync missing" attempt, so tickers the provider has no
     # statements for rotate to the back of the queue instead of blocking it.
     fundamentals_checked_at: Mapped[datetime | None] = mapped_column(

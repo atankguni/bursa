@@ -116,11 +116,14 @@ export default function StockChart({
   chartType,
   height = 400,
   indicators,
+  visibleFrom,
 }: {
   data: PricePoint[]
   chartType: 'candle' | 'line'
   height?: number
   indicators?: Indicators
+  /** ISO date: start the view here (older data stays scrollable). Omit to fit all. */
+  visibleFrom?: string
 }) {
   const mainRef = useRef<HTMLDivElement>(null)
   const rsiRef = useRef<HTMLDivElement>(null)
@@ -199,7 +202,17 @@ export default function StockChart({
       if (ind.ma200) add(200, MA_COLORS.ma200)
     }
 
-    chart.timeScale().fitContent()
+    // Show the requested span; the rest of the series stays loaded so moving
+    // averages are correct from the first visible bar and the user can scroll back.
+    const fromTs = visibleFrom ? toTime(visibleFrom) : null
+    const showSpan = (c: IChartApi) =>
+      fromTs != null && data.length > 0 && fromTs > toTime(data[0].timestamp)
+        ? c.timeScale().setVisibleRange({
+            from: fromTs,
+            to: toTime(data[data.length - 1].timestamp),
+          })
+        : c.timeScale().fitContent()
+    showSpan(chart)
 
     const observer = new ResizeObserver((entries) => {
       const e = entries[0]
@@ -232,7 +245,7 @@ export default function StockChart({
       } as const
       rsiSeries.createPriceLine({ ...guide, price: 70 })
       rsiSeries.createPriceLine({ ...guide, price: 30 })
-      rsiChart.timeScale().fitContent()
+      showSpan(rsiChart)
       const rObs = new ResizeObserver((entries) => {
         const e = entries[0]
         if (e && rsiChart) rsiChart.applyOptions({ width: e.contentRect.width })
@@ -261,6 +274,7 @@ export default function StockChart({
     ind?.ma200,
     ind?.volume,
     ind?.rsi,
+    visibleFrom,
   ])
 
   const last = data.length > 0 ? data[data.length - 1].close : null

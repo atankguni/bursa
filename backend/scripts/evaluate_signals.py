@@ -290,7 +290,11 @@ def main() -> None:
     prices, funds, sectors = load(args.db)
     if not prices:
         sys.exit("No daily prices in the database.")
-    calendar = sorted({b["day"] for bars in prices.values() for b in bars})
+    # Only days most of the universe covers: a few stocks store their full
+    # history (chart "5Y"/"Max"), which must not drag as-of dates back decades.
+    day_counts = collections.Counter(b["day"] for bars in prices.values() for b in bars)
+    peak = max(day_counts.values())
+    calendar = sorted(d for d, n in day_counts.items() if n >= peak * 0.5)
     asofs = weekly_asofs(calendar) if style == "trader" else monthly_asofs(calendar)
 
     snapshot(prices, funds, sectors, style)

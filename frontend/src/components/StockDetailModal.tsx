@@ -9,7 +9,12 @@ import {
   Star,
   X,
 } from 'lucide-react'
-import { addToWatchlist, fetchFundamentals, removeFromWatchlist } from '../api'
+import {
+  addToWatchlist,
+  fetchFundamentals,
+  removeFromWatchlist,
+  type ChartSpan,
+} from '../api'
 import {
   queryKeys,
   useCompany,
@@ -41,6 +46,21 @@ export interface StockLike {
   change_percent?: number | null
 }
 
+const SPANS: { value: ChartSpan; label: string; days: number | null }[] = [
+  { value: '1m', label: '1M', days: 31 },
+  { value: '3m', label: '3M', days: 92 },
+  { value: '6m', label: '6M', days: 183 },
+  { value: '1y', label: '1Y', days: 366 },
+  { value: '5y', label: '5Y', days: 5 * 366 },
+  { value: 'max', label: 'Max', days: null },
+]
+
+/** ISO start of a span, or undefined for Max (fit everything). */
+const spanStart = (span: ChartSpan) => {
+  const days = SPANS.find((s) => s.value === span)?.days
+  return days == null ? undefined : new Date(Date.now() - days * 86_400_000).toISOString()
+}
+
 type Tab = 'chart' | 'fundamentals' | 'recommendation' | 'company'
 type FinTab = 'financials' | 'valuation' | 'dividends'
 type CompanyTab = 'overview' | 'board'
@@ -59,6 +79,7 @@ export default function StockDetailModal({
   const [companyTab, setCompanyTab] = useState<CompanyTab>('overview')
   const { settings } = useSettings()
   const [range, setRange] = useState<'1d' | '1m'>(settings.chartRange)
+  const [span, setSpan] = useState<ChartSpan>('1y')
   const [chartType, setChartType] = useState<'candle' | 'line'>(settings.chartType)
   const [ind, setInd] = useState<Indicators>({
     ma20: false,
@@ -70,7 +91,8 @@ export default function StockDetailModal({
   const queryClient = useQueryClient()
 
   // --- Chart data -----------------------------------------------------------
-  const history = useHistory(stock.ticker, range, tab === 'chart')
+  const history = useHistory(stock.ticker, range, span, tab === 'chart')
+  const visibleFrom = range === '1d' ? spanStart(span) : undefined
 
   // --- Fundamentals (fetched per sub-tab, cached) ---------------------------
   const onFin = tab === 'fundamentals'
@@ -233,6 +255,24 @@ export default function StockDetailModal({
                     </button>
                   ))}
                 </div>
+                {range === '1d' && (
+                  <div
+                    className="flex overflow-hidden rounded ring-1 ring-line-strong"
+                    role="group"
+                    aria-label="Time span"
+                  >
+                    {SPANS.map((s) => (
+                      <button
+                        key={s.value}
+                        onClick={() => setSpan(s.value)}
+                        aria-pressed={span === s.value}
+                        className={seg(span === s.value)}
+                      >
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
                   <button
                     onClick={() => setChartType('candle')}
@@ -273,6 +313,13 @@ export default function StockDetailModal({
               </div>
 
               <div className="mt-3">
+                {history.isFetching && !history.isLoading && (
+                  <p className="mb-1 text-[11px] text-subtle" aria-live="polite">
+                    {span === '5y' || span === 'max'
+                      ? 'Loading full price history (first time can take a few seconds)…'
+                      : 'Updating…'}
+                  </p>
+                )}
                 {history.isLoading ? (
                   <div className="flex h-[400px] items-center justify-center text-muted">
                     Loading chart…
@@ -289,6 +336,7 @@ export default function StockDetailModal({
                       data={history.data.points}
                       chartType={chartType}
                       indicators={ind}
+                      visibleFrom={visibleFrom}
                     />
                   </Suspense>
                 ) : (

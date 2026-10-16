@@ -31,6 +31,9 @@ export interface StockHistory {
   points: PricePoint[]
 }
 
+/** Chart span for daily bars; 5y/max load the stock's full history on first use. */
+export type ChartSpan = '1m' | '3m' | '6m' | '1y' | '5y' | 'max'
+
 export interface Fundamental {
   fiscal_year: number
   financial_currency: string | null

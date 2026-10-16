@@ -26,6 +26,7 @@ from schemas import (
 )
 from services.dividends import list_dividends, trailing_dps
 from services.fundamentals import is_stale, sync_ticker
+from services.history import DEEP_RANGES, ensure_full_history, range_start
 from services.metrics import derive_metrics
 from services.preferences import get_investing_style
 from services.prices import indices_map, latest_daily
@@ -185,6 +186,13 @@ async def stock_history(
     ticker: str,
     interval: str = Query("1d", pattern="^(1d|1m)$"),
     limit: int = Query(365, ge=1, le=2000),
+    range_: str | None = Query(
+        None,
+        alias="range",
+        pattern="^(1m|3m|6m|1y|5y|max)$",
+        description="Daily bars covering this span (5y/max fetch full history once). "
+        "Overrides `limit`.",
+    ),
     session: AsyncSession = Depends(get_session),
 ) -> StockHistory:
     """Return ascending OHLCV bars for one ticker (daily or 1-minute)."""
@@ -194,15 +202,27 @@ async def stock_history(
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
 
-    # Grab the newest `limit` bars, then reverse to chronological order.
-    stmt = (
-        select(StockPrice)
-        .where(StockPrice.ticker == ticker, StockPrice.interval == interval)
-        .order_by(StockPrice.timestamp.desc())
-        .limit(limit)
-    )
-    prices = (await session.execute(stmt)).scalars().all()
-    points = [PricePoint.model_validate(p) for p in reversed(prices)]
+    if interval == "1d" and range_ is not None:
+        if range_ in DEEP_RANGES:
+            await ensure_full_history(session, stock)
+        stmt = select(StockPrice).where(
+            StockPrice.ticker == ticker, StockPrice.interval == interval
+        )
+        start = range_start(range_)
+        if start is not None:
+            stmt = stmt.where(StockPrice.timestamp >= start)
+        prices = (await session.execute(stmt.order_by(StockPrice.timestamp))).scalars().all()
+        points = [PricePoint.model_validate(p) for p in prices]
+    else:
+        # Grab the newest `limit` bars, then reverse to chronological order.
+        stmt = (
+            select(StockPrice)
+            .where(StockPrice.ticker == ticker, StockPrice.interval == interval)
+            .order_by(StockPrice.timestamp.desc())
+            .limit(limit)
+        )
+        prices = (await session.execute(stmt)).scalars().all()
+        points = [PricePoint.model_validate(p) for p in reversed(prices)]
 
     index_map = await indices_map(session, [ticker])
     return StockHistory(

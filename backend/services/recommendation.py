@@ -125,6 +125,7 @@ def _yoy(cur: float | None, prev: float | None) -> float | None:
 
 def _momentum(closes: list[float]) -> dict[str, float | None]:
     out: dict[str, float | None] = {"ret_3m": None, "price_vs_sma50": None, "pos_52w": None}
+    closes = closes[-252:]  # "52w" = one trading year, even if more history is stored
     if not closes:
         return out
     last = closes[-1]

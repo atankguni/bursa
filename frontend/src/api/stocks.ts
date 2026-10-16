@@ -1,6 +1,7 @@
 import { api } from './client'
 import type {
   CatalogPage,
+  ChartSpan,
   CatalogRow,
   Company,
   DividendSummary,
@@ -28,9 +29,11 @@ export async function fetchStocks(indexes?: string[]): Promise<Stock[]> {
 export async function fetchHistory(
   ticker: string,
   interval: '1d' | '1m' = '1d',
+  range?: ChartSpan,
 ): Promise<StockHistory> {
   const { data } = await api.get<StockHistory>(`/api/stocks/${ticker}/history`, {
-    params: { interval },
+    params: interval === '1d' && range ? { interval, range } : { interval },
+    timeout: 60_000, // the first 5Y/Max request fetches full history from the provider
   })
   return data
 }
