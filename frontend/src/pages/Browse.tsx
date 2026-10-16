@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, Star } from 'lucide-react'
-import { setTracked } from '../api'
+import { setTracked, type CatalogRow } from '../api'
 import { useCatalog } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
 import Pagination from '../components/Pagination'
+import StockDetailModal from '../components/StockDetailModal'
 
 const PAGE_SIZES = [50, 100, 200] // the API caps a page at 200
 
@@ -14,6 +15,7 @@ export default function Browse() {
   const [debounced, setDebounced] = useState('')
   const [page, setPage] = useState(0) // 0-based
   const [pageSize, setPageSize] = useState(100)
+  const [selected, setSelected] = useState<CatalogRow | null>(null)
   const qc = useQueryClient()
   const { settings } = useSettings()
 
@@ -119,7 +121,16 @@ export default function Browse() {
                 return (
                   <tr
                     key={r.ticker}
-                    className="bg-panel transition-colors hover:bg-panelalt/60"
+                    onClick={() => setSelected(r)}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return // keys on the Track button
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelected(r)
+                      }
+                    }}
+                    tabIndex={0}
+                    className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60 focus-visible:bg-panelalt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bull"
                   >
                     <td className="px-4 py-2 font-semibold">
                       {r.ticker.replace('.JK', '')}
@@ -149,9 +160,10 @@ export default function Browse() {
                     </td>
                     <td className="px-4 py-2 text-center">
                       <button
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation() // don't also open the detail modal
                           toggle.mutate({ ticker: r.ticker, tracked: !r.tracked })
-                        }
+                        }}
                         disabled={toggle.isPending}
                         title={
                           r.tracked
@@ -203,6 +215,9 @@ export default function Browse() {
       <p className="mt-3 text-[11px] text-subtle">
         Catalog prices update daily; tracked stocks also get intraday updates.
       </p>
+      {selected && (
+        <StockDetailModal stock={selected} onClose={() => setSelected(null)} />
+      )}
     </main>
   )
 }
