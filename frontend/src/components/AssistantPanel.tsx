@@ -161,8 +161,9 @@ export default function AssistantPanel() {
             >
               {notConfigured && (
                 <div className="rounded-md bg-bear/10 px-3 py-2 text-bear ring-1 ring-bear/20">
-                  The assistant isn’t set up. Add <code>GEMINI_API_KEY</code> to{' '}
-                  <code>backend/.env</code> and restart the backend.
+                  The assistant isn’t set up. Add{' '}
+                  <code>{s.setup_hint || 'an API key'}</code> to <code>backend/.env</code>{' '}
+                  and restart the backend.
                 </div>
               )}
               {messages.length === 0 && !notConfigured && (

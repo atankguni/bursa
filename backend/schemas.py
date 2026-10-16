@@ -464,6 +464,7 @@ class AssistantChatIn(BaseModel):
 
 class AssistantChatOut(BaseModel):
     reply: str
+    provider: str = ""
     model: str
     tools_used: list[str] = []
     remaining_today: int
@@ -472,6 +473,7 @@ class AssistantChatOut(BaseModel):
 class AssistantStatusOut(BaseModel):
     configured: bool
     models: list[str]
+    setup_hint: str = ""  # what to set when not configured (e.g. GEMINI_API_KEY)
     personal_data: bool
     remaining_today: int
     daily_limit: int

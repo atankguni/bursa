@@ -10,11 +10,13 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bursa.db"
-    # AI assistant. The key comes from the environment / backend/.env (never commit it).
-    # Models are tried in order; the free tier is often busy, so keep a fallback.
+    # AI assistant. Ordered "provider:model" attempts (see assistant/providers):
+    # the first configured one answers; on busy/quota/errors the next is tried.
+    # Providers without credentials are skipped, so a fallback can be listed
+    # before its key exists. Env override: ASSISTANT_CHAIN='["gemini:..."]'.
+    assistant_chain: list[str] = ["gemini:gemini-3.5-flash", "gemini:gemini-3.1-flash-lite"]
+    # Provider credentials: from the environment / backend/.env, never commit them.
     gemini_api_key: str | None = None
-    assistant_provider: str = "gemini"
-    assistant_models: list[str] = ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
     assistant_daily_limit: int = 100
     assistant_max_tool_rounds: int = 6
     # Off by default: when on, watchlist and portfolio are sent to the AI provider

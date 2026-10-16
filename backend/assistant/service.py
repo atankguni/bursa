@@ -1,12 +1,16 @@
 """
 assistant/service.py
 --------------------
-The question -> tools -> answer loop.
+The question -> tools -> answer loop, provider-agnostic.
 
 Stateless per request: the client sends the visible conversation (text turns);
 tool calls happen inside one request and aren't stored. Guards: a daily
-question cap, a cap on tool rounds per question, and model fallback when the
-free tier is busy.
+question cap and a cap on tool rounds per question.
+
+Fallback: `assistant_chain` lists ("provider", "model") attempts. If an attempt
+fails (busy, quota, rejected), the whole question is re-run from scratch on the
+next one, so no provider ever receives another model's internal state (e.g.
+Gemini thought signatures). Re-running is cheap: tools only read the local DB.
 """
 
 import json
@@ -19,14 +23,18 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant.providers import (
+    AssistantMessage,
     ChatProvider,
+    Message,
     ProviderBusyError,
     ProviderError,
-    Reply,
-    ToolSpec,
-    provider_for,
+    ToolResult,
+    ToolResultsMessage,
+    UserMessage,
+    resolve_chain,
+    setup_hint,
 )
-from assistant.tools import available_tools
+from assistant.tools import Tool, available_tools
 from config import settings
 from services.preferences import get_investing_style
 
@@ -61,12 +69,13 @@ _PERSONAL_OFF = ("- You cannot see the user's watchlist or portfolio (personal d
 
 
 class AssistantUnavailable(RuntimeError):
-    """Not configured, over the daily cap, or every model is busy."""
+    """Not configured, over the daily cap, or every attempt failed."""
 
 
 @dataclass
 class Answer:
     reply: str
+    provider: str
     model: str
     tools_used: list[str] = field(default_factory=list)
     remaining_today: int = 0
@@ -86,7 +95,7 @@ def remaining_today() -> int:
 
 
 def configured() -> bool:
-    return provider_for(settings.assistant_provider, settings.gemini_api_key) is not None
+    return bool(resolve_chain())
 
 
 def _jsonable(value: Any) -> Any:
@@ -94,19 +103,42 @@ def _jsonable(value: Any) -> Any:
     return json.loads(json.dumps(value, default=str))
 
 
-async def _generate(provider: ChatProvider, system: str, transcript: list[Any],
-                    tools: list[ToolSpec], allow_tools: bool = True) -> Reply:
-    """Try each configured model in order; the free tier is often busy."""
-    last: Exception | None = None
-    for model in settings.assistant_models:
+async def _run_tools(session: AsyncSession, tools: dict[str, Tool],
+                     reply: AssistantMessage, used: list[str]) -> ToolResultsMessage:
+    results: list[ToolResult] = []
+    for call in reply.tool_calls:
+        used.append(call.name)
+        tool = tools.get(call.name)
+        if tool is None:
+            results.append(ToolResult(call, f"unknown tool {call.name}", is_error=True))
+            continue
         try:
-            return await provider.generate(model, system, transcript, tools, allow_tools)
-        except ProviderBusyError as exc:
-            log.warning("Assistant model busy, trying next: %s", exc)
-            last = exc
-    raise AssistantUnavailable(
-        "The AI service is busy or the free quota is used up. Try again in a minute."
-    ) from last
+            results.append(ToolResult(call, _jsonable(await tool.handler(session, call.args))))
+        except Exception as exc:  # noqa: BLE001 - report to the model, keep going
+            log.warning("Assistant tool %s failed: %s", call.name, exc)
+            results.append(ToolResult(call, f"tool failed: {exc}", is_error=True))
+    return ToolResultsMessage(results)
+
+
+async def _attempt(provider: ChatProvider, model: str, system: str,
+                   history: list[Message], session: AsyncSession,
+                   tools: dict[str, Tool]) -> Answer:
+    """Answer one question with one (provider, model), running tools as asked."""
+    messages = list(history)
+    specs = [t.spec for t in tools.values()]
+    used: list[str] = []
+    for _ in range(settings.assistant_max_tool_rounds):
+        reply = await provider.complete(model=model, system=system, messages=messages,
+                                        tools=specs)
+        if not reply.tool_calls:
+            return Answer(reply.text or "(no answer)", provider.name, model, used)
+        messages.append(reply)
+        messages.append(await _run_tools(session, tools, reply, used))
+
+    # Out of tool rounds: answer with what it has.
+    reply = await provider.complete(model=model, system=system, messages=messages,
+                                    tools=specs, allow_tools=False)
+    return Answer(reply.text or "(no answer)", provider.name, model, used)
 
 
 async def ask(
@@ -114,9 +146,9 @@ async def ask(
     history: list[dict[str, str]],
     context: str | None = None,
 ) -> Answer:
-    provider = provider_for(settings.assistant_provider, settings.gemini_api_key)
-    if provider is None:
-        raise AssistantUnavailable("The assistant isn't configured: set GEMINI_API_KEY.")
+    attempts = resolve_chain()
+    if not attempts:
+        raise AssistantUnavailable(f"The assistant isn't configured: set {setup_hint()}.")
     if remaining_today() <= 0:
         raise AssistantUnavailable(
             f"Daily limit of {settings.assistant_daily_limit} questions reached."
@@ -130,33 +162,24 @@ async def ask(
         today=datetime.now(ZoneInfo(settings.timezone)).strftime("%A %d %B %Y, %H:%M"),
         context=f"\nThe user is currently looking at: {context}." if context else "",
     )
-    transcript = provider.start(system, history)
-    specs = [t.spec for t in tools.values()]
-    used: list[str] = []
+    base: list[Message] = [
+        AssistantMessage(text=t["content"]) if t["role"] == "assistant"
+        else UserMessage(t["content"])
+        for t in history
+    ]
 
-    try:
-        for _ in range(settings.assistant_max_tool_rounds):
-            reply = await _generate(provider, system, transcript, specs)
-            if not reply.tool_calls:
-                return Answer(reply.text or "(no answer)", reply.model, used, remaining_today())
-            provider.add_model_turn(transcript, reply)
-            results = []
-            for call in reply.tool_calls:
-                tool = tools.get(call.name)
-                used.append(call.name)
-                if tool is None:
-                    results.append((call, {"error": f"unknown tool {call.name}"}))
-                    continue
-                try:
-                    results.append((call, _jsonable(await tool.handler(session, call.args))))
-                except Exception as exc:  # noqa: BLE001 - report to the model, keep going
-                    log.warning("Assistant tool %s failed: %s", call.name, exc)
-                    results.append((call, {"error": f"tool failed: {exc}"}))
-            provider.add_tool_results(transcript, results)
-
-        # Out of tool rounds: ask for an answer with what it has.
-        reply = await _generate(provider, system, transcript, specs, allow_tools=False)
-        return Answer(reply.text or "(no answer)", reply.model, used, remaining_today())
-    except ProviderError as exc:
-        log.error("Assistant provider error: %s", exc)
-        raise AssistantUnavailable("The AI service rejected the request.") from exc
+    rejected = False
+    for provider, model in attempts:
+        try:
+            answer = await _attempt(provider, model, system, base, session, tools)
+            answer.remaining_today = remaining_today()
+            return answer
+        except ProviderBusyError as exc:
+            log.warning("Assistant attempt %s:%s busy, trying next: %s", provider.name, model, exc)
+        except ProviderError as exc:
+            rejected = True
+            log.error("Assistant attempt %s:%s rejected: %s", provider.name, model, exc)
+    raise AssistantUnavailable(
+        "The AI service rejected the request." if rejected
+        else "The AI service is busy or the free quota is used up. Try again in a minute."
+    )

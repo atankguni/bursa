@@ -96,6 +96,7 @@ export interface ChatTurn {
 
 export interface AssistantReply {
   reply: string
+  provider: string
   model: string
   tools_used: string[]
   remaining_today: number
@@ -104,6 +105,7 @@ export interface AssistantReply {
 export interface AssistantStatus {
   configured: boolean
   models: string[]
+  setup_hint: string
   personal_data: boolean
   remaining_today: number
   daily_limit: number

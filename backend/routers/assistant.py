@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant import service
+from assistant.providers import setup_hint
+from assistant.providers.registry import parse_entry
 from config import settings
 from deps import get_session
 from schemas import AssistantChatIn, AssistantChatOut, AssistantStatusOut
@@ -13,9 +15,16 @@ router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 
 @router.get("/status", response_model=AssistantStatusOut)
 async def assistant_status() -> AssistantStatusOut:
+    models = []
+    for entry in settings.assistant_chain:
+        try:
+            models.append(parse_entry(entry)[1])
+        except ValueError:
+            continue
     return AssistantStatusOut(
         configured=service.configured(),
-        models=settings.assistant_models,
+        models=models,
+        setup_hint=setup_hint(),
         personal_data=settings.assistant_personal_data,
         remaining_today=service.remaining_today(),
         daily_limit=settings.assistant_daily_limit,
@@ -36,6 +45,7 @@ async def assistant_chat(
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return AssistantChatOut(
         reply=answer.reply,
+        provider=answer.provider,
         model=answer.model,
         tools_used=answer.tools_used,
         remaining_today=answer.remaining_today,
