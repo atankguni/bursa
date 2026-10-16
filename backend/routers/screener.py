@@ -41,7 +41,7 @@ async def screener(
 @router.get("/screener/sync/status", response_model=SyncStatusOut)
 async def screener_sync_status() -> SyncStatusOut:
     """Progress of the background 'sync missing fundamentals' job."""
-    return SyncStatusOut(**sync_job.status())
+    return SyncStatusOut(**sync_job.status(), missing=await sync_job.missing_count())
 
 
 @router.post("/screener/sync", response_model=SyncStartOut)

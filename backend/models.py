@@ -47,6 +47,11 @@ class Stock(Base):
     name: Mapped[str] = mapped_column(String(160), nullable=False)
     # User-pinned symbols added to the high-frequency (intraday) sync set.
     tracked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    # Last screener "sync missing" attempt, so tickers the provider has no
+    # statements for rotate to the back of the queue instead of blocking it.
+    fundamentals_checked_at: Mapped[datetime | None] = mapped_column(
+        DateTime, nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )

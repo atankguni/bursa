@@ -6,13 +6,18 @@ In-process background job that fills **missing fundamentals** for the screener.
 Only one run at a time; fundamentals-only (no dividends) to halve provider
 calls; paced by the shared governor. Progress is tracked in memory (this app
 runs as a single process).
+
+Each attempt is stamped on `Stock.fundamentals_checked_at` and the queue is
+ordered never-tried first, then least-recently tried. Without that, tickers the
+provider has no statements for stay "missing" forever and, being first
+alphabetically, would fill every capped run.
 """
 
 import asyncio
 import logging
 from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 
 from database import AsyncSessionLocal
 from models import Fundamental, Stock
@@ -29,19 +34,43 @@ _state: dict = {
     "started_at": None,
     "finished_at": None,
 }
+# Strong reference to the running task (the event loop only keeps a weak one).
+_task: asyncio.Task | None = None
+
+
+def _missing_clause():
+    return ~Stock.ticker.in_(select(Fundamental.ticker).distinct())
 
 
 async def missing_tickers() -> list[str]:
-    """Tracked stocks that have no fundamentals yet (blank PBV/RoE/sector)."""
+    """Stocks without fundamentals, never-tried first, then least-recently tried."""
     async with AsyncSessionLocal() as session:
         rows = (
             await session.execute(
                 select(Stock.ticker)
-                .where(~Stock.ticker.in_(select(Fundamental.ticker).distinct()))
-                .order_by(Stock.ticker)
+                .where(_missing_clause())
+                # SQLite sorts NULL first ascending -> never-tried lead the queue.
+                .order_by(Stock.fundamentals_checked_at, Stock.ticker)
             )
         ).scalars().all()
     return list(rows)
+
+
+async def missing_count() -> int:
+    async with AsyncSessionLocal() as session:
+        return (
+            await session.execute(select(func.count()).select_from(Stock).where(_missing_clause()))
+        ).scalar_one()
+
+
+async def _mark_checked(ticker: str) -> None:
+    async with AsyncSessionLocal() as session:
+        await session.execute(
+            update(Stock)
+            .where(Stock.ticker == ticker)
+            .values(fundamentals_checked_at=datetime.utcnow())
+        )
+        await session.commit()
 
 
 def status() -> dict:
@@ -56,24 +85,32 @@ def status() -> dict:
 
 async def _run(tickers: list[str]) -> None:
     log.info("Screener sync started for %d tickers", len(tickers))
-    for ticker in tickers:
-        try:
-            await sync_ticker(ticker, with_dividends=False)
-        except Exception as exc:  # noqa: BLE001 - keep going
-            _state["last_error"] = f"{ticker}: {exc}"
-            log.warning("Screener sync failed for %s: %s", ticker, exc)
-        finally:
-            _state["done"] += 1
+    try:
+        for ticker in tickers:
+            try:
+                await sync_ticker(ticker, with_dividends=False)
+            except Exception as exc:  # noqa: BLE001 - keep going
+                _state["last_error"] = f"{ticker}: {exc}"
+                log.warning("Screener sync failed for %s: %s", ticker, exc)
+            finally:
+                _state["done"] += 1
+            try:
+                await _mark_checked(ticker)
+            except Exception as exc:  # noqa: BLE001 - ordering only; keep going
+                log.warning("Could not stamp sync attempt for %s: %s", ticker, exc)
 
-    # Fresh fundamentals -> recompute recommendation scores next request.
-    invalidate_cache()
-    _state["running"] = False
-    _state["finished_at"] = datetime.utcnow()
+        # Fresh fundamentals -> recompute recommendation scores next request.
+        invalidate_cache()
+    finally:
+        # Always release the lock, or the button stays stuck on "Syncing".
+        _state["running"] = False
+        _state["finished_at"] = datetime.utcnow()
     log.info("Screener sync finished (%d tickers)", len(tickers))
 
 
 def start(tickers: list[str]) -> bool:
     """Queue a background sync. Returns False if one is already running."""
+    global _task
     if _state["running"]:
         return False
     _state.update(
@@ -84,5 +121,5 @@ def start(tickers: list[str]) -> bool:
         started_at=datetime.utcnow(),
         finished_at=None,
     )
-    asyncio.create_task(_run(tickers))
+    _task = asyncio.create_task(_run(tickers))
     return True

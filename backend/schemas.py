@@ -183,6 +183,8 @@ class SyncStatusOut(BaseModel):
     done: int = 0
     remaining: int = 0
     last_error: str | None = None
+    # Stocks that still have no fundamentals (across the whole universe).
+    missing: int = 0
 
 
 class SyncStartOut(BaseModel):

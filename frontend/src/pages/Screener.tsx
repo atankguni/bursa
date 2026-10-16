@@ -59,7 +59,8 @@ export default function Screener() {
     }
   }, [sync?.running, qc])
 
-  const missing = rows.filter((r) => r.pbv == null && r.sector == null).length
+  // Universe-wide count from the backend (the table is filtered and capped).
+  const missing = sync?.missing ?? 0
 
   return (
     <main className="w-full animate-fade-in px-4 py-4">

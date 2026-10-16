@@ -197,6 +197,7 @@ export interface SyncStatus {
   done: number
   remaining: number
   last_error: string | null
+  missing: number
 }
 
 export interface CatalogRow {
