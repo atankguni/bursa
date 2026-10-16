@@ -22,7 +22,7 @@ POST   /api/watchlist/refresh
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Coroutine
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -49,6 +49,16 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
 )
 log = logging.getLogger("bursa")
+
+# Strong references to fire-and-forget startup jobs: the event loop only keeps
+# weak ones, so an unreferenced task can be garbage-collected mid-run.
+_background: set[asyncio.Task[None]] = set()
+
+
+def _spawn(coro: Coroutine[object, object, None]) -> None:
+    task = asyncio.create_task(coro)
+    _background.add(task)
+    task.add_done_callback(_background.discard)
 
 
 async def _catalog_coverage() -> float:
@@ -79,18 +89,21 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # the background only when coverage is low (first boot), keeping restarts fast.
     await backfill_active()
     if await _catalog_coverage() < 0.5:
-        asyncio.create_task(backfill_daily())
+        _spawn(backfill_daily())
 
     start_scheduler()
 
     # Refresh watchlist fundamentals in the background (non-blocking startup).
-    asyncio.create_task(sync_watchlist_fundamentals())
+    _spawn(sync_watchlist_fundamentals())
 
     log.info("Bursa API ready")
     try:
         yield
     finally:
         stop_scheduler()
+        # Stop unfinished startup jobs cleanly instead of leaving them pending.
+        for task in _background:
+            task.cancel()
 
 
 app = FastAPI(
