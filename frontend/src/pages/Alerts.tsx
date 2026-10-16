@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bell, Trash2 } from 'lucide-react'
 import { createAlert, deleteAlert, toggleAlert, type AlertType } from '../api'
 import { useAlertEvents, useAlerts, useStocks } from '../hooks'
+import { fmtShortDateTime } from '../lib/format'
 
 const TYPES: { value: AlertType; label: string }[] = [
   { value: 'price_above', label: 'Price above' },
@@ -198,12 +199,7 @@ export default function Alerts() {
               >
                 <span className="text-xs text-ink">{e.message}</span>
                 <span className="shrink-0 text-[10px] text-subtle">
-                  {new Date(e.triggered_at).toLocaleString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {fmtShortDateTime(e.triggered_at)}
                 </span>
               </li>
             ))}

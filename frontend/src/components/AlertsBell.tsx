@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
 import { useAlertEvents } from '../hooks'
+import { fmtShortDateTime } from '../lib/format'
 
 const SEEN_KEY = 'bursa-alerts-seen'
 
@@ -72,12 +73,7 @@ export default function AlertsBell() {
               <li key={e.id} className="px-3 py-2">
                 <div className="text-xs text-ink">{e.message}</div>
                 <div className="mt-0.5 text-[10px] text-subtle">
-                  {new Date(e.triggered_at).toLocaleString('en-GB', {
-                    day: '2-digit',
-                    month: 'short',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })}
+                  {fmtShortDateTime(e.triggered_at)}
                 </div>
               </li>
             ))}

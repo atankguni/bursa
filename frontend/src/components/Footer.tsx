@@ -1,22 +1,12 @@
 import { Mail } from 'lucide-react'
 import { useStatus } from '../hooks'
+import { fmtTimeAgo } from '../lib/format'
 
 const SESSION_LABEL: Record<string, string> = {
   pre_open: 'Pre-open',
   open: 'Open',
   break: 'Break',
   closed: 'Closed',
-}
-
-function timeAgo(iso: string | null): string {
-  if (!iso) return '—'
-  const then = new Date(`${iso}Z`).getTime()
-  const mins = Math.max(0, Math.round((Date.now() - then) / 60000))
-  if (mins < 1) return 'just now'
-  if (mins < 60) return `${mins}m ago`
-  const hours = Math.round(mins / 60)
-  if (hours < 24) return `${hours}h ago`
-  return `${Math.round(hours / 24)}d ago`
 }
 
 /** Persistent footer: copyright + data freshness/provenance. */
@@ -42,8 +32,7 @@ export default function Footer() {
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
           <span>
-            Last sync{' '}
-            <span className="text-muted">{timeAgo(data?.last_sync ?? null)}</span>
+            Last sync <span className="text-muted">{fmtTimeAgo(data?.last_sync)}</span>
           </span>
           <span>
             BEI{' '}

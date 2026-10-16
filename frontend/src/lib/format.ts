@@ -43,5 +43,40 @@ export const fmtRatio = (v: number | null | undefined, digits = 2) =>
 export const fmtPercent = (v: number | null | undefined, digits = 2) =>
   v == null ? '—' : `${(v * 100).toFixed(digits)}%`
 
+/**
+ * Parse a backend timestamp. Stored times (price bars, alert events) arrive as
+ * UTC without an offset, e.g. "2026-10-16T03:52:00"; `new Date` would read those
+ * as *local* time, so they get "Z". Values that already carry an offset
+ * ("...Z", "+07:00") are used as-is. Returns null when unparseable.
+ */
+export function parseServerTime(iso: string | null | undefined): Date | null {
+  if (!iso) return null
+  // Only full timestamps get "Z"; a bare date ("2026-10-16") is already UTC.
+  const naive = iso.includes('T') && !/(Z|[+-]\d{2}:?\d{2})$/i.test(iso)
+  const d = new Date(naive ? `${iso}Z` : iso)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
 export const fmtDateTime = (iso: string | null | undefined) =>
-  iso ? new Date(iso).toLocaleString('en-US') : '—'
+  parseServerTime(iso)?.toLocaleString('en-US') ?? '—'
+
+/** Short day + time for event lists, e.g. "16 Oct, 10:28". */
+export const fmtShortDateTime = (iso: string | null | undefined) =>
+  parseServerTime(iso)?.toLocaleString('en-GB', {
+    day: '2-digit',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }) ?? '—'
+
+/** Relative age, e.g. "just now", "5m ago", "3h ago", "2d ago". */
+export function fmtTimeAgo(iso: string | null | undefined, now = Date.now()): string {
+  const then = parseServerTime(iso)
+  if (!then) return '—'
+  const mins = Math.max(0, Math.round((now - then.getTime()) / 60000))
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hours = Math.round(mins / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}

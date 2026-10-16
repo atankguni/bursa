@@ -12,6 +12,7 @@ import {
 } from 'lightweight-charts'
 import type { PricePoint } from '../api'
 import { useSettings } from '../lib/settings'
+import { parseServerTime } from '../lib/format'
 
 export interface Indicators {
   ma20: boolean
@@ -22,7 +23,7 @@ export interface Indicators {
 }
 
 const toTime = (iso: string): UTCTimestamp =>
-  Math.floor(new Date(`${iso}Z`).getTime() / 1000) as UTCTimestamp
+  Math.floor((parseServerTime(iso)?.getTime() ?? 0) / 1000) as UTCTimestamp
 
 function sma(points: PricePoint[], period: number): LineData[] {
   const out: LineData[] = []
