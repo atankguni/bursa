@@ -10,6 +10,8 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bursa.db"
+    # yfinance's timezone cache. Kept on the data volume so it survives rebuilds.
+    yfinance_cache_dir: str = "./data/yfinance-cache"
 
     # CORS: wildcard "*" + allow_credentials is invalid, so list explicit origins.
     cors_origins: list[str] = [

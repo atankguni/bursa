@@ -10,6 +10,7 @@ means adding a sibling adapter and registering it, not touching the services.
 import logging
 from collections.abc import Hashable, Mapping
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
 import pandas as pd
@@ -34,6 +35,15 @@ from market.providers.base import (
 )
 
 log = logging.getLogger("bursa.providers.yahoo")
+
+# yfinance creates its cache folder lazily with a non-atomic "exists? else
+# mkdir", which races under `yf.download(threads=True)`: a losing thread gets
+# "[Errno 17] File exists" and the tz cache is disabled for the whole process
+# (every download then re-fetches each symbol's timezone). Creating the folder
+# up front, before any download thread starts, removes the race.
+_CACHE_DIR = Path(settings.yfinance_cache_dir)
+_CACHE_DIR.mkdir(parents=True, exist_ok=True)
+yf.set_tz_cache_location(str(_CACHE_DIR))
 
 # Candidate row labels across the various Yahoo statement layouts.
 _INCOME_REVENUE = ["Total Revenue", "Operating Revenue"]
