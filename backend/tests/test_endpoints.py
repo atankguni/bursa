@@ -89,3 +89,25 @@ async def test_status(client):
         assert key in body
     assert body["stocks_tracked"] > 0
     assert body["lot_size"] == 100
+
+
+async def test_catalog_paginates_whole_universe(client):
+    first = (await client.get("/api/catalog", params={"limit": 200})).json()
+    total = first["total"]
+    assert total > 200  # the full IDX listing, not just one page
+    assert len(first["items"]) == 200
+
+    # Walking every page yields each stock exactly once, in ticker order.
+    seen: list[str] = []
+    for offset in range(0, total, 200):
+        page = (await client.get("/api/catalog", params={"limit": 200, "offset": offset})).json()
+        assert page["total"] == total and page["offset"] == offset
+        seen += [r["ticker"] for r in page["items"]]
+    assert len(seen) == total == len(set(seen))
+    assert seen == sorted(seen)
+
+
+async def test_catalog_total_respects_search(client):
+    page = (await client.get("/api/catalog", params={"q": "BBCA"})).json()
+    assert page["total"] == len(page["items"]) >= 1
+    assert all("BBCA" in r["ticker"] or "bbca" in r["name"].lower() for r in page["items"])

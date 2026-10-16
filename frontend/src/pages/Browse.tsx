@@ -5,19 +5,37 @@ import { setTracked } from '../api'
 import { useCatalog } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
+import Pagination from '../components/Pagination'
+
+const PAGE_SIZES = [50, 100, 200] // the API caps a page at 200
 
 export default function Browse() {
   const [q, setQ] = useState('')
   const [debounced, setDebounced] = useState('')
+  const [page, setPage] = useState(0) // 0-based
+  const [pageSize, setPageSize] = useState(100)
   const qc = useQueryClient()
   const { settings } = useSettings()
 
   useEffect(() => {
-    const t = setTimeout(() => setDebounced(q.trim()), 300)
+    const t = setTimeout(() => {
+      setDebounced(q.trim())
+      setPage(0) // a new search starts from the first page
+    }, 300)
     return () => clearTimeout(t)
   }, [q])
 
-  const { data: rows = [], isLoading, isFetching } = useCatalog(debounced)
+  const { data, isLoading, isFetching } = useCatalog(debounced, page, pageSize)
+  const rows = data?.items ?? []
+  const total = data?.total ?? 0
+  const pageCount = Math.ceil(total / pageSize)
+  const from = total === 0 ? 0 : page * pageSize + 1
+  const to = Math.min(total, (page + 1) * pageSize)
+
+  const goTo = (p: number) => {
+    setPage(p)
+    window.scrollTo({ top: 0 }) // the pager sits below a long table
+  }
 
   const toggle = useMutation({
     mutationFn: ({ ticker, tracked }: { ticker: string; tracked: boolean }) =>
@@ -36,7 +54,7 @@ export default function Browse() {
           <p className="text-[11px] text-subtle">
             {isLoading
               ? 'Loading…'
-              : `${rows.length} shown${isFetching ? ' · updating…' : ''} · track a stock for live prices`}
+              : `${from}–${to} of ${total}${isFetching ? ' · updating…' : ''} · track a stock for live prices`}
           </p>
         </div>
         <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-bull">
@@ -156,6 +174,30 @@ export default function Browse() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-1.5 text-[11px] text-subtle">
+          Rows per page
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value))
+              goTo(0)
+            }}
+            className="rounded bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
+          >
+            {PAGE_SIZES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Pagination page={page} pageCount={pageCount} onChange={goTo} />
+        <span className="text-[11px] tabular-nums text-subtle">
+          {total > 0 && `${from}–${to} of ${total}`}
+        </span>
       </div>
 
       <p className="mt-3 text-[11px] text-subtle">

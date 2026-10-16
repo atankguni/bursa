@@ -332,6 +332,15 @@ class CatalogRow(BaseModel):
     change_percent: float | None = None
 
 
+class CatalogPage(BaseModel):
+    """One page of the catalog plus the total match count (for pagination)."""
+
+    items: list[CatalogRow]
+    total: int
+    limit: int
+    offset: int
+
+
 class PricePoint(BaseModel):
     """A single OHLCV bar for charting."""
 

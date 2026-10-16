@@ -16,7 +16,8 @@ export const queryKeys = {
   marketOverview: ['market', 'overview'] as const,
   search: (q: string, all: boolean) => ['search', q, all] as const,
   stock: (ticker: string) => ['stock', ticker] as const,
-  catalog: (q: string) => ['catalog', q] as const,
+  catalog: (q: string, page: number, pageSize: number) =>
+    ['catalog', q, page, pageSize] as const,
   alerts: ['alerts'] as const,
   alertEvents: ['alerts', 'events'] as const,
   valuation: (ticker: string) => ['valuation', ticker] as const,

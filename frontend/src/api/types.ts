@@ -209,6 +209,13 @@ export interface CatalogRow {
   change_percent: number | null
 }
 
+export interface CatalogPage {
+  items: CatalogRow[]
+  total: number
+  limit: number
+  offset: number
+}
+
 export interface SearchResult {
   symbol: string
   name: string

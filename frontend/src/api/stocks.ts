@@ -1,5 +1,6 @@
 import { api } from './client'
 import type {
+  CatalogPage,
   CatalogRow,
   Company,
   DividendSummary,
@@ -86,8 +87,8 @@ export async function fetchCatalog(
   q?: string,
   limit = 100,
   offset = 0,
-): Promise<CatalogRow[]> {
-  const { data } = await api.get<CatalogRow[]>('/api/catalog', {
+): Promise<CatalogPage> {
+  const { data } = await api.get<CatalogPage>('/api/catalog', {
     params: { q: q || undefined, limit, offset },
   })
   return data

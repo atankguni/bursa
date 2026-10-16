@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from deps import get_session
 from models import Fundamental, Stock, StockIndex, StockPrice, StockProfile
 from schemas import (
+    CatalogPage,
     CatalogRow,
     CompanyOut,
     DividendOut,
@@ -379,19 +380,24 @@ async def stock_company(
     )
 
 
-@router.get("/catalog", response_model=list[CatalogRow])
+@router.get("/catalog", response_model=CatalogPage)
 async def catalog(
     q: str | None = Query(None, max_length=40),
     limit: int = Query(50, ge=1, le=200),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
-) -> list[CatalogRow]:
-    """Browse the full IDX catalog (search by ticker or name)."""
-    stmt = select(Stock)
+) -> CatalogPage:
+    """Browse the full IDX catalog (search by ticker or name), one page at a time."""
     term = (q or "").strip()
-    if term:
-        like = f"%{term}%"
-        stmt = stmt.where(or_(Stock.ticker.ilike(like), Stock.name.ilike(like)))
+    match = (
+        or_(Stock.ticker.ilike(f"%{term}%"), Stock.name.ilike(f"%{term}%")) if term else None
+    )
+    count_stmt = select(func.count()).select_from(Stock)
+    stmt = select(Stock)
+    if match is not None:
+        count_stmt = count_stmt.where(match)
+        stmt = stmt.where(match)
+    total = (await session.execute(count_stmt)).scalar_one()
     stmt = stmt.order_by(Stock.ticker).limit(limit).offset(offset)
     stocks = (await session.execute(stmt)).scalars().all()
 
@@ -419,7 +425,7 @@ async def catalog(
                 change_percent=chg,
             )
         )
-    return rows
+    return CatalogPage(items=rows, total=total, limit=limit, offset=offset)
 
 
 @router.post("/stocks/{ticker}/track", response_model=CatalogRow)
