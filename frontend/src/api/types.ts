@@ -87,6 +87,28 @@ export interface RecommendationSummary {
 /** Long-term fundamentals vs short-term (swing, 1-4 weeks) price action. */
 export type InvestingStyle = 'investor' | 'trader'
 
+// --- AI assistant ------------------------------------------------------------
+
+export interface ChatTurn {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+export interface AssistantReply {
+  reply: string
+  model: string
+  tools_used: string[]
+  remaining_today: number
+}
+
+export interface AssistantStatus {
+  configured: boolean
+  models: string[]
+  personal_data: boolean
+  remaining_today: number
+  daily_limit: number
+}
+
 export interface Preferences {
   investing_style: InvestingStyle
 }

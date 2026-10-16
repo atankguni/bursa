@@ -16,7 +16,7 @@ ignore = [
 "tests/**" = ["ANN"] # fixtures/test doubles don't need annotations
 
 [tool.ruff.lint.isort]
-known-first-party = ["config", "database", "deps", "market", "models", "routers", "schemas", "scheduler", "services"]
+known-first-party = ["assistant", "config", "database", "deps", "market", "models", "routers", "schemas", "scheduler", "services"]
 
 [tool.pyright]
 pythonVersion = "3.14"

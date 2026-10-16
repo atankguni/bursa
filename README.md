@@ -45,6 +45,11 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 - **Dividends** — dividend history, trailing yield, and projected annual income for holdings.
 - **Company** — a detail tab with the company description, sector/industry, employees,
   HQ/website, and the **board & management** (directors) list.
+- **AI assistant** — ask questions in plain language (English or Indonesian) from the
+  ✨ navbar button. It answers with the app's own data via read-only tools (stocks,
+  signals, screener, fundamentals, price history, market overview) — it can't trade or
+  change anything. Uses Google Gemini's free tier; portfolio/watchlist access is **off**
+  by default (`assistant_personal_data`).
 - **Market clock** — a navbar indicator (dot + label) shows whether IDX is
   **Open / Pre-open / Break / Closed** (sessions + holidays), and the background
   sync uses the same clock.
@@ -252,6 +257,9 @@ trigger to add a shared cache/lock, not before.
 - **Rate-limiting** — `provider_max_concurrency`, `provider_min_interval_ms`,
   `provider_chunk_size`, `intraday_max_symbols`, `search_cache_seconds` in
   `backend/config.py`.
+- **AI assistant** — put `GEMINI_API_KEY=...` in `backend/.env` (git- and
+  Docker-ignored; passed to the container via `env_file`). Models, daily question cap,
+  tool-round cap and personal-data access are `assistant_*` settings in `backend/config.py`.
 - **IDX lot size** — `lot_size` (default 100) in `backend/config.py`; exposed via `/api/status`.
 
 ## Development commands

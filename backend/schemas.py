@@ -450,6 +450,33 @@ class FundamentalsResponse(BaseModel):
     metrics: DerivedMetrics = DerivedMetrics()
 
 
+class ChatTurn(BaseModel):
+    role: Literal["user", "assistant"]
+    content: str = Field(min_length=1, max_length=4000)
+
+
+class AssistantChatIn(BaseModel):
+    """The visible conversation (oldest first); the last turn is the new question."""
+
+    messages: list[ChatTurn] = Field(min_length=1, max_length=40)
+    context: str | None = Field(None, max_length=200)  # e.g. "the BBCA.JK detail view"
+
+
+class AssistantChatOut(BaseModel):
+    reply: str
+    model: str
+    tools_used: list[str] = []
+    remaining_today: int
+
+
+class AssistantStatusOut(BaseModel):
+    configured: bool
+    models: list[str]
+    personal_data: bool
+    remaining_today: int
+    daily_limit: int
+
+
 class PreferencesOut(BaseModel):
     """Server-side user preferences (single-user app)."""
 

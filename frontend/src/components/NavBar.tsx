@@ -1,6 +1,7 @@
 import { NavLink } from 'react-router-dom'
 import { Activity, Briefcase, Filter, Globe, LayoutGrid, List, Star } from 'lucide-react'
 import AlertsBell from './AlertsBell'
+import AssistantPanel from './AssistantPanel'
 import MarketStatus from './MarketStatus'
 import SearchBox from './SearchBox'
 import SettingsMenu from './SettingsMenu'
@@ -54,6 +55,7 @@ export default function NavBar() {
               <List size={14} /> Browse
             </NavLink>
           </nav>
+          <AssistantPanel />
           <AlertsBell />
           <SettingsMenu />
         </div>

@@ -10,6 +10,16 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bursa.db"
+    # AI assistant. The key comes from the environment / backend/.env (never commit it).
+    # Models are tried in order; the free tier is often busy, so keep a fallback.
+    gemini_api_key: str | None = None
+    assistant_provider: str = "gemini"
+    assistant_models: list[str] = ["gemini-3.5-flash", "gemini-3.1-flash-lite"]
+    assistant_daily_limit: int = 100
+    assistant_max_tool_rounds: int = 6
+    # Off by default: when on, watchlist and portfolio are sent to the AI provider
+    # (Gemini's free tier may use prompts for training).
+    assistant_personal_data: bool = False
     # yfinance's timezone cache. Kept on the data volume so it survives rebuilds.
     yfinance_cache_dir: str = "./data/yfinance-cache"
 

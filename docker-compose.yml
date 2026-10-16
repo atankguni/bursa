@@ -16,6 +16,10 @@ services:
     build:
       context: ./backend
       target: runtime # the Dockerfile also has a `test` stage
+    # Secrets (GEMINI_API_KEY) live here, outside the image and outside git.
+    env_file:
+      - path: ./backend/.env
+        required: false
     environment:
       - DATABASE_URL=sqlite+aiosqlite:////app/data/bursa.db
     volumes:
