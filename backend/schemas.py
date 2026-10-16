@@ -176,6 +176,16 @@ class ScreenerRow(BaseModel):
     score: float | None = None
     rating: str | None = None
     strength: str | None = None
+    has_fundamentals: bool = False
+
+
+class ScreenerPage(BaseModel):
+    """One page of screener results plus the total match count (for pagination)."""
+
+    items: list[ScreenerRow]
+    total: int
+    limit: int
+    offset: int
 
 
 class SyncStatusOut(BaseModel):
@@ -380,6 +390,7 @@ class FundamentalOut(BaseModel):
     total_assets: float | None = None
     total_liabilities: float | None = None
     equity: float | None = None
+    source: str | None = None  # "statements" | "summary" (None = statements)
 
 
 class DerivedMetrics(BaseModel):

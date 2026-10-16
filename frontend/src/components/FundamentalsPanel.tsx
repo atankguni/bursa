@@ -172,6 +172,13 @@ export default function FundamentalsPanel({
         </div>
       )}
 
+      {latest.source === 'summary' && (
+        <p className="rounded bg-panelalt/70 px-2.5 py-1.5 text-[11px] text-muted ring-1 ring-line">
+          Yahoo has no financial statements for this company, so these are its summary
+          figures: book value from the latest quarter, revenue and net income over the
+          trailing 12 months. Assets and liabilities aren’t available.
+        </p>
+      )}
       <p className="text-[11px] text-subtle">
         Figures normalized to IDR (foreign filers converted) · PBV = market cap ÷ book
         value · RoE = net income ÷ equity.

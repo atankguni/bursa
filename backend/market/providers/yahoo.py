@@ -165,6 +165,44 @@ def _shares_outstanding(info: Mapping[str, Any], balance: pd.DataFrame | None) -
     return None
 
 
+def _summary_row(
+    ticker: str,
+    info: Mapping[str, Any],
+    shares: float | None,
+    currency: str,
+    rate: float,
+) -> FundamentalRow | None:
+    """
+    Latest figures from Yahoo's summary metrics, for companies whose statement
+    tables are empty (common for small IDX listings). Equity = book value per
+    share x shares; income/revenue are trailing twelve months. Dated by the most
+    recent quarter the book value comes from.
+    """
+    book_per_share = info.get("bookValue")
+    if not shares or not book_per_share:
+        return None
+    stamp = info.get("mostRecentQuarter") or info.get("lastFiscalYearEnd")
+    year = datetime.fromtimestamp(stamp, UTC).year if stamp else datetime.now(UTC).year
+
+    def money(key: str) -> float | None:
+        value = info.get(key)
+        return None if value is None else float(value) * rate
+
+    return {
+        "ticker": ticker,
+        "fiscal_year": year,
+        "financial_currency": currency,
+        "total_shares": shares,
+        "revenue": money("totalRevenue"),
+        "net_income": money("netIncomeToCommon"),
+        "total_assets": None,
+        "total_liabilities": None,
+        "equity": float(book_per_share) * shares * rate,
+        "source": "summary",
+        "updated_at": datetime.utcnow(),
+    }
+
+
 def _profile_from_info(info: Mapping[str, Any]) -> ProfileData | None:
     """Extract optional info-derived metrics + company profile (may all be None)."""
     officers: list[Officer] = [
@@ -299,9 +337,16 @@ class YahooProvider(MarketDataProvider):
                     "total_assets": money(_pick(balance, _BS_ASSETS, bcol)),
                     "total_liabilities": money(_pick(balance, _BS_LIABILITIES, bcol)),
                     "equity": money(_pick(balance, _BS_EQUITY, bcol)),
+                    "source": "statements",
                     "updated_at": datetime.utcnow(),
                 }
             )
+        if not rows:
+            # No statement tables: fall back to the summary metrics so PBV/RoE
+            # aren't blank for small caps Yahoo only summarises.
+            summary = _summary_row(ticker, info, shares, currency, rate)
+            if summary is not None:
+                rows.append(summary)
         return rows, profile
 
     # --- Search -------------------------------------------------------------

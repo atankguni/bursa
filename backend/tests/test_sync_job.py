@@ -50,3 +50,45 @@ async def test_status_endpoint_reports_missing(client):
     r = await client.get("/api/screener/sync/status")
     assert r.status_code == 200
     assert r.json()["missing"] > 0
+
+
+async def test_statements_supersede_summary_rows(client, monkeypatch):
+    from datetime import datetime
+
+    from sqlalchemy import select
+
+    from config import settings
+    from database import AsyncSessionLocal
+    from models import Fundamental
+
+    monkeypatch.setattr(settings, "provider_min_interval_ms", 0)
+
+    def row(year, source):
+        return {"ticker": "BBCA.JK", "fiscal_year": year, "financial_currency": "IDR",
+                "total_shares": 1.0, "revenue": 1.0, "net_income": 1.0, "total_assets": 2.0,
+                "total_liabilities": 1.0, "equity": 1.0, "source": source,
+                "updated_at": datetime.utcnow()}
+
+    class _P:
+        name = "fake"
+
+        def __init__(self, rows):
+            self.rows = rows
+
+        def fetch_fundamentals(self, ticker):
+            return self.rows, None
+
+    # First sync: only a summary row (dated to the latest quarter, 2026).
+    monkeypatch.setattr(fundamentals, "fundamentals_provider", lambda: _P([row(2026, "summary")]))
+    await fundamentals.sync_ticker("BBCA.JK", with_dividends=False)
+    # Later the statements appear (FY2025): the 2026 summary row must not linger as "latest".
+    monkeypatch.setattr(fundamentals, "fundamentals_provider",
+                        lambda: _P([row(2024, "statements"), row(2025, "statements")]))
+    await fundamentals.sync_ticker("BBCA.JK", with_dividends=False)
+
+    async with AsyncSessionLocal() as s:
+        got = (await s.execute(
+            select(Fundamental.fiscal_year, Fundamental.source)
+            .where(Fundamental.ticker == "BBCA.JK").order_by(Fundamental.fiscal_year)
+        )).all()
+    assert got == [(2024, "statements"), (2025, "statements")]

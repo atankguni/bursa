@@ -11,6 +11,7 @@ import asyncio
 import logging
 from datetime import datetime, timedelta
 
+from sqlalchemy import delete
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from config import settings
@@ -43,6 +44,14 @@ async def sync_ticker(ticker: str, with_dividends: bool = True) -> int:
         return 0
 
     async with AsyncSessionLocal() as session:
+        if any(r["source"] == "statements" for r in rows):
+            # Real statements supersede any earlier summary-based row, which is
+            # dated to the latest quarter and would otherwise look "newer".
+            await session.execute(
+                delete(Fundamental).where(
+                    Fundamental.ticker == ticker, Fundamental.source == "summary"
+                )
+            )
         if rows:
             stmt = sqlite_insert(Fundamental).values(rows)
             stmt = stmt.on_conflict_do_update(
@@ -55,6 +64,7 @@ async def sync_ticker(ticker: str, with_dividends: bool = True) -> int:
                     "total_assets": stmt.excluded.total_assets,
                     "total_liabilities": stmt.excluded.total_liabilities,
                     "equity": stmt.excluded.equity,
+                    "source": stmt.excluded.source,
                     "updated_at": stmt.excluded.updated_at,
                 },
             )

@@ -40,6 +40,8 @@ export interface Fundamental {
   total_assets: number | null
   total_liabilities: number | null
   equity: number | null
+  /** 'statements' (yearly tables) or 'summary' (Yahoo summary; latest only, TTM). */
+  source?: string | null
 }
 
 export interface DerivedMetrics {
@@ -221,6 +223,14 @@ export interface ScreenerRow {
   score: number | null
   rating: string | null
   strength: string | null
+  has_fundamentals: boolean
+}
+
+export interface ScreenerPage {
+  items: ScreenerRow[]
+  total: number
+  limit: number
+  offset: number
 }
 
 export interface SyncStatus {

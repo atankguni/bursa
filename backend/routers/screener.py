@@ -5,14 +5,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from deps import get_session
-from schemas import ScreenerRow, SyncStartOut, SyncStatusOut
+from schemas import ScreenerPage, ScreenerRow, SyncStartOut, SyncStatusOut
 from services import sync_job
 from services.screener import build_rows, filter_rows
 
 router = APIRouter(prefix="/api", tags=["screener"])
 
 
-@router.get("/screener", response_model=list[ScreenerRow])
+@router.get("/screener", response_model=ScreenerPage)
 async def screener(
     min_score: float | None = Query(None, description="Minimum recommendation score"),
     max_pbv: float | None = Query(None, description="Maximum price-to-book"),
@@ -20,9 +20,11 @@ async def screener(
     rating: str | None = Query(None, description="Exact rating, e.g. 'Buy'"),
     sector: str | None = Query(None),
     buy_only: bool = Query(False, description="Only Buy / Strong Buy"),
-    limit: int = Query(100, ge=1, le=500),
+    limit: int = Query(100, ge=1, le=200),
+    offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
-) -> list[ScreenerRow]:
+) -> ScreenerPage:
+    """Rank/filter the whole universe, one page at a time (`total` = all matches)."""
     rows = await build_rows(session)
     rows = filter_rows(
         rows,
@@ -34,8 +36,15 @@ async def screener(
         buy_only=buy_only,
     )
     # Highest score first; stocks without a score sink to the bottom.
-    rows.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0)))
-    return [ScreenerRow(**r) for r in rows[:limit]]
+    # Highest score first, then stocks with data before blanks, then by ticker,
+    # so the order is stable across pages.
+    rows.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0), r["pbv"] is None, r["ticker"]))
+    return ScreenerPage(
+        items=[ScreenerRow(**r) for r in rows[offset : offset + limit]],
+        total=len(rows),
+        limit=limit,
+        offset=offset,
+    )
 
 
 @router.get("/screener/sync/status", response_model=SyncStatusOut)

@@ -54,6 +54,9 @@ class FundamentalRow(TypedDict):
     total_assets: float | None
     total_liabilities: float | None
     equity: float | None
+    # "statements" (yearly statement tables) or "summary" (Yahoo's summary
+    # metrics, used when a company has no statement tables).
+    source: str
     updated_at: datetime
 
 

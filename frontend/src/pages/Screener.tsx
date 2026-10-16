@@ -11,9 +11,19 @@ import { startScreenerSync, type ScreenerRow } from '../api'
 import { useMarketOverview, useScreener, useSyncStatus } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
+import Pagination from '../components/Pagination'
 import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
 
+const PAGE_SIZES = [50, 100, 200] // the API caps a page at 200
+
+/** Why a PBV / RoE cell is blank (shown as a tooltip on the dash). */
+function blankReason(r: ScreenerRow, metric: 'pbv' | 'roe'): string | undefined {
+  if (r[metric] != null) return undefined
+  if (!r.has_fundamentals) return 'No fundamentals yet: use “Sync missing” to fetch them'
+  if (metric === 'pbv' && r.price == null) return 'No price data (possibly suspended)'
+  return 'Not meaningful: book value / equity is negative'
+}
 const inputCls =
   'w-full rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-bull'
 
@@ -26,6 +36,8 @@ export default function Screener() {
   const [sector, setSector] = useState('')
   const [buyOnly, setBuyOnly] = useState(false)
   const [selected, setSelected] = useState<ScreenerRow | null>(null)
+  const [page, setPage] = useState(0) // 0-based
+  const [pageSize, setPageSize] = useState(100)
 
   const filters = {
     minScore: minScore ? Number(minScore) : undefined,
@@ -34,7 +46,21 @@ export default function Screener() {
     sector: sector || undefined,
     buyOnly,
   }
-  const { data: rows = [], isLoading, isFetching } = useScreener(filters)
+  const { data, isLoading, isFetching } = useScreener(filters, page, pageSize)
+  const rows = data?.items ?? []
+  const total = data?.total ?? 0
+  const pageCount = Math.ceil(total / pageSize)
+  const from = total === 0 ? 0 : page * pageSize + 1
+  const to = Math.min(total, (page + 1) * pageSize)
+
+  // Any filter change starts again from the first page.
+  const filterKey = JSON.stringify(filters)
+  useEffect(() => setPage(0), [filterKey])
+
+  const goTo = (p: number) => {
+    setPage(p)
+    window.scrollTo({ top: 0 }) // the pager sits below a long table
+  }
   const { data: overview } = useMarketOverview()
   const sectors = (overview?.sectors ?? []).map((s) => s.sector)
 
@@ -134,7 +160,7 @@ export default function Screener() {
         <div className="ml-auto flex items-center gap-3">
           <span className="text-xs text-subtle">
             {missing > 0 && <>{missing} missing · </>}
-            {isFetching ? 'Loading…' : `${rows.length} matched`}
+            {isFetching ? 'Loading…' : `${total} matched`}
           </span>
           <button
             onClick={() => startSync.mutate()}
@@ -220,7 +246,12 @@ export default function Screener() {
                     </td>
                     <td className="px-4 py-2 text-muted">{r.name}</td>
                     <td className="px-4 py-2 text-subtle">{r.sector ?? '—'}</td>
-                    <td className="px-4 py-2 text-right font-medium tabular-nums">
+                    <td
+                      className="px-4 py-2 text-right font-medium tabular-nums"
+                      title={
+                        r.price == null ? 'No price data (possibly suspended)' : undefined
+                      }
+                    >
                       {fmtPrice(r.price)}
                     </td>
                     <td className={`px-4 py-2 text-right tabular-nums ${tone}`}>
@@ -236,10 +267,16 @@ export default function Screener() {
                           : `${r.change_percent > 0 ? '+' : ''}${r.change_percent.toFixed(2)}%`}
                       </span>
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-muted">
+                    <td
+                      className="px-4 py-2 text-right tabular-nums text-muted"
+                      title={blankReason(r, 'pbv')}
+                    >
                       {fmtRatio(r.pbv)}
                     </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-muted">
+                    <td
+                      className="px-4 py-2 text-right tabular-nums text-muted"
+                      title={blankReason(r, 'roe')}
+                    >
                       {fmtPercent(r.roe)}
                     </td>
                     <td className="px-4 py-2">
@@ -261,6 +298,30 @@ export default function Screener() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
+        <label className="flex items-center gap-1.5 text-[11px] text-subtle">
+          Rows per page
+          <select
+            value={pageSize}
+            onChange={(e) => {
+              setPageSize(Number(e.target.value))
+              goTo(0)
+            }}
+            className="rounded bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
+          >
+            {PAGE_SIZES.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </label>
+        <Pagination page={page} pageCount={pageCount} onChange={goTo} />
+        <span className="text-[11px] tabular-nums text-subtle">
+          {total > 0 && `${from}–${to} of ${total}`}
+        </span>
       </div>
 
       {selected && (

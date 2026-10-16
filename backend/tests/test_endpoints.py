@@ -139,3 +139,21 @@ async def test_switching_style_resets_rating_alert_baselines(client):
     async with AsyncSessionLocal() as s:
         left = (await s.execute(select(func.count()).select_from(RatingState))).scalar_one()
     assert left == 0  # no spurious "rating changed" alerts after a style switch
+
+
+async def test_screener_paginates_whole_universe(client):
+    first = (await client.get("/api/screener", params={"limit": 200})).json()
+    total = first["total"]
+    assert total > 200 and len(first["items"]) == 200
+
+    seen: list[str] = []
+    for offset in range(0, total, 200):
+        page = (await client.get("/api/screener", params={"limit": 200, "offset": offset})).json()
+        assert page["total"] == total and page["offset"] == offset
+        seen += [r["ticker"] for r in page["items"]]
+    assert len(seen) == total == len(set(seen))  # every stock exactly once
+
+
+async def test_screener_total_counts_filtered_matches(client):
+    page = (await client.get("/api/screener", params={"buy_only": True})).json()
+    assert page["total"] == len(page["items"])  # no data in tests -> nothing is a Buy

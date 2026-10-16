@@ -92,6 +92,8 @@ def _apply_light_migrations(conn: Connection) -> None:
         conn.exec_driver_sql(
             "ALTER TABLE fundamentals ADD COLUMN financial_currency VARCHAR(8)"
         )
+    if fundamentals and "source" not in fundamentals:
+        conn.exec_driver_sql("ALTER TABLE fundamentals ADD COLUMN source VARCHAR(16)")
 
     # User-pinned flag added to stocks after the table existed.
     stocks = columns("stocks")

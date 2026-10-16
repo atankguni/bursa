@@ -1,5 +1,5 @@
 import { api } from './client'
-import type { ScreenerRow, SyncStatus } from './types'
+import type { ScreenerPage, SyncStatus } from './types'
 
 export interface ScreenerFilters {
   minScore?: number
@@ -8,12 +8,13 @@ export interface ScreenerFilters {
   rating?: string
   sector?: string
   buyOnly?: boolean
-  limit?: number
 }
 
 export async function fetchScreener(
   filters: ScreenerFilters = {},
-): Promise<ScreenerRow[]> {
+  limit = 100,
+  offset = 0,
+): Promise<ScreenerPage> {
   const params = new URLSearchParams()
   if (filters.minScore != null) params.set('min_score', String(filters.minScore))
   if (filters.maxPbv != null) params.set('max_pbv', String(filters.maxPbv))
@@ -21,8 +22,9 @@ export async function fetchScreener(
   if (filters.rating) params.set('rating', filters.rating)
   if (filters.sector) params.set('sector', filters.sector)
   if (filters.buyOnly) params.set('buy_only', 'true')
-  params.set('limit', String(filters.limit ?? 200))
-  const { data } = await api.get<ScreenerRow[]>('/api/screener', { params })
+  params.set('limit', String(limit))
+  params.set('offset', String(offset))
+  const { data } = await api.get<ScreenerPage>('/api/screener', { params })
   return data
 }
 

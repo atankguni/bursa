@@ -40,6 +40,7 @@ class ScreenerRowData(TypedDict):
     score: float | None
     rating: str | None
     strength: str | None
+    has_fundamentals: bool  # False -> PBV/RoE are blank until "Sync missing" fetches them
 
 
 async def build_rows(session: AsyncSession) -> list[ScreenerRowData]:
@@ -81,6 +82,7 @@ async def build_rows(session: AsyncSession) -> list[ScreenerRowData]:
                 "score": rec.score if rec else None,
                 "rating": rec.rating if rec else None,
                 "strength": rec.strength if rec else None,
+                "has_fundamentals": s.ticker in fund_map,
             }
         )
     return rows

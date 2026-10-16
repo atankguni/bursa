@@ -149,6 +149,9 @@ class Fundamental(Base):
     total_assets: Mapped[float | None] = mapped_column(Float, nullable=True)
     total_liabilities: Mapped[float | None] = mapped_column(Float, nullable=True)
     equity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # "statements" or "summary" (see market/providers/base.FundamentalRow);
+    # NULL on rows written before the column existed = statements.
+    source: Mapped[str | None] = mapped_column(String(16), nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )

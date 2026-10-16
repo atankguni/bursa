@@ -67,3 +67,51 @@ def test_profile_from_info_maps_company_fields():
 
 def test_profile_from_info_none_when_all_empty():
     assert _profile_from_info({}) is None
+
+
+class _FakeTicker:
+    def __init__(self, income, balance, info):
+        self.income_stmt, self.balance_sheet, self.info = income, balance, info
+
+
+_SUMMARY_INFO = {
+    "financialCurrency": "IDR", "bookValue": 232.68, "impliedSharesOutstanding": 1_333_334_556,
+    "netIncomeToCommon": 20_824_385_536, "totalRevenue": 1_177_732_513_792,
+    "mostRecentQuarter": 1782777600,  # 2026-06-30
+}
+
+
+def test_summary_fallback_when_statements_are_empty(monkeypatch):
+    import pandas as pd
+
+    import market.providers.yahoo as yahoo
+
+    empty = pd.DataFrame()
+    monkeypatch.setattr(yahoo.yf, "Ticker", lambda t: _FakeTicker(empty, empty, _SUMMARY_INFO))
+    rows, _ = yahoo.YahooProvider().fetch_fundamentals("ZYRX.JK")
+
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["source"] == "summary" and row["fiscal_year"] == 2026
+    assert row["equity"] == 232.68 * 1_333_334_556  # book value/share x shares (IDR)
+    assert row["net_income"] == 20_824_385_536 and row["total_assets"] is None
+
+
+def test_no_summary_row_when_statements_exist_or_book_value_missing(monkeypatch):
+    import pandas as pd
+
+    import market.providers.yahoo as yahoo
+
+    col = pd.Timestamp("2025-12-31")
+    income = pd.DataFrame({col: [100.0, 10.0]}, index=["Total Revenue", "Net Income"])
+    balance = pd.DataFrame({col: [500.0, 300.0, 200.0]},
+                           index=["Total Assets", "Total Liabilities Net Minority Interest",
+                                  "Stockholders Equity"])
+    monkeypatch.setattr(yahoo.yf, "Ticker", lambda t: _FakeTicker(income, balance, _SUMMARY_INFO))
+    rows, _ = yahoo.YahooProvider().fetch_fundamentals("X.JK")
+    assert [r["source"] for r in rows] == ["statements"]
+
+    no_book = {k: v for k, v in _SUMMARY_INFO.items() if k != "bookValue"}
+    empty = pd.DataFrame()
+    monkeypatch.setattr(yahoo.yf, "Ticker", lambda t: _FakeTicker(empty, empty, no_book))
+    assert yahoo.YahooProvider().fetch_fundamentals("X.JK")[0] == []
