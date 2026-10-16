@@ -1,6 +1,6 @@
-import { lazy, Suspense, useState } from 'react'
+import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Plus, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import { deleteTransaction } from '../api'
 import { usePortfolio, usePortfolioHistory, useStatus, useTransactions } from '../hooks'
 import { useSettings } from '../lib/settings'
@@ -20,7 +20,30 @@ const lotsOf = (shares: number, lotSize: number) => {
   return Number.isInteger(v) ? String(v) : v.toFixed(2)
 }
 
-function Card({ label, value, tone }: { label: string; value: string; tone?: string }) {
+/**
+ * Privacy mask: when hidden, the real value is not rendered at all (not just
+ * blurred), so it can't leak via screen share, zoom, selection or copy/paste.
+ */
+const MASK = '••••••'
+function Secret({ hidden, children }: { hidden: boolean; children: ReactNode }) {
+  return hidden ? (
+    <span aria-label="hidden" className="select-none tracking-widest">
+      {MASK}
+    </span>
+  ) : (
+    <>{children}</>
+  )
+}
+
+function Card({
+  label,
+  value,
+  tone,
+}: {
+  label: string
+  value: ReactNode
+  tone?: string
+}) {
   return (
     <div className="surface px-4 py-3">
       <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
@@ -34,7 +57,8 @@ function Card({ label, value, tone }: { label: string; value: string; tone?: str
 export default function Portfolio() {
   const [adding, setAdding] = useState(false)
   const qc = useQueryClient()
-  const { settings } = useSettings()
+  const { settings, update } = useSettings()
+  const hide = settings.hidePortfolioValues
   const { data: pf, isLoading } = usePortfolio()
   const { data: txs = [] } = useTransactions()
   const { data: history = [] } = usePortfolioHistory()
@@ -64,12 +88,27 @@ export default function Portfolio() {
             {holdings.length === 1 ? '' : 's'}
           </p>
         </div>
-        <button
-          onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1.5 rounded bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
-        >
-          <Plus size={14} /> Add transaction
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => update({ hidePortfolioValues: !hide })}
+            aria-pressed={hide}
+            title={hide ? 'Show amounts' : 'Hide amounts (for screen sharing)'}
+            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
+              hide
+                ? 'bg-panelalt text-ink ring-line-strong'
+                : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
+            }`}
+          >
+            {hide ? <EyeOff size={14} /> : <Eye size={14} />}
+            {hide ? 'Show values' : 'Hide values'}
+          </button>
+          <button
+            onClick={() => setAdding(true)}
+            className="inline-flex items-center gap-1.5 rounded bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
+          >
+            <Plus size={14} /> Add transaction
+          </button>
+        </div>
       </div>
 
       {isLoading ? (
@@ -77,30 +116,44 @@ export default function Portfolio() {
       ) : (
         <div className="space-y-3">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            <Card label="Market value" value={fmtPrice(totals?.market_value ?? 0)} />
+            <Card
+              label="Market value"
+              value={<Secret hidden={hide}>{fmtPrice(totals?.market_value ?? 0)}</Secret>}
+            />
             <Card
               label="Unrealized P/L"
-              value={`${signed(totals?.unrealized_pl ?? 0)} (${signedPct(
-                totals?.unrealized_pl_pct ?? null,
-              )})`}
+              value={
+                <>
+                  <Secret hidden={hide}>{signed(totals?.unrealized_pl ?? 0)}</Secret> (
+                  {signedPct(totals?.unrealized_pl_pct ?? null)})
+                </>
+              }
               tone={tone(totals?.unrealized_pl)}
             />
             <Card
               label="Day change"
-              value={`${signed(totals?.day_change ?? 0)} (${signedPct(
-                totals?.day_change_pct ?? null,
-              )})`}
+              value={
+                <>
+                  <Secret hidden={hide}>{signed(totals?.day_change ?? 0)}</Secret> (
+                  {signedPct(totals?.day_change_pct ?? null)})
+                </>
+              }
               tone={tone(totals?.day_change)}
             />
-            <Card label="Invested" value={fmtPrice(totals?.invested ?? 0)} />
+            <Card
+              label="Invested"
+              value={<Secret hidden={hide}>{fmtPrice(totals?.invested ?? 0)}</Secret>}
+            />
             <Card
               label="Realized P/L"
-              value={signed(totals?.realized_pl ?? 0)}
+              value={<Secret hidden={hide}>{signed(totals?.realized_pl ?? 0)}</Secret>}
               tone={tone(totals?.realized_pl)}
             />
             <Card
               label="Est. annual income"
-              value={fmtPrice(totals?.projected_income ?? 0)}
+              value={
+                <Secret hidden={hide}>{fmtPrice(totals?.projected_income ?? 0)}</Secret>
+              }
             />
           </div>
 
@@ -162,24 +215,26 @@ export default function Portfolio() {
                         {h.ticker.replace('.JK', '')}
                       </td>
                       <td className="px-4 py-2 text-right font-medium tabular-nums">
-                        {lotsOf(h.quantity, lotSize)}
+                        <Secret hidden={hide}>{lotsOf(h.quantity, lotSize)}</Secret>
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums text-muted">
-                        {h.quantity.toLocaleString('en-US')}
+                        <Secret hidden={hide}>
+                          {h.quantity.toLocaleString('en-US')}
+                        </Secret>
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums text-muted">
-                        {fmtPrice(h.avg_cost)}
+                        <Secret hidden={hide}>{fmtPrice(h.avg_cost)}</Secret>
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums">
                         {fmtPrice(h.price)}
                       </td>
                       <td className="px-4 py-2 text-right font-medium tabular-nums">
-                        {fmtPrice(h.market_value)}
+                        <Secret hidden={hide}>{fmtPrice(h.market_value)}</Secret>
                       </td>
                       <td
                         className={`px-4 py-2 text-right tabular-nums ${tone(h.unrealized_pl)}`}
                       >
-                        {signed(h.unrealized_pl)}
+                        <Secret hidden={hide}>{signed(h.unrealized_pl)}</Secret>
                       </td>
                       <td
                         className={`px-4 py-2 text-right tabular-nums ${tone(h.unrealized_pl)}`}
@@ -195,7 +250,9 @@ export default function Portfolio() {
                         {h.weight != null ? `${h.weight.toFixed(1)}%` : '—'}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums text-muted">
-                        {h.projected_income ? fmtPrice(h.projected_income) : '—'}
+                        <Secret hidden={hide}>
+                          {h.projected_income ? fmtPrice(h.projected_income) : '—'}
+                        </Secret>
                       </td>
                     </tr>
                   ))}
@@ -213,7 +270,7 @@ export default function Portfolio() {
               <Suspense
                 fallback={<div className="h-[260px] animate-pulse rounded bg-panelalt" />}
               >
-                <PortfolioChart data={history} />
+                <PortfolioChart data={history} hideValues={hide} />
               </Suspense>
             </div>
           )}
@@ -241,18 +298,22 @@ export default function Portfolio() {
                           {t.side}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
-                          {lotsOf(t.quantity, lotSize)}
+                          <Secret hidden={hide}>{lotsOf(t.quantity, lotSize)}</Secret>
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums text-subtle">
-                          {t.quantity.toLocaleString('en-US')}
+                          <Secret hidden={hide}>
+                            {t.quantity.toLocaleString('en-US')}
+                          </Secret>
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
-                          {fmtPrice(t.price)}
+                          <Secret hidden={hide}>{fmtPrice(t.price)}</Secret>
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums text-subtle">
-                          {t.fees ? fmtPrice(t.fees) : '—'}
+                          <Secret hidden={hide}>{t.fees ? fmtPrice(t.fees) : '—'}</Secret>
                         </td>
-                        <td className="px-4 py-2 text-subtle">{t.note ?? ''}</td>
+                        <td className="px-4 py-2 text-subtle">
+                          {t.note ? <Secret hidden={hide}>{t.note}</Secret> : ''}
+                        </td>
                         <td className="px-4 py-2 text-right">
                           <button
                             onClick={() => remove.mutate(t.id)}

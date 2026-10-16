@@ -13,13 +13,18 @@ const HIGH = {
   light: { background: '#ffffff', text: '#334155', grid: '#cbd5e1', line: '#15803d' },
 } as const
 
-/** Portfolio value over time (area series). */
+/**
+ * Portfolio value over time (area series). With `hideValues`, the price axis
+ * and crosshair labels are turned off so only the shape of the trend shows.
+ */
 export default function PortfolioChart({
   data,
   height = 260,
+  hideValues = false,
 }: {
   data: EquityPoint[]
   height?: number
+  hideValues?: boolean
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const { settings, resolvedTheme } = useSettings()
@@ -36,14 +41,17 @@ export default function PortfolioChart({
         textColor: c.text,
       },
       grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      rightPriceScale: { borderColor: c.grid },
+      rightPriceScale: { borderColor: c.grid, visible: !hideValues },
       timeScale: { borderColor: c.grid },
+      crosshair: { horzLine: { labelVisible: !hideValues } },
     })
     const series = chart.addAreaSeries({
       lineColor: c.line,
       topColor: `${c.line}55`,
       bottomColor: `${c.line}05`,
       lineWidth: 2,
+      lastValueVisible: !hideValues,
+      priceLineVisible: !hideValues,
     })
     series.setData(data.map((p) => ({ time: p.date, value: p.value }) as AreaData))
     chart.timeScale().fitContent()
@@ -57,7 +65,7 @@ export default function PortfolioChart({
       observer.disconnect()
       chart.remove()
     }
-  }, [data, height, resolvedTheme, settings.highContrast])
+  }, [data, height, hideValues, resolvedTheme, settings.highContrast])
 
   const last = data.length > 0 ? data[data.length - 1].value : null
   return (
@@ -66,7 +74,7 @@ export default function PortfolioChart({
       className="w-full"
       role="img"
       aria-label={
-        last != null
+        last != null && !hideValues
           ? `Portfolio value chart over ${data.length} days; latest ${last}`
           : 'Portfolio value chart'
       }

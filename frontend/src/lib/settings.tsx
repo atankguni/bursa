@@ -29,6 +29,8 @@ export interface Settings {
   numberFormat: NumberFormat
   colorizeChanges: boolean
   hiddenColumns: { home: string[]; watchlist: string[] }
+  // Privacy
+  hidePortfolioValues: boolean
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -44,6 +46,7 @@ export const DEFAULT_SETTINGS: Settings = {
   numberFormat: 'compact',
   colorizeChanges: true,
   hiddenColumns: { home: [], watchlist: [] },
+  hidePortfolioValues: false,
 }
 
 const STORAGE_KEY = 'bursa-settings'
