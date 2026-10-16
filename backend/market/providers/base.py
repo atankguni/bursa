@@ -16,6 +16,8 @@ in the app's canonical shape:
 """
 
 from abc import ABC, abstractmethod
+from datetime import date, datetime
+from typing import TypedDict
 
 # Capability flags a provider may declare in `capabilities`.
 PRICES = "prices"
@@ -27,6 +29,72 @@ SEARCH = "search"
 DIVIDENDS = "dividends"
 
 
+# --------------------------------------------------------------------------- #
+# Canonical shapes every adapter returns (keys match the ORM columns, so rows
+# can be passed straight to `sqlite_insert(...).values(...)`).
+# --------------------------------------------------------------------------- #
+class PriceBar(TypedDict):
+    ticker: str
+    timestamp: datetime
+    interval: str
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: int
+
+
+class FundamentalRow(TypedDict):
+    ticker: str
+    fiscal_year: int
+    financial_currency: str
+    total_shares: float | None
+    revenue: float | None
+    net_income: float | None
+    total_assets: float | None
+    total_liabilities: float | None
+    equity: float | None
+    updated_at: datetime
+
+
+class Officer(TypedDict):
+    name: str
+    title: str | None
+
+
+class ProfileData(TypedDict):
+    """Company profile + point-in-time metrics (StockProfile columns)."""
+
+    sector: str | None
+    industry: str | None
+    description: str | None
+    employees: int | None
+    website: str | None
+    country: str | None
+    city: str | None
+    address: str | None
+    phone: str | None
+    officers: list[Officer] | None
+    trailing_pe: float | None
+    profit_margin: float | None
+    revenue_growth: float | None
+    earnings_growth: float | None
+    dividend_yield: float | None
+    beta: float | None
+
+
+class SymbolHit(TypedDict):
+    symbol: str
+    name: str
+    exchange: str
+    type: str
+
+
+class DividendRow(TypedDict):
+    ex_date: date
+    amount: float
+
+
 class MarketDataProvider(ABC):
     """Base class every data-source adapter implements."""
 
@@ -36,21 +104,23 @@ class MarketDataProvider(ABC):
     @abstractmethod
     def fetch_price_rows(
         self, tickers: list[str], period: str, interval: str
-    ) -> dict[str, list[dict]]:
+    ) -> dict[str, list[PriceBar]]:
         """Return {ticker: [bar, ...]} for the requested period/interval."""
 
     @abstractmethod
-    def fetch_fundamentals(self, ticker: str) -> tuple[list[dict], dict | None]:
+    def fetch_fundamentals(
+        self, ticker: str
+    ) -> tuple[list[FundamentalRow], ProfileData | None]:
         """Return (yearly fundamental rows in base currency, optional profile)."""
 
     @abstractmethod
     def fetch_fx_rate(self, currency: str, base: str) -> float | None:
         """Return `base` per 1 unit of `currency` (1.0 when equal)."""
 
-    def search_symbols(self, query: str) -> list[dict]:
+    def search_symbols(self, query: str) -> list[SymbolHit]:
         """Optional: resolve a free-text query to symbols. Defaults to none."""
         return []
 
-    def fetch_dividends(self, ticker: str) -> list[dict]:
+    def fetch_dividends(self, ticker: str) -> list[DividendRow]:
         """Optional: historical dividends as [{ex_date, amount}]. Defaults to none."""
         return []

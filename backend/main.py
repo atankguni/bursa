@@ -22,6 +22,7 @@ POST   /api/watchlist/refresh
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -66,7 +67,7 @@ async def _catalog_coverage() -> float:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup: init DB -> seed -> purge stale -> backfill -> start scheduler."""
     await init_db()
     await seed()

@@ -18,11 +18,22 @@ import logging
 import time
 from collections.abc import Callable
 from datetime import date
-from typing import Any
+from typing import Any, TypedDict
 
 from config import settings
 
 log = logging.getLogger("bursa.governor")
+
+
+class ProviderStats(TypedDict):
+    calls: int
+    errors: int
+    last_error: str | None
+    last_call_at: float | None
+
+
+class ProviderStatsToday(ProviderStats):
+    calls_today: int
 
 
 class Governor:
@@ -30,13 +41,13 @@ class Governor:
         self._sem = asyncio.Semaphore(settings.provider_max_concurrency)
         self._pace_lock = asyncio.Lock()
         self._last_start = 0.0
-        self._inflight: dict[str, asyncio.Future] = {}
-        self._metrics: dict[str, dict[str, Any]] = {}
+        self._inflight: dict[str, asyncio.Future[Any]] = {}
+        self._metrics: dict[str, ProviderStats] = {}
         self._daily: dict[str, int] = {}
         self._day = date.today()
 
     # -- metrics --------------------------------------------------------------
-    def _stat(self, provider: str) -> dict[str, Any]:
+    def _stat(self, provider: str) -> ProviderStats:
         return self._metrics.setdefault(
             provider,
             {"calls": 0, "errors": 0, "last_error": None, "last_call_at": None},
@@ -48,11 +59,11 @@ class Governor:
             self._day = today
             self._daily = {}
 
-    def stats(self) -> dict[str, dict[str, Any]]:
+    def stats(self) -> dict[str, ProviderStatsToday]:
         """Per-provider metrics + today's call count (for /api/providers)."""
         self._roll()
         return {
-            name: {**stat, "calls_today": self._daily.get(name, 0)}
+            name: ProviderStatsToday(**stat, calls_today=self._daily.get(name, 0))
             for name, stat in self._metrics.items()
         }
 
@@ -70,14 +81,14 @@ class Governor:
             self._last_start = time.monotonic()
 
     # -- public API -----------------------------------------------------------
-    async def call(
+    async def call[**P, T](
         self,
         provider: str,
         key: str,
-        fn: Callable[..., Any],
-        *args: Any,
-        **kwargs: Any,
-    ) -> Any:
+        fn: Callable[P, T],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T:
         """
         Run a blocking provider call under the governor.
 
@@ -85,10 +96,10 @@ class Governor:
         """
         existing = self._inflight.get(key)
         if existing is not None:
-            return await existing
+            return await existing  # same key -> same call -> same result type
 
         loop = asyncio.get_running_loop()
-        future: asyncio.Future = loop.create_future()
+        future: asyncio.Future[T] = loop.create_future()
         self._inflight[key] = future
         stat = self._stat(provider)
 

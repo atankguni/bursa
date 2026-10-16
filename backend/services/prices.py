@@ -1,10 +1,22 @@
 """Read queries over price + fundamental data (shared by the routers)."""
 
+from datetime import datetime
+from typing import TypedDict
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from market.tickers import INDEX_ORDER
 from models import Fundamental, StockIndex, StockPrice, StockProfile
+
+
+class LatestQuote(TypedDict, total=False):
+    """Latest daily bar summary; `prev_close` is absent with only one bar."""
+
+    close: float
+    prev_close: float
+    volume: int
+    updated_at: datetime
 
 
 async def indices_map(
@@ -29,7 +41,9 @@ async def indices_map(
     return mapping
 
 
-async def latest_daily(session: AsyncSession, tickers: list[str]) -> dict[str, dict]:
+async def latest_daily(
+    session: AsyncSession, tickers: list[str]
+) -> dict[str, LatestQuote]:
     """Map each ticker to its latest daily close (+ prev close, volume, time)."""
     if not tickers:
         return {}
@@ -56,7 +70,7 @@ async def latest_daily(session: AsyncSession, tickers: list[str]) -> dict[str, d
     )
     rows = (await session.execute(recent)).all()
 
-    latest: dict[str, dict] = {}
+    latest: dict[str, LatestQuote] = {}
     for ticker, close, volume, ts, rank in rows:
         entry = latest.setdefault(ticker, {})
         if rank == 1:

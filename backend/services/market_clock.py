@@ -13,6 +13,7 @@ closed.
 """
 
 from datetime import date, datetime, time, timedelta
+from typing import TypedDict
 from zoneinfo import ZoneInfo
 
 from config import settings
@@ -33,6 +34,17 @@ _BOUNDARIES = (
     SESSION2_START,
     SESSION2_END,
 )
+
+
+class ClockStatus(TypedDict):
+    """Mirrors `schemas.MarketStatusOut`."""
+
+    is_open: bool
+    session: str
+    timezone: str
+    server_time: datetime
+    next_change_at: datetime | None
+    next_change_label: str
 
 
 def is_trading_day(d: date) -> bool:
@@ -79,7 +91,7 @@ def _next_transition(now: datetime) -> datetime | None:
     return min(future) if future else None
 
 
-def status(now: datetime | None = None) -> dict:
+def status(now: datetime | None = None) -> ClockStatus:
     """Snapshot used by the API: state + when it next changes."""
     now = (now or datetime.now(WIB)).astimezone(WIB)
     current = session(now)

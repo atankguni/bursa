@@ -7,7 +7,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import get_session
 from models import Stock, Transaction
-from schemas import EquityPoint, PortfolioOut, TransactionIn, TransactionOut
+from schemas import (
+    EquityPoint,
+    HoldingOut,
+    PortfolioOut,
+    PortfolioTotals,
+    TransactionIn,
+    TransactionOut,
+)
 from services.portfolio import build_portfolio, equity_curve
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
@@ -34,7 +41,10 @@ async def _held_quantity(session: AsyncSession, ticker: str) -> float:
 @router.get("", response_model=PortfolioOut)
 async def get_portfolio(session: AsyncSession = Depends(get_session)) -> PortfolioOut:
     totals, holdings = await build_portfolio(session)
-    return PortfolioOut(totals=totals, holdings=holdings)
+    return PortfolioOut(
+        totals=PortfolioTotals(**totals),
+        holdings=[HoldingOut(**h) for h in holdings],
+    )
 
 
 @router.get("/transactions", response_model=list[TransactionOut])

@@ -103,18 +103,18 @@ async def evaluate_alerts() -> int:
             )
 
             # Keep the rating snapshot current (also creates the baseline).
-            if a.type == "rating_change" and rating:
+            if a.type == "rating_change" and rec is not None:
                 if state is None:
                     session.add(
                         RatingState(
                             ticker=a.ticker,
-                            rating=rating,
+                            rating=rec.rating,
                             strength=rec.strength,
                             updated_at=now,
                         )
                     )
-                elif state.rating != rating:
-                    state.rating = rating
+                elif state.rating != rec.rating:
+                    state.rating = rec.rating
                     state.strength = rec.strength
                     state.updated_at = now
 

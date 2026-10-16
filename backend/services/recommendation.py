@@ -15,12 +15,14 @@ Everything is transparent and testable — no black-box model.
 
 import logging
 import time
+from collections.abc import Sequence
 from statistics import pstdev
 
 from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from models import Stock, StockProfile
+from models import Fundamental, Stock, StockProfile
 from schemas import CategoryOut, RecommendationOut
 from services.prices import (
     daily_closes,
@@ -53,6 +55,9 @@ FACTORS: list[tuple[str, str, str, str, str]] = [
     ("equity_ratio", "Health", "higher", "Equity ratio", "pct"),
 ]
 _FACTOR_KEYS = [f[0] for f in FACTORS]
+
+# factor key -> raw value (None when the input data is missing).
+type RawFactors = dict[str, float | None]
 
 
 # --------------------------------------------------------------------------- #
@@ -87,9 +92,14 @@ def _momentum(closes: list[float]) -> dict[str, float | None]:
     return out
 
 
-def raw_factors(closes, funds, profile: StockProfile | None, price: float | None) -> dict:
+def raw_factors(
+    closes: list[float],
+    funds: list[Fundamental],
+    profile: StockProfile | None,
+    price: float | None,
+) -> RawFactors:
     """Compute the raw (un-normalised) factor values for one ticker."""
-    raw: dict[str, float | None] = dict.fromkeys(_FACTOR_KEYS)
+    raw: RawFactors = dict.fromkeys(_FACTOR_KEYS)
     latest = funds[-1] if funds else None
 
     if latest is not None:
@@ -125,7 +135,7 @@ def raw_factors(closes, funds, profile: StockProfile | None, price: float | None
     return raw
 
 
-def percentile(values: list[float | None], v: float) -> float:
+def percentile(values: Sequence[float | None], v: float) -> float:
     """Percentile rank (0-100) of `v` within `values` (None entries ignored)."""
     vals = [x for x in values if x is not None]
     n = len(vals)
@@ -173,7 +183,7 @@ def _reasons(scored: list[tuple[str, str, str, float, float]]) -> list[str]:
     return out
 
 
-def score_universe(raw: dict[str, dict]) -> dict[str, RecommendationOut]:
+def score_universe(raw: dict[str, RawFactors]) -> dict[str, RecommendationOut]:
     """
     Turn raw per-ticker factor values into recommendation objects.
 
@@ -231,10 +241,12 @@ def score_universe(raw: dict[str, dict]) -> dict[str, RecommendationOut]:
 # --------------------------------------------------------------------------- #
 # Data-loading entrypoint
 # --------------------------------------------------------------------------- #
-async def compute_universe(session, tickers: list[str] | None = None):
+async def compute_universe(
+    session: AsyncSession, tickers: list[str] | None = None
+) -> dict[str, RecommendationOut]:
     """Load stored data and score every ticker (or just `tickers`)."""
     if tickers is None:
-        tickers = [t for (t,) in (await session.execute(select(Stock.ticker))).all()]
+        tickers = list((await session.execute(select(Stock.ticker))).scalars().all())
 
     closes_map = await daily_closes(session, tickers)
     funds_map = await fundamental_series(session, tickers)
@@ -258,7 +270,7 @@ async def compute_universe(session, tickers: list[str] | None = None):
 _cache: tuple[float, dict[str, RecommendationOut]] | None = None
 
 
-async def compute_universe_cached(session) -> dict[str, RecommendationOut]:
+async def compute_universe_cached(session: AsyncSession) -> dict[str, RecommendationOut]:
     """Whole-universe scores, cached for `recommendation_cache_seconds`."""
     global _cache
     now = time.monotonic()

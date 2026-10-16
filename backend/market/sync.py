@@ -14,6 +14,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from config import settings
 from database import AsyncSessionLocal
+from market.providers.base import MarketDataProvider, PriceBar
 from market.providers.governor import governor
 from market.providers.registry import price_provider
 from models import StockPrice
@@ -21,7 +22,7 @@ from models import StockPrice
 log = logging.getLogger("bursa.market.sync")
 
 
-async def _upsert_rows(rows: list[dict]) -> int:
+async def _upsert_rows(rows: list[PriceBar]) -> int:
     """
     Idempotent bulk upsert keyed on (ticker, timestamp, interval).
 
@@ -52,8 +53,12 @@ async def _upsert_rows(rows: list[dict]) -> int:
 
 
 async def _fetch_with_retry(
-    provider, tickers: list[str], period: str, interval: str, attempts: int = 3
-) -> dict[str, list[dict]]:
+    provider: MarketDataProvider,
+    tickers: list[str],
+    period: str,
+    interval: str,
+    attempts: int = 3,
+) -> dict[str, list[PriceBar]]:
     """Provider fetch with a few retries + backoff to survive transient blocks."""
     last_exc: Exception | None = None
     for attempt in range(1, attempts + 1):

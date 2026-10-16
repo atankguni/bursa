@@ -8,6 +8,7 @@ RoE history comes from the yearly fundamentals.
 """
 
 import logging
+from typing import TypedDict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,7 +17,23 @@ from services.recommendation import percentile
 
 log = logging.getLogger("bursa.valuation")
 
-_EMPTY = {
+
+
+class ValuationData(TypedDict):
+    """Mirrors `schemas.ValuationOut`."""
+
+    ticker: str
+    pbv: float | None
+    pbv_min: float | None
+    pbv_max: float | None
+    pbv_percentile: float | None
+    roe: float | None
+    roe_percentile: float | None
+    years: list[int]
+    window_days: int
+
+
+_EMPTY: ValuationData = {
     "ticker": "",
     "pbv": None,
     "pbv_min": None,
@@ -29,11 +46,11 @@ _EMPTY = {
 }
 
 
-async def valuation(session: AsyncSession, ticker: str) -> dict:
+async def valuation(session: AsyncSession, ticker: str) -> ValuationData:
     """PBV/RoE plus their percentile within the stock's own history."""
     funds = (await fundamental_series(session, [ticker])).get(ticker, [])
     if not funds:
-        return {**_EMPTY, "ticker": ticker}
+        return {**_EMPTY, "ticker": ticker, "years": []}
 
     latest = funds[-1]
     price = (await latest_daily(session, [ticker])).get(ticker, {}).get("close")

@@ -7,37 +7,65 @@ Reuses the screener dataset so the numbers stay consistent across pages.
 """
 
 import logging
+from typing import TypedDict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from services.screener import build_rows
+from services.screener import ScreenerRowData, build_rows
 
 log = logging.getLogger("bursa.market_overview")
 
 
-def aggregate_sectors(rows: list[dict]) -> list[dict]:
+class SectorPerformance(TypedDict):
+    sector: str
+    count: int
+    avg_change_percent: float
+
+
+class Mover(TypedDict):
+    ticker: str
+    name: str
+    price: float | None
+    change_percent: float | None
+
+
+class Overview(TypedDict):
+    up: int
+    down: int
+    flat: int
+    top_gainers: list[Mover]
+    top_losers: list[Mover]
+    sectors: list[SectorPerformance]
+
+
+class _SectorTotals(TypedDict):
+    count: int
+    total: float
+
+
+def aggregate_sectors(rows: list[ScreenerRowData]) -> list[SectorPerformance]:
     """Average % change per sector (rows without a change are ignored)."""
-    agg: dict[str, dict] = {}
+    agg: dict[str, _SectorTotals] = {}
     for r in rows:
-        if r["change_percent"] is None:
+        change = r["change_percent"]
+        if change is None:
             continue
-        key = r["sector"] or "Unknown"
-        a = agg.setdefault(key, {"sector": key, "count": 0, "total": 0.0})
+        a = agg.setdefault(r["sector"] or "Unknown", {"count": 0, "total": 0.0})
         a["count"] += 1
-        a["total"] += r["change_percent"]
-    out = [
+        a["total"] += change
+    out: list[SectorPerformance] = [
         {
-            "sector": a["sector"],
+            "sector": sector,
             "count": a["count"],
             "avg_change_percent": round(a["total"] / a["count"], 2),
         }
-        for a in agg.values()
+        for sector, a in agg.items()
     ]
     out.sort(key=lambda x: x["avg_change_percent"], reverse=True)
     return out
 
 
-def _mover(r: dict) -> dict:
+def _mover(r: ScreenerRowData) -> Mover:
     return {
         "ticker": r["ticker"],
         "name": r["name"],
@@ -46,16 +74,19 @@ def _mover(r: dict) -> dict:
     }
 
 
-async def overview(session: AsyncSession, top_n: int = 5) -> dict:
+async def overview(session: AsyncSession, top_n: int = 5) -> Overview:
     """Breadth counts, top gainers/losers, and sector performance."""
     rows = await build_rows(session)
 
-    with_change = [r for r in rows if r["change_percent"] is not None]
-    up = sum(1 for r in with_change if r["change_percent"] > 0)
-    down = sum(1 for r in with_change if r["change_percent"] < 0)
+    # (change, row) pairs so the narrowed float survives the sort.
+    with_change = [
+        (chg, r) for r in rows if (chg := r["change_percent"]) is not None
+    ]
+    up = sum(1 for chg, _ in with_change if chg > 0)
+    down = sum(1 for chg, _ in with_change if chg < 0)
     flat = len(with_change) - up - down
 
-    by_change = sorted(with_change, key=lambda r: r["change_percent"], reverse=True)
+    by_change = [r for _, r in sorted(with_change, key=lambda p: p[0], reverse=True)]
     gainers = [_mover(r) for r in by_change[:top_n]]
     losers = [_mover(r) for r in reversed(by_change[-top_n:])]
 

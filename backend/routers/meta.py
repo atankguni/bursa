@@ -10,7 +10,7 @@ from market.providers.governor import governor
 from market.providers.registry import available as available_providers
 from market.tickers import INDEX_ORDER
 from models import Stock, StockIndex, StockPrice
-from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, StatusOut
+from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, ProviderStat, StatusOut
 from services.market_clock import status as market_status
 
 router = APIRouter(prefix="/api", tags=["meta"])
@@ -31,7 +31,7 @@ async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
     tracked = (
         await session.execute(select(func.count()).select_from(Stock))
     ).scalar_one()
-    calls = {name: s.get("calls_today", 0) for name, s in governor.stats().items()}
+    calls = {name: s["calls_today"] for name, s in governor.stats().items()}
     return StatusOut(
         server_time=st["server_time"],
         timezone=st["timezone"],
@@ -60,7 +60,7 @@ async def get_providers() -> ProvidersOut:
         price=settings.price_provider,
         fundamentals=settings.fundamentals_provider,
         available=[ProviderInfo(**p) for p in available_providers()],
-        metrics=governor.stats(),
+        metrics={name: ProviderStat(**s) for name, s in governor.stats().items()},
     )
 
 

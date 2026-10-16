@@ -12,8 +12,9 @@ Key points
 """
 
 import os
+from typing import Any
 
-from sqlalchemy import event
+from sqlalchemy import Connection, event
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -39,7 +40,7 @@ engine = create_async_engine(DATABASE_URL, echo=False, future=True)
 
 
 @event.listens_for(engine.sync_engine, "connect")
-def _set_sqlite_pragmas(dbapi_connection, connection_record):
+def _set_sqlite_pragmas(dbapi_connection: Any, connection_record: Any) -> None:
     """Configure every raw SQLite connection the moment it is opened."""
     cursor = dbapi_connection.cursor()
     # WAL allows concurrent readers + a single writer without blocking.
@@ -77,7 +78,7 @@ async def init_db() -> None:
         await conn.run_sync(_apply_light_migrations)
 
 
-def _apply_light_migrations(conn) -> None:
+def _apply_light_migrations(conn: Connection) -> None:
     """
     Tiny in-place migrations for SQLite, which cannot add columns via
     create_all. Adds columns introduced after the table already existed.

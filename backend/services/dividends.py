@@ -25,7 +25,6 @@ async def sync_dividends(ticker: str) -> int:
     values = [
         {"ticker": ticker, "ex_date": r["ex_date"], "amount": float(r["amount"])}
         for r in rows
-        if r.get("amount") is not None
     ]
     if not values:
         return 0
@@ -42,13 +41,14 @@ async def sync_dividends(ticker: str) -> int:
 
 
 async def list_dividends(session: AsyncSession, ticker: str) -> list[Dividend]:
-    return (
+    rows = (
         await session.execute(
             select(Dividend)
             .where(Dividend.ticker == ticker)
             .order_by(Dividend.ex_date.desc())
         )
     ).scalars().all()
+    return list(rows)
 
 
 async def trailing_dps(

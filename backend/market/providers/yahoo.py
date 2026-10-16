@@ -8,7 +8,9 @@ means adding a sibling adapter and registering it, not touching the services.
 """
 
 import logging
+from collections.abc import Hashable, Mapping
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 import pandas as pd
 import yfinance as yf
@@ -22,7 +24,13 @@ from market.providers.base import (
     PRICES,
     PROFILE,
     SEARCH,
+    DividendRow,
+    FundamentalRow,
     MarketDataProvider,
+    Officer,
+    PriceBar,
+    ProfileData,
+    SymbolHit,
 )
 
 log = logging.getLogger("bursa.providers.yahoo")
@@ -75,9 +83,9 @@ def _frame_for_ticker(df: pd.DataFrame, ticker: str) -> pd.DataFrame:
     return df.dropna(subset=["Close"])
 
 
-def _to_rows(df: pd.DataFrame, ticker: str, interval: str) -> list[dict]:
+def _to_rows(df: pd.DataFrame, ticker: str, interval: str) -> list[PriceBar]:
     """Convert a per-ticker OHLCV frame into upsert-ready dicts."""
-    rows: list[dict] = []
+    rows: list[PriceBar] = []
     for ts, row in df.iterrows():
         try:
             dt = ts.to_pydatetime()
@@ -103,7 +111,9 @@ def _to_rows(df: pd.DataFrame, ticker: str, interval: str) -> list[dict]:
     return rows
 
 
-def _pick(df: pd.DataFrame | None, labels: list[str], col) -> float | None:
+def _pick(
+    df: pd.DataFrame | None, labels: list[str], col: Hashable | None
+) -> float | None:
     """First non-null value among `labels` at column `col`."""
     if df is None or df.empty or col is None or col not in df.columns:
         return None
@@ -115,7 +125,7 @@ def _pick(df: pd.DataFrame | None, labels: list[str], col) -> float | None:
     return None
 
 
-def _col_for_year(df: pd.DataFrame | None, year: int):
+def _col_for_year(df: pd.DataFrame | None, year: int) -> Hashable | None:
     """Return the statement column (a Timestamp) whose year matches."""
     if df is None or df.empty:
         return None
@@ -125,14 +135,14 @@ def _col_for_year(df: pd.DataFrame | None, year: int):
     return None
 
 
-def _profile_from_info(info: dict) -> dict | None:
+def _profile_from_info(info: Mapping[str, Any]) -> ProfileData | None:
     """Extract optional info-derived metrics + company profile (may all be None)."""
-    officers = [
+    officers: list[Officer] = [
         {"name": o.get("name"), "title": o.get("title")}
         for o in (info.get("companyOfficers") or [])
         if o.get("name")
     ]
-    keys = {
+    keys: ProfileData = {
         # Company profile
         "sector": info.get("sector"),
         "industry": info.get("industry"),
@@ -170,9 +180,9 @@ class YahooProvider(MarketDataProvider):
     # --- Prices -------------------------------------------------------------
     def fetch_price_rows(
         self, tickers: list[str], period: str, interval: str
-    ) -> dict[str, list[dict]]:
+    ) -> dict[str, list[PriceBar]]:
         df = _download_batch(tickers, period, interval)
-        out: dict[str, list[dict]] = {}
+        out: dict[str, list[PriceBar]] = {}
         for ticker in tickers:
             sub = _frame_for_ticker(df, ticker)
             if not sub.empty:
@@ -207,7 +217,9 @@ class YahooProvider(MarketDataProvider):
         return cached[0] if cached else None
 
     # --- Fundamentals -------------------------------------------------------
-    def fetch_fundamentals(self, ticker: str) -> tuple[list[dict], dict | None]:
+    def fetch_fundamentals(
+        self, ticker: str
+    ) -> tuple[list[FundamentalRow], ProfileData | None]:
         """Fetch + parse one ticker's yearly fundamentals (normalized to base)."""
         base = settings.base_currency
         try:
@@ -250,7 +262,7 @@ class YahooProvider(MarketDataProvider):
             if df is not None and not df.empty:
                 years |= {c.year for c in df.columns if getattr(c, "year", None)}
 
-        rows: list[dict] = []
+        rows: list[FundamentalRow] = []
         for year in sorted(years):
             icol = _col_for_year(income, year)
             bcol = _col_for_year(balance, year)
@@ -271,7 +283,7 @@ class YahooProvider(MarketDataProvider):
         return rows, profile
 
     # --- Search -------------------------------------------------------------
-    def search_symbols(self, query: str) -> list[dict]:
+    def search_symbols(self, query: str) -> list[SymbolHit]:
         """Resolve a free-text query to candidate symbols via Yahoo search."""
         try:
             quotes = yf.Search(query, max_results=10).quotes
@@ -279,7 +291,7 @@ class YahooProvider(MarketDataProvider):
             log.warning("Symbol search failed for %r: %s", query, exc)
             return []
 
-        out: list[dict] = []
+        out: list[SymbolHit] = []
         for q in quotes or []:
             symbol = q.get("symbol")
             if not symbol:
@@ -295,7 +307,7 @@ class YahooProvider(MarketDataProvider):
         return out
 
     # --- Dividends ----------------------------------------------------------
-    def fetch_dividends(self, ticker: str) -> list[dict]:
+    def fetch_dividends(self, ticker: str) -> list[DividendRow]:
         """Historical cash dividends as [{ex_date, amount}]."""
         try:
             divs = yf.Ticker(ticker).dividends
@@ -303,7 +315,7 @@ class YahooProvider(MarketDataProvider):
             log.warning("Dividend fetch failed for %s: %s", ticker, exc)
             return []
 
-        out: list[dict] = []
+        out: list[DividendRow] = []
         if divs is not None:
             for ts, amount in divs.items():
                 try:

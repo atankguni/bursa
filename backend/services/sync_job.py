@@ -16,8 +16,9 @@ alphabetically, would fill every capped run.
 import asyncio
 import logging
 from datetime import datetime
+from typing import TypedDict
 
-from sqlalchemy import func, select, update
+from sqlalchemy import ColumnElement, func, select, update
 
 from database import AsyncSessionLocal
 from models import Fundamental, Stock
@@ -26,7 +27,26 @@ from services.recommendation import invalidate_cache
 
 log = logging.getLogger("bursa.sync_job")
 
-_state: dict = {
+
+
+class _State(TypedDict):
+    running: bool
+    total: int
+    done: int
+    last_error: str | None
+    started_at: datetime | None
+    finished_at: datetime | None
+
+
+class SyncStatus(TypedDict):
+    running: bool
+    total: int
+    done: int
+    remaining: int
+    last_error: str | None
+
+
+_state: _State = {
     "running": False,
     "total": 0,
     "done": 0,
@@ -38,7 +58,7 @@ _state: dict = {
 _task: asyncio.Task | None = None
 
 
-def _missing_clause():
+def _missing_clause() -> ColumnElement[bool]:
     return ~Stock.ticker.in_(select(Fundamental.ticker).distinct())
 
 
@@ -73,7 +93,7 @@ async def _mark_checked(ticker: str) -> None:
         await session.commit()
 
 
-def status() -> dict:
+def status() -> SyncStatus:
     return {
         "running": _state["running"],
         "total": _state["total"],
@@ -114,12 +134,14 @@ def start(tickers: list[str]) -> bool:
     if _state["running"]:
         return False
     _state.update(
-        running=True,
-        total=len(tickers),
-        done=0,
-        last_error=None,
-        started_at=datetime.utcnow(),
-        finished_at=None,
+        {
+            "running": True,
+            "total": len(tickers),
+            "done": 0,
+            "last_error": None,
+            "started_at": datetime.utcnow(),
+            "finished_at": None,
+        }
     )
     _task = asyncio.create_task(_run(tickers))
     return True

@@ -1,5 +1,7 @@
 """Registry that resolves the active data provider(s) from config."""
 
+from typing import TypedDict
+
 from config import settings
 from market.providers.base import MarketDataProvider
 from market.providers.yahoo import YahooProvider
@@ -9,6 +11,11 @@ _REGISTRY: dict[str, type[MarketDataProvider]] = {
     YahooProvider.name: YahooProvider,
 }
 _INSTANCES: dict[str, MarketDataProvider] = {}
+
+
+class ProviderEntry(TypedDict):
+    name: str
+    capabilities: list[str]
 
 
 def _resolve(name: str) -> MarketDataProvider:
@@ -31,7 +38,7 @@ def fundamentals_provider() -> MarketDataProvider:
     return _resolve(settings.fundamentals_provider)
 
 
-def available() -> list[dict]:
+def available() -> list[ProviderEntry]:
     """Every registered provider with its capability flags."""
     return [
         {"name": cls.name, "capabilities": sorted(cls.capabilities)}

@@ -140,7 +140,7 @@ async def log_provider_stats() -> None:
     stats = governor.stats()
     log.info(
         "Provider calls today: %s",
-        {name: s.get("calls_today", 0) for name, s in stats.items()},
+        {name: s["calls_today"] for name, s in stats.items()},
     )
     governor.reset_daily()
 

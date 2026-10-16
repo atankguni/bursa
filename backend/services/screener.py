@@ -8,6 +8,7 @@ score/rating); `filter_rows` is a pure predicate kept separate for testing.
 """
 
 import logging
+from typing import TypedDict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,7 +26,23 @@ from services.recommendation import compute_universe_cached
 log = logging.getLogger("bursa.screener")
 
 
-async def build_rows(session: AsyncSession) -> list[dict]:
+class ScreenerRowData(TypedDict):
+    """One screener row (mirrors `schemas.ScreenerRow`)."""
+
+    ticker: str
+    name: str
+    indices: list[str]
+    sector: str | None
+    price: float | None
+    change_percent: float | None
+    pbv: float | None
+    roe: float | None
+    score: float | None
+    rating: str | None
+    strength: str | None
+
+
+async def build_rows(session: AsyncSession) -> list[ScreenerRowData]:
     """Assemble the screener dataset (one dict per tracked stock)."""
     stocks = (
         await session.execute(select(Stock).order_by(Stock.ticker))
@@ -38,7 +55,7 @@ async def build_rows(session: AsyncSession) -> list[dict]:
     prof_map = await profiles(session, tickers)
     rec_map = await compute_universe_cached(session)
 
-    rows: list[dict] = []
+    rows: list[ScreenerRowData] = []
     for s in stocks:
         info = price_map.get(s.ticker, {})
         price = info.get("close")
@@ -70,7 +87,7 @@ async def build_rows(session: AsyncSession) -> list[dict]:
 
 
 def filter_rows(
-    rows: list[dict],
+    rows: list[ScreenerRowData],
     *,
     min_score: float | None = None,
     max_pbv: float | None = None,
@@ -78,10 +95,10 @@ def filter_rows(
     rating: str | None = None,
     sector: str | None = None,
     buy_only: bool = False,
-) -> list[dict]:
+) -> list[ScreenerRowData]:
     """Keep rows matching every provided criterion (missing data is excluded)."""
 
-    def keep(r: dict) -> bool:
+    def keep(r: ScreenerRowData) -> bool:
         if min_score is not None and (r["score"] is None or r["score"] < min_score):
             return False
         if max_pbv is not None and (r["pbv"] is None or r["pbv"] > max_pbv):
