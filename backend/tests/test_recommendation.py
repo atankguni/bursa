@@ -81,3 +81,81 @@ def test_raw_factors_from_fundamentals_and_prices():
     assert raw["pbv"] == 120_000 / 5000
     assert raw["per"] == 120.0 / (2000 / 1000)  # EPS 2 -> PER 60
     assert raw["ret_3m"] is not None and raw["pos_52w"] == 1.0
+
+
+def _fund(**kw):
+    from models import Fundamental
+
+    base = {
+        "ticker": "X.JK", "fiscal_year": 2024, "financial_currency": "IDR",
+        "total_shares": 1000.0, "revenue": 10_000.0, "net_income": 2_000.0,
+        "total_assets": 9_000.0, "total_liabilities": 4_000.0, "equity": 5_000.0,
+    }
+    return Fundamental(**(base | kw))
+
+
+def test_price_only_stocks_are_not_rated():
+    # Momentum alone backtested as noise -> no rating without fundamentals.
+    raw = {
+        "FUND.JK": _raw(roe=0.2, pbv=1.5, ret_3m=0.01),
+        "MOMO.JK": _raw(ret_3m=0.9, price_vs_sma50=0.5, pos_52w=1.0),
+    }
+    rec = score_universe(raw)
+    assert "FUND.JK" in rec
+    assert "MOMO.JK" not in rec
+
+
+def test_thinly_traded_buy_is_capped_at_hold():
+    good = {"roe": 0.3, "net_margin": 0.3, "pbv": 0.8, "per": 6, "revenue_yoy": 0.2}
+    bad = {"roe": 0.01, "net_margin": 0.01, "pbv": 5.0, "per": 40, "revenue_yoy": -0.2}
+    raw = {"LIQ.JK": _raw(**good), "THIN.JK": _raw(**good), "BAD.JK": _raw(**bad)}
+    traded = {"LIQ.JK": 50e9, "THIN.JK": 0.2e9, "BAD.JK": 50e9}
+
+    rec = score_universe(raw, traded)
+    assert rec["LIQ.JK"].rating in ("Buy", "Strong Buy")
+    assert rec["THIN.JK"].rating == "Hold"
+    assert rec["THIN.JK"].score == rec["LIQ.JK"].score  # score itself unchanged
+    assert any("Thinly traded" in r for r in rec["THIN.JK"].reasons)
+    # Without liquidity data (e.g. pure scoring) nothing is capped.
+    assert score_universe(raw)["THIN.JK"].rating in ("Buy", "Strong Buy")
+
+
+def test_financials_skip_leverage_health_factors():
+    from types import SimpleNamespace
+
+    bank = SimpleNamespace(
+        sector="Financial Services", trailing_pe=None, profit_margin=None,
+        revenue_growth=None, earnings_growth=None,
+    )
+    f = _fund(total_liabilities=8_000.0, equity=1_000.0)  # bank-like leverage
+    raw = raw_factors([100.0] * 70, [f], bank, price=100.0)
+    assert raw["der"] is None and raw["equity_ratio"] is None
+    assert raw["roe"] is not None  # quality/valuation still scored
+
+    other = SimpleNamespace(**(vars(bank) | {"sector": "Industrials"}))
+    assert raw_factors([100.0] * 70, [f], other, price=100.0)["der"] == 8.0
+
+
+def test_negative_equity_ranks_worst_not_missing():
+    import math
+
+    f = _fund(net_income=-500.0, total_assets=4_000.0, total_liabilities=5_000.0,
+              equity=-1_000.0)
+    raw = raw_factors([100.0] * 70, [f], None, price=100.0)
+    # Previously: PBV dropped, D/E = -5 (looked best), RoE = +0.5 (loss / negative equity).
+    assert raw["pbv"] == math.inf
+    assert raw["der"] == math.inf
+    assert raw["roe"] == -math.inf
+
+    rec = score_universe({
+        "BROKE.JK": raw,
+        "OK.JK": _raw(roe=0.05, net_margin=0.02, pbv=3.0, der=2.0, equity_ratio=0.3),
+    })
+    def cat(t, name):
+        return next(c.score for c in rec[t].categories if c.name == name)
+    assert cat("BROKE.JK", "Valuation") < cat("OK.JK", "Valuation")
+    assert cat("BROKE.JK", "Health") < cat("OK.JK", "Health")
+
+    from services.recommendation import _fmt
+
+    assert "negative equity" in _fmt(math.inf, "ratio")  # shown instead of "inf"

@@ -32,7 +32,11 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
     return (
       <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-muted">
         <AlertCircle size={20} />
-        <span className="text-sm">No recommendation available.</span>
+        <span className="text-sm">Not rated yet.</span>
+        <span className="max-w-xs text-center text-[11px] text-subtle">
+          Signals need fundamentals. Open the Fundamentals tab to fetch them, then check
+          back here.
+        </span>
       </div>
     )
   }

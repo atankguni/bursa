@@ -1,6 +1,8 @@
 """Read queries over price + fundamental data (shared by the routers)."""
 
+from collections import defaultdict
 from datetime import datetime
+from statistics import median
 from typing import TypedDict
 
 from sqlalchemy import func, select
@@ -151,3 +153,30 @@ async def profiles(
         )
     ).scalars().all()
     return {p.ticker: p for p in rows}
+
+
+async def median_traded_value(
+    session: AsyncSession, tickers: list[str], days: int = 20
+) -> dict[str, float]:
+    """Median daily traded value (close × volume, IDR) over each ticker's last `days` bars."""
+    if not tickers:
+        return {}
+    rn = (
+        func.row_number()
+        .over(partition_by=StockPrice.ticker, order_by=StockPrice.timestamp.desc())
+        .label("rn")
+    )
+    ranked = (
+        select(StockPrice.ticker, StockPrice.close, StockPrice.volume, rn)
+        .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
+        .subquery()
+    )
+    rows = (
+        await session.execute(
+            select(ranked.c.ticker, ranked.c.close, ranked.c.volume).where(ranked.c.rn <= days)
+        )
+    ).all()
+    values: dict[str, list[float]] = defaultdict(list)
+    for ticker, close, volume in rows:
+        values[ticker].append(close * (volume or 0))
+    return {t: median(v) for t, v in values.items()}

@@ -284,8 +284,10 @@ async def stock_recommendation(
     recommendations = await compute_universe_cached(session)
     rec = recommendations.get(ticker)
     if rec is None:
+        # Only stocks with fundamentals are rated (see services/recommendation).
         raise HTTPException(
-            status_code=404, detail=f"No recommendation available for {ticker}"
+            status_code=404,
+            detail=f"{ticker} is not rated yet: it needs fundamentals data",
         )
     return rec
 

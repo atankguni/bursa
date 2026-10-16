@@ -57,12 +57,16 @@ class Settings(BaseSettings):
 
     # Recommendation engine -------------------------------------------------
     # Category weights (must sum to ~1.0). Tune here; no code changes needed.
+    # Chosen with scripts/evaluate_signals.py on a time split (picked on Jan-May
+    # 2026, validated on Jun-Sep): valuation was the strongest factor and growth
+    # was consistently negative, so weight moved from growth to valuation/health.
+    # Re-check as more history accumulates; the sample is still short.
     recommendation_weights: dict[str, float] = {
         "quality": 0.30,
-        "valuation": 0.30,
-        "growth": 0.20,
+        "valuation": 0.40,
+        "growth": 0.05,
         "momentum": 0.10,
-        "health": 0.10,
+        "health": 0.15,
     }
     # Composite score (0-100) -> rating label. Highest threshold that is met wins.
     recommendation_ratings: list[tuple[str, int]] = [
@@ -76,6 +80,15 @@ class Settings(BaseSettings):
     conviction_very_strong: float = 0.75
     conviction_strong: float = 0.55
     conviction_moderate: float = 0.35
+    # Guards backed by scripts/evaluate_signals.py (a point-in-time backtest):
+    # * A stock is only rated when it has Quality or Valuation data, i.e.
+    #   fundamentals; price-only (momentum-only) scores had no predictive power.
+    # * Buy / Strong Buy need this median daily traded value (IDR, last 20 days);
+    #   thinly traded names are capped at Hold.
+    recommendation_min_traded_value: float = 1_000_000_000
+    # Leverage ratios are structural for balance-sheet businesses (bank deposits
+    # are liabilities), so Health (Debt/Equity, equity ratio) is not scored here.
+    recommendation_no_leverage_sectors: list[str] = ["Financial Services"]
     # Reuse a computed universe score for this long (seconds) to avoid
     # recomputing on every 60s poll.
     recommendation_cache_seconds: int = 60

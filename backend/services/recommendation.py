@@ -14,6 +14,7 @@ Everything is transparent and testable — no black-box model.
 """
 
 import logging
+import math
 import time
 from collections.abc import Sequence
 from statistics import pstdev
@@ -28,6 +29,7 @@ from services.prices import (
     daily_closes,
     fundamental_series,
     latest_daily,
+    median_traded_value,
     profiles,
 )
 
@@ -55,6 +57,9 @@ FACTORS: list[tuple[str, str, str, str, str]] = [
     ("equity_ratio", "Health", "higher", "Equity ratio", "pct"),
 ]
 _FACTOR_KEYS = [f[0] for f in FACTORS]
+# A stock needs at least one of these (they come from fundamentals) to be rated.
+_FUNDAMENTAL_KEYS = [f[0] for f in FACTORS if f[1] in ("Quality", "Valuation")]
+_BUY_RATINGS = ("Strong Buy", "Buy")
 
 # factor key -> raw value (None when the input data is missing).
 type RawFactors = dict[str, float | None]
@@ -103,7 +108,6 @@ def raw_factors(
     latest = funds[-1] if funds else None
 
     if latest is not None:
-        raw["roe"] = _div(latest.net_income, latest.equity)
         raw["net_margin"] = _div(latest.net_income, latest.revenue)
         shares = latest.total_shares
         market_cap = price * shares if price and shares else None
@@ -112,10 +116,18 @@ def raw_factors(
             book = latest.total_assets - latest.total_liabilities
         elif latest.equity is not None:
             book = latest.equity
-        raw["pbv"] = _div(market_cap, book)
+        # Negative book value / equity is a red flag, not missing data: rank it
+        # worst instead of dropping it (a negative D/E or a loss over negative
+        # equity would otherwise read as a *good* ratio).
+        raw["pbv"] = math.inf if book is not None and book <= 0 else _div(market_cap, book)
+        if latest.equity is not None and latest.equity <= 0:
+            raw["roe"] = -math.inf
+            raw["der"] = math.inf
+        else:
+            raw["roe"] = _div(latest.net_income, latest.equity)
+            raw["der"] = _div(latest.total_liabilities, latest.equity)
         eps = _div(latest.net_income, shares)
         raw["per"] = _div(price, eps) if price and eps and eps > 0 else None
-        raw["der"] = _div(latest.total_liabilities, latest.equity)
         raw["equity_ratio"] = _div(latest.equity, latest.total_assets)
         if len(funds) >= 2:
             raw["revenue_yoy"] = _yoy(latest.revenue, funds[-2].revenue)
@@ -130,6 +142,9 @@ def raw_factors(
             raw["revenue_yoy"] = profile.revenue_growth
         if raw["earnings_yoy"] is None:
             raw["earnings_yoy"] = profile.earnings_growth
+
+    if profile is not None and profile.sector in settings.recommendation_no_leverage_sectors:
+        raw["der"] = raw["equity_ratio"] = None
 
     raw.update(_momentum(closes))
     return raw
@@ -149,6 +164,8 @@ def percentile(values: Sequence[float | None], v: float) -> float:
 def _fmt(value: float | None, kind: str) -> str:
     if value is None:
         return "—"
+    if not math.isfinite(value):
+        return "n/m (negative equity)"
     return f"{value * 100:.1f}%" if kind == "pct" else f"{value:.2f}"
 
 
@@ -183,18 +200,25 @@ def _reasons(scored: list[tuple[str, str, str, float, float]]) -> list[str]:
     return out
 
 
-def score_universe(raw: dict[str, RawFactors]) -> dict[str, RecommendationOut]:
+def score_universe(
+    raw: dict[str, RawFactors], traded_value: dict[str, float] | None = None
+) -> dict[str, RecommendationOut]:
     """
     Turn raw per-ticker factor values into recommendation objects.
 
-    `raw` maps ticker -> {factor_key: value or None}. Percentiles are computed
-    across all tickers in `raw` (the cross-section).
+    `raw` maps ticker -> {factor_key: value or None}. Only tickers with
+    fundamentals (any Quality/Valuation factor) are rated; percentiles are
+    computed across those (the cross-section). When `traded_value` is given,
+    Buy/Strong Buy is capped at Hold below `recommendation_min_traded_value`.
     """
     weights = settings.recommendation_weights
-    distributions = {k: [raw[t].get(k) for t in raw] for k in _FACTOR_KEYS}
+    rated = {
+        t: v for t, v in raw.items() if any(v.get(k) is not None for k in _FUNDAMENTAL_KEYS)
+    }
+    distributions = {k: [rated[t].get(k) for t in rated] for k in _FACTOR_KEYS}
     results: dict[str, RecommendationOut] = {}
 
-    for ticker, values in raw.items():
+    for ticker, values in rated.items():
         by_category: dict[str, list[float]] = {}
         scored: list[tuple[str, str, str, float, float]] = []  # key, display, fmt, score, value
         n_present = 0
@@ -219,10 +243,19 @@ def score_universe(raw: dict[str, RawFactors]) -> dict[str, RecommendationOut]:
         coverage = n_present / len(FACTORS)
 
         scored.sort(key=lambda f: f[3], reverse=True)
+        rating = _rating(composite)
+        reasons = _reasons(scored)
+        if traded_value is not None and rating in _BUY_RATINGS:
+            liquidity = traded_value.get(ticker, 0.0)
+            if liquidity < settings.recommendation_min_traded_value:
+                rating = "Hold"
+                reasons.append(
+                    f"Thinly traded (Rp {liquidity / 1e6:,.0f}M/day) — capped at Hold"
+                )
         results[ticker] = RecommendationOut(
             ticker=ticker,
             score=round(composite, 1),
-            rating=_rating(composite),
+            rating=rating,
             strength=_conviction(composite, list(cat_scores.values()), coverage),
             coverage=round(coverage, 2),
             categories=[
@@ -232,7 +265,7 @@ def score_universe(raw: dict[str, RawFactors]) -> dict[str, RecommendationOut]:
                 for c in CATEGORY_ORDER
                 if c in cat_scores
             ],
-            reasons=_reasons(scored),
+            reasons=reasons,
             disclaimer=DISCLAIMER,
         )
     return results
@@ -252,6 +285,7 @@ async def compute_universe(
     funds_map = await fundamental_series(session, tickers)
     prof_map = await profiles(session, tickers)
     price_map = await latest_daily(session, tickers)
+    liquidity = await median_traded_value(session, tickers)
 
     raw = {
         t: raw_factors(
@@ -262,7 +296,7 @@ async def compute_universe(
         )
         for t in tickers
     }
-    return score_universe(raw)
+    return score_universe(raw, liquidity)
 
 
 # In-process TTL cache: the cross-section only changes when data syncs (prices

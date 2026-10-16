@@ -17,8 +17,10 @@ to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Doc
 - **Recommendation** — an explainable, cross-sectional **factor score** (Quality, Valuation,
   Growth, Momentum, Health) → rating (Strong Buy → Avoid) + conviction, with a factor
   breakdown and plain-language reasons. Shown on **Home** (sortable column, "Buy only"
-  filter, buy-signal counts) and the **Watchlist**, plus a detail tab. Heuristic, not
-  financial advice.
+  filter, buy-signal counts) and the **Watchlist**, plus a detail tab. Only stocks with
+  fundamentals are rated, thinly traded names (< Rp 1bn/day) are capped at Hold, and
+  financials skip leverage-based Health. Heuristic, not financial advice — measure
+  changes with `python scripts/evaluate_signals.py` (point-in-time backtest).
 - **Charts** — candlestick or line, daily (1d) and intraday (1m), via Lightweight Charts.
 - **Theme** — light / dark / **follow system** (set from Settings).
 - **Settings** (gear in the navbar) — theme, display **density** (compact/medium/large),
@@ -260,7 +262,9 @@ Backend (see "Development" above for the dev servers):
 cd backend
 pip install -r requirements-dev.txt
 ruff check .            # lint
+pyright                 # type check
 python -m pytest -q     # tests
+python scripts/evaluate_signals.py   # backtest the recommendation engine
 ```
 
 Frontend:
