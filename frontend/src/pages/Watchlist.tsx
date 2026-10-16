@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowDownRight, ArrowUpRight, Info, RefreshCw, Trash2 } from 'lucide-react'
 import { refreshWatchlist, removeFromWatchlist, type WatchlistItem } from '../api'
@@ -7,6 +7,47 @@ import { useSettings } from '../lib/settings'
 import { fmtCompact, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import StockDetailModal from '../components/StockDetailModal'
 import SignalBadge from '../components/SignalBadge'
+import SortHeader, { type SortState } from '../components/SortHeader'
+
+// Value each sortable column sorts by (null = missing data, always listed last).
+const SORT_VALUE = {
+  ticker: (it: WatchlistItem) => it.ticker,
+  name: (it: WatchlistItem) => it.name,
+  signal: (it: WatchlistItem) => it.recommendation?.score ?? null,
+  price: (it: WatchlistItem) => it.last_price,
+  change: (it: WatchlistItem) => it.change_percent,
+  shares: (it: WatchlistItem) => it.fundamental?.total_shares ?? null,
+  marketCap: (it: WatchlistItem) => it.metrics.market_cap,
+  revenue: (it: WatchlistItem) => it.fundamental?.revenue ?? null,
+  netIncome: (it: WatchlistItem) => it.fundamental?.net_income ?? null,
+  assets: (it: WatchlistItem) => it.fundamental?.total_assets ?? null,
+  liabilities: (it: WatchlistItem) => it.fundamental?.total_liabilities ?? null,
+  equity: (it: WatchlistItem) => it.fundamental?.equity ?? null,
+  pbv: (it: WatchlistItem) => it.metrics.pbv,
+  roe: (it: WatchlistItem) => it.metrics.roe,
+} satisfies Record<string, (it: WatchlistItem) => string | number | null>
+
+type SortKey = keyof typeof SORT_VALUE
+const TEXT_KEYS: SortKey[] = ['ticker', 'name']
+const DEFAULT_SORT: SortState<SortKey> = { key: 'ticker', dir: 'asc' }
+
+function sortItems(items: WatchlistItem[], { key, dir }: SortState<SortKey>) {
+  const value = SORT_VALUE[key]
+  const sign = dir === 'asc' ? 1 : -1
+  return [...items].sort((a, b) => {
+    const va = value(a)
+    const vb = value(b)
+    if (va == null || vb == null) {
+      if (va == null && vb == null) return a.ticker.localeCompare(b.ticker)
+      return va == null ? 1 : -1 // missing values last in either direction
+    }
+    const cmp =
+      typeof va === 'string' && typeof vb === 'string'
+        ? va.localeCompare(vb, undefined, { sensitivity: 'base' })
+        : Number(va) - Number(vb)
+    return cmp * sign || a.ticker.localeCompare(b.ticker)
+  })
+}
 
 export default function Watchlist() {
   const [selected, setSelected] = useState<WatchlistItem | null>(null)
@@ -15,6 +56,17 @@ export default function Watchlist() {
   const show = (key: string) => !settings.hiddenColumns.watchlist.includes(key)
 
   const { data: items = [], isLoading, isFetching } = useWatchlist({ poll: true })
+
+  const [sort, setSort] = useState<SortState<SortKey>>(DEFAULT_SORT)
+  const sorted = useMemo(() => sortItems(items, sort), [items, sort])
+  // Same column flips direction; a new column starts A→Z for text, high→low for numbers.
+  const onSort = (key: SortKey) =>
+    setSort((s) =>
+      s.key === key
+        ? { key, dir: s.dir === 'asc' ? 'desc' : 'asc' }
+        : { key, dir: TEXT_KEYS.includes(key) ? 'asc' : 'desc' },
+    )
+  const sortProps = { sort, onSort }
 
   const remove = useMutation({
     mutationFn: (ticker: string) => removeFromWatchlist(ticker),
@@ -62,69 +114,79 @@ export default function Watchlist() {
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
               <tr>
-                <th scope="col" className="px-4 py-2.5">
+                <SortHeader sortKey="ticker" {...sortProps}>
                   Ticker
-                </th>
+                </SortHeader>
                 {show('name') && (
-                  <th scope="col" className="px-4 py-2.5">
+                  <SortHeader sortKey="name" {...sortProps}>
                     Name
-                  </th>
+                  </SortHeader>
                 )}
                 {show('signal') && (
-                  <th scope="col" className="px-4 py-2.5">
+                  <SortHeader sortKey="signal" {...sortProps}>
                     Signal
-                  </th>
+                  </SortHeader>
                 )}
-                <th scope="col" className="px-4 py-2.5 text-right">
+                <SortHeader sortKey="price" align="right" {...sortProps}>
                   Price
-                </th>
-                <th scope="col" className="px-4 py-2.5 text-right">
+                </SortHeader>
+                <SortHeader sortKey="change" align="right" {...sortProps}>
                   Chg %
-                </th>
+                </SortHeader>
                 {show('shares') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <SortHeader sortKey="shares" align="right" {...sortProps}>
                     Shares
-                  </th>
+                  </SortHeader>
                 )}
                 {show('marketCap') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <SortHeader sortKey="marketCap" align="right" {...sortProps}>
                     Market Cap
-                  </th>
+                  </SortHeader>
                 )}
                 {show('revenue') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <SortHeader sortKey="revenue" align="right" {...sortProps}>
                     Revenue
-                  </th>
+                  </SortHeader>
                 )}
                 {show('netIncome') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <SortHeader sortKey="netIncome" align="right" {...sortProps}>
                     Net Income
-                  </th>
+                  </SortHeader>
                 )}
                 {show('assets') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <SortHeader sortKey="assets" align="right" {...sortProps}>
                     Assets
-                  </th>
+                  </SortHeader>
                 )}
                 {show('liabilities') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <SortHeader sortKey="liabilities" align="right" {...sortProps}>
                     Liabilities
-                  </th>
+                  </SortHeader>
                 )}
                 {show('equity') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <SortHeader sortKey="equity" align="right" {...sortProps}>
                     Equity
-                  </th>
+                  </SortHeader>
                 )}
                 {show('pbv') && (
-                  <th scope="col" className="px-4 py-2.5 text-right text-ink">
+                  <SortHeader
+                    sortKey="pbv"
+                    align="right"
+                    className="text-ink"
+                    {...sortProps}
+                  >
                     PBV
-                  </th>
+                  </SortHeader>
                 )}
                 {show('roe') && (
-                  <th scope="col" className="px-4 py-2.5 text-right text-ink">
+                  <SortHeader
+                    sortKey="roe"
+                    align="right"
+                    className="text-ink"
+                    {...sortProps}
+                  >
                     RoE
-                  </th>
+                  </SortHeader>
                 )}
                 <th scope="col" className="px-4 py-2.5 text-center" />
               </tr>
@@ -144,7 +206,7 @@ export default function Watchlist() {
                   </td>
                 </tr>
               )}
-              {items.map((it) => {
+              {sorted.map((it) => {
                 const f = it.fundamental
                 const m = it.metrics
                 const chgTone = !settings.colorizeChanges
