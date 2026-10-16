@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom'
 import { Activity, Briefcase, Filter, Globe, LayoutGrid, List, Star } from 'lucide-react'
 import AlertsBell from './AlertsBell'
 import AssistantPanel from './AssistantPanel'
+import IhsgTicker from './IhsgTicker'
 import MarketStatus from './MarketStatus'
 import SearchBox from './SearchBox'
 import SettingsMenu from './SettingsMenu'
@@ -31,6 +32,7 @@ export default function NavBar() {
             </div>
           </div>
           <MarketStatus />
+          <IhsgTicker />
           <SearchBox />
         </div>
 
