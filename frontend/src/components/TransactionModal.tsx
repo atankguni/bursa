@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { X } from 'lucide-react'
 import { addTransaction, type TransactionInput } from '../api'
 import { useStatus, useStocks } from '../hooks'
+import Modal from './Modal'
 
 export default function TransactionModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
@@ -46,138 +45,15 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
   const inputCls =
     'w-full rounded bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-md animate-fade-in rounded-md bg-panel p-6 shadow-pop ring-1 ring-line"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Add transaction</h2>
-          <button
-            onClick={onClose}
-            className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="mb-1 block text-xs text-muted">Ticker</label>
-            <input
-              list="tickers"
-              value={ticker}
-              onChange={(e) => setTicker(e.target.value)}
-              placeholder="BBCA.JK"
-              className={inputCls}
-            />
-            <datalist id="tickers">
-              {stocks.map((s) => (
-                <option key={s.ticker} value={s.ticker}>
-                  {s.name}
-                </option>
-              ))}
-            </datalist>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-muted">Side</span>
-            <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
-              {(['buy', 'sell'] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setSide(s)}
-                  className={`px-3 py-1.5 text-xs font-medium capitalize transition ${
-                    side === s ? 'bg-active text-ink' : 'text-muted hover:text-ink'
-                  }`}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <div className="mb-1 flex items-center justify-between">
-                <label className="text-xs text-muted">Quantity</label>
-                <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
-                  {(['lots', 'shares'] as const).map((u) => (
-                    <button
-                      key={u}
-                      onClick={() => setUnit(u)}
-                      className={`px-2 py-0.5 text-[10px] font-medium capitalize transition ${
-                        unit === u ? 'bg-active text-ink' : 'text-muted hover:text-ink'
-                      }`}
-                    >
-                      {u}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <input
-                type="number"
-                value={quantity}
-                onChange={(e) => setQuantity(e.target.value)}
-                className={inputCls}
-              />
-              {unit === 'lots' && quantity !== '' && (
-                <p className="mt-1 text-[10px] text-subtle">
-                  = {shares.toLocaleString('en-US')} shares
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Price</label>
-              <input
-                type="number"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Fees</label>
-              <input
-                type="number"
-                value={fees}
-                onChange={(e) => setFees(e.target.value)}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-muted">Date</label>
-              <input
-                type="date"
-                value={tradeDate}
-                onChange={(e) => setTradeDate(e.target.value)}
-                className={inputCls}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="mb-1 block text-xs text-muted">Note (optional)</label>
-            <input
-              value={note}
-              onChange={(e) => setNote(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-
-          {add.isError && (
-            <p className="text-xs text-bear">
-              {(add.error as { response?: { data?: { detail?: string } } })?.response
-                ?.data?.detail ?? 'Failed to add transaction.'}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-2 pt-1">
+  return (
+    <Modal
+      size="form"
+      title="Add transaction"
+      onClose={onClose}
+      footer={
+        <>
+          <span />
+          <div className="flex gap-2">
             <button
               onClick={onClose}
               className="rounded px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
@@ -192,9 +68,120 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
               {add.isPending ? 'Saving…' : 'Add'}
             </button>
           </div>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div>
+          <label className="mb-1 block text-xs text-muted">Ticker</label>
+          <input
+            list="tickers"
+            value={ticker}
+            onChange={(e) => setTicker(e.target.value)}
+            placeholder="BBCA.JK"
+            className={inputCls}
+          />
+          <datalist id="tickers">
+            {stocks.map((s) => (
+              <option key={s.ticker} value={s.ticker}>
+                {s.name}
+              </option>
+            ))}
+          </datalist>
         </div>
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted">Side</span>
+          <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+            {(['buy', 'sell'] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setSide(s)}
+                className={`px-3 py-1.5 text-xs font-medium capitalize transition ${
+                  side === s ? 'bg-active text-ink' : 'text-muted hover:text-ink'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs text-muted">Quantity</label>
+              <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+                {(['lots', 'shares'] as const).map((u) => (
+                  <button
+                    key={u}
+                    onClick={() => setUnit(u)}
+                    className={`px-2 py-0.5 text-[10px] font-medium capitalize transition ${
+                      unit === u ? 'bg-active text-ink' : 'text-muted hover:text-ink'
+                    }`}
+                  >
+                    {u}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <input
+              type="number"
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              className={inputCls}
+            />
+            {unit === 'lots' && quantity !== '' && (
+              <p className="mt-1 text-[10px] text-subtle">
+                = {shares.toLocaleString('en-US')} shares
+              </p>
+            )}
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Price</label>
+            <input
+              type="number"
+              value={price}
+              onChange={(e) => setPrice(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Fees</label>
+            <input
+              type="number"
+              value={fees}
+              onChange={(e) => setFees(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-muted">Date</label>
+            <input
+              type="date"
+              value={tradeDate}
+              onChange={(e) => setTradeDate(e.target.value)}
+              className={inputCls}
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs text-muted">Note (optional)</label>
+          <input
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+            className={inputCls}
+          />
+        </div>
+
+        {add.isError && (
+          <p className="text-xs text-bear">
+            {(add.error as { response?: { data?: { detail?: string } } })?.response?.data
+              ?.detail ?? 'Failed to add transaction.'}
+          </p>
+        )}
       </div>
-    </div>,
-    document.body,
+    </Modal>
   )
 }

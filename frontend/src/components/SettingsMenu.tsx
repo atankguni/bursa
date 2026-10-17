@@ -1,5 +1,4 @@
 import { useState, type ReactNode } from 'react'
-import { createPortal } from 'react-dom'
 import {
   Check,
   Columns3,
@@ -8,7 +7,6 @@ import {
   Settings as SettingsIcon,
   SlidersHorizontal,
   TrendingUp,
-  X,
 } from 'lucide-react'
 import { DEFAULT_INDEXES, type InvestingStyle } from '../api'
 import { usePreferences } from '../hooks'
@@ -20,6 +18,7 @@ import {
   type NumberFormat,
   type Theme,
 } from '../lib/settings'
+import Modal from './Modal'
 
 const STYLE_HINT: Record<InvestingStyle, string> = {
   investor: 'Long term · quality & value from yearly fundamentals',
@@ -296,232 +295,202 @@ export default function SettingsMenu() {
         <SettingsIcon size={15} />
       </button>
 
-      {open &&
-        createPortal(
-          <div
-            className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-            onClick={() => setOpen(false)}
-          >
-            <div
-              className="flex max-h-[85vh] w-full max-w-lg animate-fade-in flex-col overflow-hidden rounded-md bg-panel shadow-pop ring-1 ring-line"
-              onClick={(e) => e.stopPropagation()}
+      {open && (
+        <Modal
+          title="Settings"
+          description="Each section says whether it's saved to your account or this device"
+          icon={<SettingsIcon size={16} strokeWidth={2.5} />}
+          onClose={() => setOpen(false)}
+          // Two columns of sections when the screen is wide enough.
+          bodyClassName="grid content-start gap-5 lg:grid-cols-2 lg:items-start"
+          footer={
+            <>
+              <span className="text-[11px] text-subtle">Changes apply instantly.</span>
+              <button
+                onClick={reset}
+                className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+              >
+                <RotateCcw size={13} /> Reset to defaults
+              </button>
+            </>
+          }
+        >
+          <Section icon={TrendingUp} title="Investing" scope="account">
+            <ListRow
+              label="Style"
+              hint={
+                styleError
+                  ? 'Could not save — try again'
+                  : isSaving
+                    ? 'Re-scoring signals…'
+                    : STYLE_HINT[style]
+              }
             >
-              {/* Header */}
-              <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
-                <div className="flex items-center gap-3">
-                  <div className="rounded-md bg-accent p-2 text-accent-ink shadow-card">
-                    <SettingsIcon size={16} strokeWidth={2.5} />
-                  </div>
-                  <div>
-                    <h2 className="text-sm font-semibold tracking-tight">Settings</h2>
-                    <p className="text-[11px] text-subtle">
-                      Preferences saved in this browser
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
-                  aria-label="Close"
+              <Segmented<InvestingStyle>
+                value={style}
+                options={[
+                  { value: 'investor', label: 'Investor' },
+                  { value: 'trader', label: 'Trader' },
+                ]}
+                onChange={setStyle}
+              />
+            </ListRow>
+            <ListRow
+              label="Assistant sees my portfolio"
+              hint="Lets the AI answer about your holdings & watchlist. They are sent to Google Gemini, whose free tier may use prompts for training."
+            >
+              <Switch
+                checked={personalData}
+                onChange={setPersonalData}
+                label="Assistant sees my portfolio"
+              />
+            </ListRow>
+          </Section>
+
+          <Section icon={Palette} title="Appearance" scope="device">
+            <ListRow label="Theme">
+              <Segmented<Theme>
+                value={settings.theme}
+                onChange={(v) => update({ theme: v })}
+                options={[
+                  { value: 'system', label: 'System' },
+                  { value: 'light', label: 'Light' },
+                  { value: 'dark', label: 'Dark' },
+                ]}
+              />
+            </ListRow>
+            <ListRow
+              label="Accent colour"
+              hint={`${ACCENTS.find((a) => a.value === settings.accent)?.label ?? 'Blue'} · buttons, highlights & charts`}
+            >
+              <AccentPicker
+                value={settings.accent}
+                theme={resolvedTheme}
+                onChange={(v) => update({ accent: v })}
+              />
+            </ListRow>
+            <ListRow label="Density">
+              <Segmented<Density>
+                value={settings.density}
+                onChange={(v) => update({ density: v })}
+                options={[
+                  { value: 'compact', label: 'Compact' },
+                  { value: 'medium', label: 'Medium' },
+                  { value: 'large', label: 'Large' },
+                ]}
+              />
+            </ListRow>
+            <ListRow label="Reduce motion" hint="Disable pulsing animations">
+              <Switch
+                label="Reduce motion"
+                checked={settings.reduceMotion}
+                onChange={(v) => update({ reduceMotion: v })}
+              />
+            </ListRow>
+            <ListRow label="High contrast" hint="Stronger colours (WCAG AA)">
+              <Switch
+                label="High contrast"
+                checked={settings.highContrast}
+                onChange={(v) => update({ highContrast: v })}
+              />
+            </ListRow>
+          </Section>
+
+          <Section icon={SlidersHorizontal} title="Display" scope="account">
+            <ListRow label="Number format" hint="Volumes & financials">
+              <Segmented<NumberFormat>
+                value={settings.numberFormat}
+                onChange={(v) => update({ numberFormat: v })}
+                options={[
+                  { value: 'compact', label: 'Compact' },
+                  { value: 'full', label: 'Full' },
+                ]}
+              />
+            </ListRow>
+            <ListRow label="Chart type">
+              <Segmented<'candle' | 'line'>
+                value={settings.chartType}
+                onChange={(v) => update({ chartType: v })}
+                options={[
+                  { value: 'candle', label: 'Candle' },
+                  { value: 'line', label: 'Line' },
+                ]}
+              />
+            </ListRow>
+            <ListRow label="Chart range">
+              <Segmented<'1d' | '1m'>
+                value={settings.chartRange}
+                onChange={(v) => update({ chartRange: v })}
+                options={[
+                  { value: '1d', label: 'Daily' },
+                  { value: '1m', label: '1-Min' },
+                ]}
+              />
+            </ListRow>
+            <ListRow label="Auto-refresh" hint="Poll the API for new data">
+              <div className="flex items-center gap-2">
+                <select
+                  value={settings.refreshSeconds}
+                  disabled={!settings.autoRefresh}
+                  onChange={(e) => update({ refreshSeconds: Number(e.target.value) })}
+                  className="rounded bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line-strong disabled:opacity-40"
                 >
-                  <X size={18} />
-                </button>
+                  {[30, 60, 120, 300].map((s) => (
+                    <option key={s} value={s}>
+                      {s}s
+                    </option>
+                  ))}
+                </select>
+                <Switch
+                  label="Auto-refresh"
+                  checked={settings.autoRefresh}
+                  onChange={(v) => update({ autoRefresh: v })}
+                />
               </div>
+            </ListRow>
+            <ListRow label="Colorize changes" hint="Green / red price movement">
+              <Switch
+                label="Colorize changes"
+                checked={settings.colorizeChanges}
+                onChange={(v) => update({ colorizeChanges: v })}
+              />
+            </ListRow>
+          </Section>
 
-              {/* Body */}
-              <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-                <Section icon={TrendingUp} title="Investing" scope="account">
-                  <ListRow
-                    label="Style"
-                    hint={
-                      styleError
-                        ? 'Could not save — try again'
-                        : isSaving
-                          ? 'Re-scoring signals…'
-                          : STYLE_HINT[style]
-                    }
-                  >
-                    <Segmented<InvestingStyle>
-                      value={style}
-                      options={[
-                        { value: 'investor', label: 'Investor' },
-                        { value: 'trader', label: 'Trader' },
-                      ]}
-                      onChange={setStyle}
-                    />
-                  </ListRow>
-                  <ListRow
-                    label="Assistant sees my portfolio"
-                    hint="Lets the AI answer about your holdings & watchlist. They are sent to Google Gemini, whose free tier may use prompts for training."
-                  >
-                    <Switch
-                      checked={personalData}
-                      onChange={setPersonalData}
-                      label="Assistant sees my portfolio"
-                    />
-                  </ListRow>
-                </Section>
-
-                <Section icon={Palette} title="Appearance" scope="device">
-                  <ListRow label="Theme">
-                    <Segmented<Theme>
-                      value={settings.theme}
-                      onChange={(v) => update({ theme: v })}
-                      options={[
-                        { value: 'system', label: 'System' },
-                        { value: 'light', label: 'Light' },
-                        { value: 'dark', label: 'Dark' },
-                      ]}
-                    />
-                  </ListRow>
-                  <ListRow
-                    label="Accent colour"
-                    hint={`${ACCENTS.find((a) => a.value === settings.accent)?.label ?? 'Blue'} · buttons, highlights & charts`}
-                  >
-                    <AccentPicker
-                      value={settings.accent}
-                      theme={resolvedTheme}
-                      onChange={(v) => update({ accent: v })}
-                    />
-                  </ListRow>
-                  <ListRow label="Density">
-                    <Segmented<Density>
-                      value={settings.density}
-                      onChange={(v) => update({ density: v })}
-                      options={[
-                        { value: 'compact', label: 'Compact' },
-                        { value: 'medium', label: 'Medium' },
-                        { value: 'large', label: 'Large' },
-                      ]}
-                    />
-                  </ListRow>
-                  <ListRow label="Reduce motion" hint="Disable pulsing animations">
-                    <Switch
-                      label="Reduce motion"
-                      checked={settings.reduceMotion}
-                      onChange={(v) => update({ reduceMotion: v })}
-                    />
-                  </ListRow>
-                  <ListRow label="High contrast" hint="Stronger colours (WCAG AA)">
-                    <Switch
-                      label="High contrast"
-                      checked={settings.highContrast}
-                      onChange={(v) => update({ highContrast: v })}
-                    />
-                  </ListRow>
-                </Section>
-
-                <Section icon={SlidersHorizontal} title="Display" scope="account">
-                  <ListRow label="Number format" hint="Volumes & financials">
-                    <Segmented<NumberFormat>
-                      value={settings.numberFormat}
-                      onChange={(v) => update({ numberFormat: v })}
-                      options={[
-                        { value: 'compact', label: 'Compact' },
-                        { value: 'full', label: 'Full' },
-                      ]}
-                    />
-                  </ListRow>
-                  <ListRow label="Chart type">
-                    <Segmented<'candle' | 'line'>
-                      value={settings.chartType}
-                      onChange={(v) => update({ chartType: v })}
-                      options={[
-                        { value: 'candle', label: 'Candle' },
-                        { value: 'line', label: 'Line' },
-                      ]}
-                    />
-                  </ListRow>
-                  <ListRow label="Chart range">
-                    <Segmented<'1d' | '1m'>
-                      value={settings.chartRange}
-                      onChange={(v) => update({ chartRange: v })}
-                      options={[
-                        { value: '1d', label: 'Daily' },
-                        { value: '1m', label: '1-Min' },
-                      ]}
-                    />
-                  </ListRow>
-                  <ListRow label="Auto-refresh" hint="Poll the API for new data">
-                    <div className="flex items-center gap-2">
-                      <select
-                        value={settings.refreshSeconds}
-                        disabled={!settings.autoRefresh}
-                        onChange={(e) =>
-                          update({ refreshSeconds: Number(e.target.value) })
-                        }
-                        className="rounded bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line-strong disabled:opacity-40"
-                      >
-                        {[30, 60, 120, 300].map((s) => (
-                          <option key={s} value={s}>
-                            {s}s
-                          </option>
-                        ))}
-                      </select>
-                      <Switch
-                        label="Auto-refresh"
-                        checked={settings.autoRefresh}
-                        onChange={(v) => update({ autoRefresh: v })}
-                      />
-                    </div>
-                  </ListRow>
-                  <ListRow label="Colorize changes" hint="Green / red price movement">
-                    <Switch
-                      label="Colorize changes"
-                      checked={settings.colorizeChanges}
-                      onChange={(v) => update({ colorizeChanges: v })}
-                    />
-                  </ListRow>
-                </Section>
-
-                <Section icon={Columns3} title="Data" scope="account">
-                  <StackedRow label="Default indices">
-                    {DEFAULT_INDEXES.map((idx) => (
-                      <Chip
-                        key={idx}
-                        label={idx}
-                        active={settings.defaultIndexes.includes(idx)}
-                        onClick={() => toggleIndex(idx)}
-                      />
-                    ))}
-                  </StackedRow>
-                  <StackedRow label="Home columns (highlighted = visible)">
-                    {HOME_COLUMNS.map((c) => (
-                      <Chip
-                        key={c.key}
-                        label={c.label}
-                        active={!settings.hiddenColumns.home.includes(c.key)}
-                        onClick={() => toggleColumn('home', c.key)}
-                      />
-                    ))}
-                  </StackedRow>
-                  <StackedRow label="Watchlist columns (highlighted = visible)">
-                    {WATCHLIST_COLUMNS.map((c) => (
-                      <Chip
-                        key={c.key}
-                        label={c.label}
-                        active={!settings.hiddenColumns.watchlist.includes(c.key)}
-                        onClick={() => toggleColumn('watchlist', c.key)}
-                      />
-                    ))}
-                  </StackedRow>
-                </Section>
-              </div>
-
-              {/* Footer */}
-              <div className="flex items-center justify-between gap-3 border-t border-line bg-panelalt/40 px-5 py-3">
-                <span className="text-[11px] text-subtle">Changes apply instantly.</span>
-                <button
-                  onClick={reset}
-                  className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-                >
-                  <RotateCcw size={13} /> Reset to defaults
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+          <Section icon={Columns3} title="Data" scope="account">
+            <StackedRow label="Default indices">
+              {DEFAULT_INDEXES.map((idx) => (
+                <Chip
+                  key={idx}
+                  label={idx}
+                  active={settings.defaultIndexes.includes(idx)}
+                  onClick={() => toggleIndex(idx)}
+                />
+              ))}
+            </StackedRow>
+            <StackedRow label="Home columns (highlighted = visible)">
+              {HOME_COLUMNS.map((c) => (
+                <Chip
+                  key={c.key}
+                  label={c.label}
+                  active={!settings.hiddenColumns.home.includes(c.key)}
+                  onClick={() => toggleColumn('home', c.key)}
+                />
+              ))}
+            </StackedRow>
+            <StackedRow label="Watchlist columns (highlighted = visible)">
+              {WATCHLIST_COLUMNS.map((c) => (
+                <Chip
+                  key={c.key}
+                  label={c.label}
+                  active={!settings.hiddenColumns.watchlist.includes(c.key)}
+                  onClick={() => toggleColumn('watchlist', c.key)}
+                />
+              ))}
+            </StackedRow>
+          </Section>
+        </Modal>
+      )}
     </>
   )
 }

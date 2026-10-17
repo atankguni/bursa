@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { KeyRound, LogOut, ShieldCheck, Users, X } from 'lucide-react'
+import { KeyRound, LogOut, ShieldCheck, Users } from 'lucide-react'
 import { changePassword, errorMessage } from '../api'
 import { useAuth } from '../lib/auth'
 import { Field, FormError } from '../pages/auth/AuthLayout'
+import Modal from './Modal'
 
 const itemCls =
   'flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-xs text-muted transition hover:bg-panelalt hover:text-ink'
@@ -55,7 +55,11 @@ export default function AccountMenu() {
                 <Users size={14} /> Users &amp; invites
               </Link>
             )}
-            <Link to="/account/security" onClick={() => setOpen(false)} className={itemCls}>
+            <Link
+              to="/account/security"
+              onClick={() => setOpen(false)}
+              className={itemCls}
+            >
               <ShieldCheck size={14} /> Two-factor authentication
               {!user.has_2fa && (
                 <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
@@ -95,91 +99,72 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     if (!mismatch) save.mutate()
   }
 
-  return createPortal(
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      onClick={onClose}
-    >
-      <div
-        className="w-full max-w-sm animate-fade-in rounded-md bg-panel p-6 shadow-pop ring-1 ring-line"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold">Change password</h2>
-          <button
-            onClick={onClose}
-            className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        {save.isSuccess ? (
-          <div className="space-y-4">
-            <p className="text-sm text-muted">
-              Password changed. Your other browsers and devices were signed out.
-            </p>
-            <div className="flex justify-end">
-              <button
-                onClick={onClose}
-                className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90"
-              >
-                Done
-              </button>
-            </div>
+  return (
+    <Modal size="form" title="Change password" onClose={onClose}>
+      {save.isSuccess ? (
+        <div className="space-y-4">
+          <p className="text-sm text-muted">
+            Password changed. Your other browsers and devices were signed out.
+          </p>
+          <div className="flex justify-end">
+            <button
+              onClick={onClose}
+              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90"
+            >
+              Done
+            </button>
           </div>
-        ) : (
-          <form onSubmit={onSubmit} className="space-y-3">
-            <Field
-              label="Current password"
-              type="password"
-              autoComplete="current-password"
-              autoFocus
-              required
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-            />
-            <Field
-              label="New password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-            />
-            <Field
-              label="Confirm new password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-            <FormError>
-              {mismatch
-                ? "Passwords don't match."
-                : save.isError && errorMessage(save.error, "Couldn't change the password.")}
-            </FormError>
-            <div className="flex justify-end gap-2 pt-1">
-              <button
-                type="button"
-                onClick={onClose}
-                className="rounded px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={save.isPending || mismatch}
-                className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
-              >
-                {save.isPending ? 'Saving…' : 'Change password'}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>,
-    document.body,
+        </div>
+      ) : (
+        <form onSubmit={onSubmit} className="space-y-3">
+          <Field
+            label="Current password"
+            type="password"
+            autoComplete="current-password"
+            autoFocus
+            required
+            value={current}
+            onChange={(e) => setCurrent(e.target.value)}
+          />
+          <Field
+            label="New password"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={next}
+            onChange={(e) => setNext(e.target.value)}
+          />
+          <Field
+            label="Confirm new password"
+            type="password"
+            autoComplete="new-password"
+            required
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+          <FormError>
+            {mismatch
+              ? "Passwords don't match."
+              : save.isError && errorMessage(save.error, "Couldn't change the password.")}
+          </FormError>
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={save.isPending || mismatch}
+              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+            >
+              {save.isPending ? 'Saving…' : 'Change password'}
+            </button>
+          </div>
+        </form>
+      )}
+    </Modal>
   )
 }
