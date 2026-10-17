@@ -6,19 +6,26 @@ background work (rating-change alerts) uses the same investing style as the
 user's pages.
 """
 
+import logging
+from datetime import UTC, datetime
 from typing import cast, get_args
 
+from pydantic import ValidationError
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.upsert import upsert
 from models import RatingState, UserPreference
-from schemas import InvestingStyle
+from schemas import DisplaySettings, InvestingStyle
 
 INVESTING_STYLE_KEY = "investing_style"
 ASSISTANT_PERSONAL_KEY = "assistant_personal_data"
+DISPLAY_KEY = "display_settings"
+ALERTS_SEEN_KEY = "alerts_seen_at"
 DEFAULT_STYLE: InvestingStyle = "investor"
 _STYLES: tuple[str, ...] = get_args(InvestingStyle)
+
+log = logging.getLogger("bursa.preferences")
 
 
 async def _get(session: AsyncSession, user_id: int, key: str) -> str | None:
@@ -81,3 +88,38 @@ async def get_assistant_personal_data(session: AsyncSession, user_id: int) -> bo
 async def set_assistant_personal_data(session: AsyncSession, user_id: int, enabled: bool) -> None:
     await _set(session, user_id, ASSISTANT_PERSONAL_KEY, "true" if enabled else "false")
     await session.commit()
+
+
+async def get_display(session: AsyncSession, user_id: int) -> DisplaySettings | None:
+    """Saved display settings, or None if never saved (or no longer valid)."""
+    raw = await _get(session, user_id, DISPLAY_KEY)
+    if raw is None:
+        return None
+    try:
+        return DisplaySettings.model_validate_json(raw)
+    except ValidationError:
+        log.warning("Ignoring invalid display settings of user %d", user_id)
+        return None
+
+
+async def set_display(session: AsyncSession, user_id: int, display: DisplaySettings) -> None:
+    await _set(session, user_id, DISPLAY_KEY, display.model_dump_json(by_alias=True))
+    await session.commit()
+
+
+async def get_alerts_seen_at(session: AsyncSession, user_id: int) -> datetime | None:
+    raw = await _get(session, user_id, ALERTS_SEEN_KEY)
+    try:
+        return datetime.fromisoformat(raw) if raw else None
+    except ValueError:
+        return None
+
+
+async def mark_alerts_seen(session: AsyncSession, user_id: int, up_to: datetime) -> None:
+    """Alerts up to `up_to` were seen. Never moves back (another device may be behind)."""
+    if up_to.tzinfo is not None:  # stored like AlertEvent.triggered_at: naive UTC
+        up_to = up_to.astimezone(UTC).replace(tzinfo=None)
+    current = await get_alerts_seen_at(session, user_id)
+    if current is None or up_to > current:
+        await _set(session, user_id, ALERTS_SEEN_KEY, up_to.isoformat())
+        await session.commit()

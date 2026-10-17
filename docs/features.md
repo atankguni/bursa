@@ -104,7 +104,17 @@ backtest (see [Development](development.md#signal-backtest)).
   for warnings, so the accent never looks like a market signal.
 - **Settings** (gear in the navbar): theme, accent colour, display **density** (compact/medium/large),
   reduce motion, high contrast, default indices, chart defaults, auto-refresh, number format,
-  change coloring and per-table **column visibility**. These are saved in the browser.
+  change coloring and per-table **column visibility**. Each section says where it is kept:
+  - **Your account** (follows you to every device): investing style, default indices, chart
+    defaults, auto-refresh, number format, change coloring and column visibility.
+  - **This device** (each screen can differ): theme, accent, density, reduce motion, high
+    contrast, and the portfolio's **hide values** toggle.
+
+  Settings a browser had before accounts existed are uploaded to the first account that signs
+  in there. Signing out returns the account settings to their defaults, so the next person on
+  a shared computer doesn't inherit them.
+- **Alerts bell**: which alerts you've seen is saved to your account, so opening the bell on
+  one device clears the unread badge everywhere.
 
 ## Accessibility
 

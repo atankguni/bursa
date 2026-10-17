@@ -1,38 +1,41 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Bell } from 'lucide-react'
-import { useAlertEvents } from '../hooks'
-import { fmtShortDateTime } from '../lib/format'
+import { useAlertEvents, usePreferences } from '../hooks'
+import { fmtShortDateTime, parseServerTime } from '../lib/format'
 
-const SEEN_KEY = 'bursa-alerts-seen'
+// Where this browser kept the marker before it moved to the account.
+const LEGACY_SEEN_KEY = 'bursa-alerts-seen'
+
+const time = (iso: string | null) => parseServerTime(iso)?.getTime() ?? 0
 
 /** Navbar bell: unread count + recent triggered alerts. */
 export default function AlertsBell() {
   const { data: events = [] } = useAlertEvents()
+  const { loaded, alertsSeenAt, markAlertsSeen } = usePreferences()
   const [open, setOpen] = useState(false)
-  const [seenAt, setSeenAt] = useState<string>(() => {
-    try {
-      return localStorage.getItem(SEEN_KEY) ?? ''
-    } catch {
-      return ''
-    }
-  })
 
-  const unread = events.filter((e) => e.triggered_at > seenAt).length
+  // One-time move of the old per-browser "seen" marker to the account (runs once loaded).
+  useEffect(() => {
+    if (!loaded) return
+    let legacy: string | null = null
+    try {
+      legacy = localStorage.getItem(LEGACY_SEEN_KEY)
+      localStorage.removeItem(LEGACY_SEEN_KEY)
+    } catch {
+      /* storage unavailable */
+    }
+    if (legacy && !alertsSeenAt) markAlertsSeen(legacy)
+  }, [loaded])
+
+  // Seen is per account, so reading alerts on one device clears the badge on all.
+  const seen = time(alertsSeenAt)
+  const unread = loaded ? events.filter((e) => time(e.triggered_at) > seen).length : 0
 
   const toggle = () => {
     const next = !open
     setOpen(next)
-    if (next && events.length > 0) {
-      // Mark up to the newest event as seen (string compare keeps the format stable).
-      const newest = events[0].triggered_at
-      setSeenAt(newest)
-      try {
-        localStorage.setItem(SEEN_KEY, newest)
-      } catch {
-        /* ignore */
-      }
-    }
+    if (next && unread > 0) markAlertsSeen(events[0].triggered_at) // newest first
   }
 
   return (

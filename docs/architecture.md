@@ -117,7 +117,10 @@ Invite-only accounts (`services/auth.py`, `routers/auth.py`, `routers/admin.py`)
 
 **Per-user data.** `watchlist`, `transactions`, `alerts`, `alert_events`,
 `user_preferences` and `rating_state` have a `user_id`; every query filters by the
-signed-in user. Market data is shared. Signals depend on the investing style, so the
+signed-in user. `user_preferences` also holds the account part of the Settings menu
+(one JSON document, `display_settings`) and the alerts-seen marker; the frontend
+(`lib/settings.tsx`, `ACCOUNT_KEYS`) keeps a local copy for instant rendering and
+syncs it after sign-in. Appearance settings stay in the browser only. Market data is shared. Signals depend on the investing style, so the
 scoring cache is keyed by style and routes pass the user's style
 (`deps.user_style`). Alert evaluation runs per user with their own style and rating
 baselines. Rows from before accounts existed have no owner until the first admin

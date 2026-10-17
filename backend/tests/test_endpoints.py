@@ -212,11 +212,46 @@ async def test_history_range_is_validated(client):
 
 async def test_assistant_personal_data_is_opt_in_and_partial_updates(client):
     p = (await client.get("/api/preferences")).json()
-    assert p == {"investing_style": "investor", "assistant_personal_data": False}
+    assert p == {"investing_style": "investor", "assistant_personal_data": False,
+                 "display": None, "alerts_seen_at": None}
     assert (await client.get("/api/assistant/status")).json()["personal_data"] is False
 
     p = (await client.put("/api/preferences", json={"assistant_personal_data": True})).json()
-    assert p == {"investing_style": "investor", "assistant_personal_data": True}  # style kept
+    assert p["investing_style"] == "investor" and p["assistant_personal_data"] is True
     p = (await client.put("/api/preferences", json={"investing_style": "trader"})).json()
     assert p["assistant_personal_data"] is True  # not reset by an unrelated update
     assert (await client.get("/api/assistant/status")).json()["personal_data"] is True
+
+
+async def test_display_settings_are_saved_per_user(client):
+    from tests.conftest import make_user, signed_in
+
+    display = {"defaultIndexes": ["LQ45", "IDX30"], "chartType": "line", "chartRange": "1m",
+               "autoRefresh": False, "refreshSeconds": 120, "numberFormat": "full",
+               "colorizeChanges": False,
+               "hiddenColumns": {"home": ["volume"], "watchlist": ["pbv", "roe"]}}
+    p = (await client.put("/api/preferences", json={"display": display})).json()
+    assert p["display"] == display  # camelCase on the wire, like the frontend
+    assert (await client.get("/api/preferences")).json()["display"] == display
+
+    # Long lists fit (the value column holds more than 255 characters).
+    many = [f"INDEX{i:02d}" for i in range(40)]
+    r = await client.put("/api/preferences", json={"display": {**display, "defaultIndexes": many}})
+    assert r.json()["display"]["defaultIndexes"] == many
+
+    bad = await client.put("/api/preferences", json={"display": {"refreshSeconds": 1}})
+    assert bad.status_code == 422
+
+    await make_user("bob@example.com")
+    async with await signed_in("bob@example.com") as bob:
+        assert (await bob.get("/api/preferences")).json()["display"] is None
+
+
+async def test_alerts_seen_marker_only_moves_forward(client):
+    put = lambda t: client.put("/api/preferences", json={"alerts_seen_at": t})  # noqa: E731
+    assert (await put("2026-10-17T10:00:00")).json()["alerts_seen_at"] == "2026-10-17T10:00:00"
+    # An older device can't mark alerts unread again.
+    assert (await put("2026-10-16T09:00:00")).json()["alerts_seen_at"] == "2026-10-17T10:00:00"
+    # Offsets are converted to UTC (how event times are stored).
+    p = (await put("2026-10-17T19:00:00+07:00")).json()
+    assert p["alerts_seen_at"] == "2026-10-17T12:00:00"

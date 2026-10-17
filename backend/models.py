@@ -439,7 +439,8 @@ class UserPreference(Base):
         ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
     )
     key: Mapped[str] = mapped_column(String(64), nullable=False)
-    value: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Short values (a style name) or a JSON document (display settings).
+    value: Mapped[str] = mapped_column(Text, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )

@@ -5,9 +5,10 @@ Pydantic v2 response models for the public API surface.
 """
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic.alias_generators import to_camel
 
 # How the user invests: long-term fundamentals vs short-term (swing) price action.
 InvestingStyle = Literal["investor", "trader"]
@@ -506,12 +507,44 @@ class AssistantStatusOut(BaseModel):
     daily_limit: int
 
 
+_Name = Annotated[str, StringConstraints(max_length=32)]
+
+
+class HiddenColumns(BaseModel):
+    home: list[_Name] = Field(default_factory=list, max_length=30)
+    watchlist: list[_Name] = Field(default_factory=list, max_length=30)
+
+
+class DisplaySettings(BaseModel):
+    """
+    The data/display part of the Settings menu, saved per user so it follows
+    them across devices. Field names are camelCase on the wire, as the frontend
+    keeps them. Appearance (theme, accent, ...) and "hide portfolio values" stay
+    per device in the browser.
+    """
+
+    model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
+
+    default_indexes: list[_Name] = Field(default_factory=lambda: ["LQ45"], max_length=50)
+    chart_type: Literal["candle", "line"] = "candle"
+    chart_range: Literal["1d", "1m"] = "1d"
+    auto_refresh: bool = True
+    refresh_seconds: int = Field(60, ge=10, le=3600)
+    number_format: Literal["compact", "full"] = "compact"
+    colorize_changes: bool = True
+    hidden_columns: HiddenColumns = Field(default_factory=HiddenColumns)
+
+
 class PreferencesOut(BaseModel):
     """Server-side preferences of the signed-in user."""
 
     investing_style: InvestingStyle = "investor"
     # Opt-in: the AI assistant may read the watchlist and portfolio.
     assistant_personal_data: bool = False
+    # None until first saved (the browser then uploads what it had locally).
+    display: DisplaySettings | None = None
+    # Alert events up to this time were seen (the navbar bell's unread count).
+    alerts_seen_at: datetime | None = None
 
 
 class PreferencesIn(BaseModel):
@@ -519,6 +552,9 @@ class PreferencesIn(BaseModel):
 
     investing_style: InvestingStyle | None = None
     assistant_personal_data: bool | None = None
+    display: DisplaySettings | None = None  # replaces the saved settings
+    # Only ever moves forward, so a device with an older list can't un-read alerts.
+    alerts_seen_at: datetime | None = None
 
 
 class IndexOut(BaseModel):

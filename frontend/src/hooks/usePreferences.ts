@@ -50,6 +50,11 @@ export function usePreferences() {
       mutation.mutate({ investing_style }),
     setPersonalData: (assistant_personal_data: boolean) =>
       mutation.mutate({ assistant_personal_data }),
+    /** Loaded from the server (before that, the values above are defaults). */
+    loaded: query.isSuccess,
+    alertsSeenAt: query.data?.alerts_seen_at ?? null,
+    /** Alerts up to this event time were seen (the server never moves it back). */
+    markAlertsSeen: (alerts_seen_at: string) => mutation.mutate({ alerts_seen_at }),
     isSaving: mutation.isPending,
     error: mutation.error,
   }

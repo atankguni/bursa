@@ -4,10 +4,15 @@ import {
   useEffect,
   useLayoutEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 
+import { fetchPreferences, updatePreferences, type DisplaySettings } from '../api'
+import { queryKeys } from '../hooks/keys'
+import { useAuth } from './auth'
 import { setCompactNumbers } from './format'
 
 export type Theme = 'system' | 'light' | 'dark'
@@ -60,7 +65,46 @@ export const DEFAULT_SETTINGS: Settings = {
   hidePortfolioValues: false,
 }
 
+/**
+ * Saved per user on the server, so they follow the user across devices. The
+ * rest (theme, accent, density, motion, contrast, "hide portfolio values")
+ * depends on the screen, so it stays in this browser only.
+ */
+export const ACCOUNT_KEYS = [
+  'defaultIndexes',
+  'chartType',
+  'chartRange',
+  'autoRefresh',
+  'refreshSeconds',
+  'numberFormat',
+  'colorizeChanges',
+  'hiddenColumns',
+] as const satisfies readonly (keyof Settings & keyof DisplaySettings)[]
+
+const accountPart = (s: Settings): DisplaySettings =>
+  Object.fromEntries(ACCOUNT_KEYS.map((k) => [k, s[k]])) as unknown as DisplaySettings
+
+// A local copy of everything, so the page renders with the right settings at once.
 const STORAGE_KEY = 'bursa-settings'
+// Which account the local copy's account part came from (unset: from before accounts).
+const OWNER_KEY = 'bursa-settings-owner'
+
+function readOwner(): string | null {
+  try {
+    return window.localStorage.getItem(OWNER_KEY)
+  } catch {
+    return null
+  }
+}
+
+function writeOwner(userId: number | null) {
+  try {
+    if (userId === null) window.localStorage.removeItem(OWNER_KEY)
+    else window.localStorage.setItem(OWNER_KEY, String(userId))
+  } catch {
+    /* ignore */
+  }
+}
 const LEGACY_THEME_KEY = 'bursa-theme'
 
 const prefersDark = () =>
@@ -108,6 +152,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null)
 
 export function SettingsProvider({ children }: { children: ReactNode }) {
   const [settings, setSettings] = useState<Settings>(load)
+  const sync = useAccountSync(settings, setSettings)
   const [resolvedTheme, setResolvedTheme] = useState<Resolved>(() =>
     (settings.theme === 'system' ? prefersDark() : settings.theme === 'dark')
       ? 'dark'
@@ -159,13 +204,93 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     () => ({
       settings,
       resolvedTheme,
-      update: (partial) => setSettings((s) => ({ ...s, ...partial })),
-      reset: () => setSettings(DEFAULT_SETTINGS),
+      update: (partial) => {
+        if (ACCOUNT_KEYS.some((k) => k in partial)) sync.markChanged()
+        setSettings((s) => ({ ...s, ...partial }))
+      },
+      reset: () => {
+        sync.markChanged()
+        setSettings(DEFAULT_SETTINGS)
+      },
     }),
-    [settings, resolvedTheme],
+    [settings, resolvedTheme, sync],
   )
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
+}
+
+/**
+ * Keeps the account part of the settings in step with the signed-in user's
+ * saved copy: applies it after sign-in, saves changes (debounced), uploads this
+ * browser's settings the first time a user has none, and returns to defaults on
+ * sign-out so the next person on this browser doesn't inherit them.
+ */
+function useAccountSync(
+  settings: Settings,
+  setSettings: (update: (s: Settings) => Settings) => void,
+) {
+  const { user } = useAuth()
+  const qc = useQueryClient()
+  const { data: prefs } = useQuery({
+    queryKey: queryKeys.preferences,
+    queryFn: fetchPreferences,
+    staleTime: Infinity,
+    enabled: !!user,
+  })
+  // The user whose saved settings are applied; saving waits for it so this
+  // browser's copy never overwrites the account's before it has loaded.
+  const syncedFor = useRef<number | null>(null)
+  const changed = useRef(false)
+  const latest = useRef(settings)
+  latest.current = settings
+
+  const save = useMemo(
+    () => (display: DisplaySettings) =>
+      updatePreferences({ display })
+        .then((saved) => qc.setQueryData(queryKeys.preferences, saved))
+        .catch(() => {
+          /* offline or signed out: kept locally; saved with the next change */
+        }),
+    [qc],
+  )
+
+  // Pull: apply the signed-in user's settings once they load.
+  useEffect(() => {
+    if (user === null && syncedFor.current !== null) {
+      syncedFor.current = null
+      changed.current = false
+      writeOwner(null)
+      setSettings((s) => ({ ...s, ...accountPart(DEFAULT_SETTINGS) }))
+      return
+    }
+    if (!user || !prefs || syncedFor.current === user.id) return
+    syncedFor.current = user.id
+    changed.current = false
+    const owner = readOwner()
+    writeOwner(user.id)
+    if (prefs.display) {
+      const display = prefs.display
+      setSettings((s) => ({ ...s, ...display }))
+    } else if (owner === null || owner === String(user.id)) {
+      void save(accountPart(latest.current)) // first time: keep what this browser had
+    } else {
+      // This browser's copy belongs to someone else: start from the defaults.
+      setSettings((s) => ({ ...s, ...accountPart(DEFAULT_SETTINGS) }))
+      void save(accountPart(DEFAULT_SETTINGS))
+    }
+  }, [user, prefs, save, setSettings])
+
+  // Push: save account changes, debounced (a slider or several toggles = one save).
+  useEffect(() => {
+    if (!changed.current || !user || syncedFor.current !== user.id) return
+    const t = setTimeout(() => {
+      changed.current = false
+      void save(accountPart(settings))
+    }, 600)
+    return () => clearTimeout(t)
+  }, [settings, user, save])
+
+  return useMemo(() => ({ markChanged: () => (changed.current = true) }), [])
 }
 
 /**

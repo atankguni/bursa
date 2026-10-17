@@ -185,19 +185,33 @@ function Chip({
   )
 }
 
+const SCOPE_HINT = {
+  account: 'Saved to your account: the same on all your devices',
+  device: 'Saved in this browser only, so each device can differ',
+}
+
 function Section({
   icon: Icon,
   title,
+  scope,
   children,
 }: {
   icon: typeof Palette
   title: string
+  /** Where the choices are kept (see lib/settings ACCOUNT_KEYS). */
+  scope: 'account' | 'device'
   children: ReactNode
 }) {
   return (
     <section className="space-y-2">
       <h3 className="flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-subtle">
         <Icon size={12} /> {title}
+        <span
+          title={SCOPE_HINT[scope]}
+          className="ml-auto font-medium normal-case tracking-normal text-subtle"
+        >
+          {scope === 'account' ? 'Your account' : 'This device'}
+        </span>
       </h3>
       <div className="divide-y divide-line overflow-hidden rounded-md bg-panelalt/40 ring-1 ring-line">
         {children}
@@ -316,7 +330,7 @@ export default function SettingsMenu() {
 
               {/* Body */}
               <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
-                <Section icon={TrendingUp} title="Investing">
+                <Section icon={TrendingUp} title="Investing" scope="account">
                   <ListRow
                     label="Style"
                     hint={
@@ -348,7 +362,7 @@ export default function SettingsMenu() {
                   </ListRow>
                 </Section>
 
-                <Section icon={Palette} title="Appearance">
+                <Section icon={Palette} title="Appearance" scope="device">
                   <ListRow label="Theme">
                     <Segmented<Theme>
                       value={settings.theme}
@@ -397,7 +411,7 @@ export default function SettingsMenu() {
                   </ListRow>
                 </Section>
 
-                <Section icon={SlidersHorizontal} title="Display">
+                <Section icon={SlidersHorizontal} title="Display" scope="account">
                   <ListRow label="Number format" hint="Volumes & financials">
                     <Segmented<NumberFormat>
                       value={settings.numberFormat}
@@ -460,7 +474,7 @@ export default function SettingsMenu() {
                   </ListRow>
                 </Section>
 
-                <Section icon={Columns3} title="Data">
+                <Section icon={Columns3} title="Data" scope="account">
                   <StackedRow label="Default indices">
                     {DEFAULT_INDEXES.map((idx) => (
                       <Chip

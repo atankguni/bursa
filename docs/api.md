@@ -46,7 +46,7 @@ All admin only.
 | GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |
 | GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values (admin) |
-| GET/PUT | `/api/preferences` | Your preferences (investing style, assistant access to your data) |
+| GET/PUT | `/api/preferences` | Your preferences: investing style, assistant access to your data, `display` settings (camelCase, as the Settings menu), `alerts_seen_at` (only moves forward) |
 
 ## Stocks
 

@@ -144,10 +144,26 @@ export interface AssistantStatus {
   daily_limit: number
 }
 
+/** The Settings-menu options saved per user (they follow you across devices). */
+export interface DisplaySettings {
+  defaultIndexes: string[]
+  chartType: 'candle' | 'line'
+  chartRange: '1d' | '1m'
+  autoRefresh: boolean
+  refreshSeconds: number
+  numberFormat: 'compact' | 'full'
+  colorizeChanges: boolean
+  hiddenColumns: { home: string[]; watchlist: string[] }
+}
+
 export interface Preferences {
   investing_style: InvestingStyle
   /** Opt-in: the AI assistant may read the watchlist and portfolio. */
   assistant_personal_data: boolean
+  /** null until first saved: the browser then uploads what it had. */
+  display: DisplaySettings | null
+  /** Alert events up to this (server) time were seen: the bell's unread count. */
+  alerts_seen_at: string | null
 }
 
 export interface Recommendation {
