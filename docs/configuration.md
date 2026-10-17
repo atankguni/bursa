@@ -122,6 +122,16 @@ the tool-round cap and personal-data access are the `assistant_*` settings in
 `backend/config.py`. Portfolio/watchlist access stays off unless you set
 `assistant_personal_data=true`.
 
+Chats are saved per user so they can be continued, and deleted a number of days
+after their last message (an hourly job removes them):
+
+```env
+ASSISTANT_CHAT_DAYS=7
+```
+
+Each user can turn saving off in Settings → Investing, which also deletes their
+saved chats.
+
 Providers are abstracted in `backend/assistant/providers/`. Adding another LLM means
 writing one adapter and registering it; the UI and API stay the same.
 

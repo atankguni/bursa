@@ -95,6 +95,14 @@ backtest (see [Development](development.md#signal-backtest)).
   signals, screener, fundamentals, price history, market overview); it can't trade or
   change anything. It uses Google Gemini's free tier behind a provider-neutral interface.
   Portfolio/watchlist access is **off** by default (`assistant_personal_data`).
+- **Saved chats**: conversations are saved to your account, so you can continue one
+  later or on another device. Opening the assistant continues your last chat; the
+  history button lists the others (Today / Yesterday / Earlier) with **New chat** and
+  delete. A chat from an earlier day shows that prices in older answers may be outdated.
+  Chats are private and deleted **7 days after their last message**
+  (`ASSISTANT_CHAT_DAYS`). **Save assistant chats** in Settings → Investing turns saving
+  off and deletes the saved ones. Long chats are kept whole, but only the last 40
+  messages are sent to the AI.
 - **Data health** (`/data`, footer link): scheduled jobs, provider calls, price
   freshness, fundamentals coverage and suspicious values. Missed jobs (e.g. while the
   host slept) run on wake, and 1-minute gaps are back-filled.

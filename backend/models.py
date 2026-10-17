@@ -522,6 +522,38 @@ class UserPreference(Base):
         return f"<UserPreference {self.user_id} {self.key}={self.value}>"
 
 
+class AssistantChat(Base):
+    """A saved assistant conversation. Deleted ASSISTANT_CHAT_DAYS after its last
+    message, or right away when the user turns saving off
+    (services/assistant_chats.py)."""
+
+    __tablename__ = "assistant_chats"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    title: Mapped[str] = mapped_column(String(120), nullable=False)  # the first question
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    # Time of the last message: what the list sorts by and what expiry counts from.
+    updated_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+
+
+class ChatMessage(Base):
+    """One turn of a saved assistant chat."""
+
+    __tablename__ = "assistant_chat_messages"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    chat_id: Mapped[int] = mapped_column(
+        ForeignKey("assistant_chats.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    role: Mapped[str] = mapped_column(String(16), nullable=False)  # user|assistant
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    tools_used: Mapped[list[str] | None] = mapped_column(JSON, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+
+
 class IndexQuote(Base):
     """Latest value of an IDX stock index (see market/indices.py)."""
 

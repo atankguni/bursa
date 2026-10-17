@@ -245,3 +245,128 @@ async def test_gemini_adapter_wire_format(monkeypatch):
     foreign = AssistantMessage(tool_calls=[_call("get_stock", ticker="X")],
                                provider="other", native={"secret": True})
     assert "secret" not in str(g._contents([foreign]))
+
+
+# --------------------------------------------------------------------------- #
+# Saved chats
+# --------------------------------------------------------------------------- #
+async def _say(client, messages, chat_id=None):
+    return await client.post("/api/assistant/chat", json={
+        "messages": [{"role": r, "content": c} for r, c in messages], "chat_id": chat_id})
+
+
+async def test_chats_are_saved_and_continued(client, monkeypatch):
+    fake = _Scripted([AssistantMessage(tool_calls=[_call("get_stock", ticker="bbca")]),
+                      AssistantMessage(text="A bank."),
+                      AssistantMessage(text="Yes, it pays dividends.")])
+    _chain(monkeypatch, (fake, "m1"))
+
+    first = (await _say(client, [("user", "What is   BBCA?")])).json()
+    chat_id = first["chat_id"]
+    assert chat_id is not None
+    second = (await _say(client, [("user", "What is   BBCA?"), ("assistant", "A bank."),
+                                  ("user", "Dividends?")], chat_id)).json()
+    assert second["chat_id"] == chat_id
+
+    listed = (await client.get("/api/assistant/chats")).json()
+    assert [(c["id"], c["title"]) for c in listed] == [(chat_id, "What is BBCA?")]
+    detail = (await client.get(f"/api/assistant/chats/{chat_id}")).json()
+    assert [(m["role"], m["content"]) for m in detail["messages"]] == [
+        ("user", "What is   BBCA?"), ("assistant", "A bank."),
+        ("user", "Dividends?"), ("assistant", "Yes, it pays dividends."),
+    ]
+    assert detail["messages"][1]["tools_used"] == ["get_stock"]
+
+
+async def test_chats_are_private(client, monkeypatch):
+    from tests.conftest import make_user, signed_in
+
+    _chain(monkeypatch, (_Scripted([AssistantMessage(text="mine"),
+                                    AssistantMessage(text="theirs")]), "m1"))
+    chat_id = (await _say(client, [("user", "secret question")])).json()["chat_id"]
+
+    await make_user("other@example.com")
+    async with await signed_in("other@example.com") as other:
+        assert (await other.get("/api/assistant/chats")).json() == []
+        assert (await other.get(f"/api/assistant/chats/{chat_id}")).status_code == 404
+        assert (await other.delete(f"/api/assistant/chats/{chat_id}")).status_code == 404
+        # Someone else's id can't be appended to: a new chat starts instead.
+        theirs = (await _say(other, [("user", "hi")], chat_id)).json()["chat_id"]
+        assert theirs != chat_id
+    detail = (await client.get(f"/api/assistant/chats/{chat_id}")).json()
+    assert len(detail["messages"]) == 2
+
+
+async def test_turning_saving_off_deletes_and_stops_saving(client, monkeypatch):
+    _chain(monkeypatch, (_Scripted([AssistantMessage(text="a"), AssistantMessage(text="b")]),
+                         "m1"))
+    await _say(client, [("user", "one")])
+    assert len((await client.get("/api/assistant/chats")).json()) == 1
+
+    r = await client.put("/api/preferences", json={"assistant_save_chats": False})
+    assert r.json()["assistant_save_chats"] is False
+    assert (await client.get("/api/assistant/chats")).json() == []
+    assert (await client.get("/api/assistant/status")).json()["save_chats"] is False
+
+    assert (await _say(client, [("user", "two")])).json()["chat_id"] is None
+    assert (await client.get("/api/assistant/chats")).json() == []
+
+
+async def test_chats_expire_after_last_message(client, monkeypatch):
+    from datetime import datetime, timedelta
+
+    from sqlalchemy import func, select, update
+
+    from database import AsyncSessionLocal
+    from models import AssistantChat, ChatMessage
+    from services.assistant_chats import purge_expired_chats
+
+    monkeypatch.setattr(settings, "assistant_chat_days", 7)
+    _chain(monkeypatch, (_Scripted([AssistantMessage(text="a"), AssistantMessage(text="b"),
+                                    AssistantMessage(text="c")]), "m1"))
+    old = (await _say(client, [("user", "old")])).json()["chat_id"]
+    recent = (await _say(client, [("user", "recent")])).json()["chat_id"]
+    async with AsyncSessionLocal() as s:
+        # Started long ago but used 6 days ago: kept. Last used 8 days ago: expired.
+        long_ago = datetime.utcnow() - timedelta(days=30)
+        await s.execute(update(AssistantChat).where(AssistantChat.id == recent).values(
+            created_at=long_ago, updated_at=datetime.utcnow() - timedelta(days=6)))
+        await s.execute(update(AssistantChat).where(AssistantChat.id == old).values(
+            created_at=long_ago, updated_at=datetime.utcnow() - timedelta(days=8)))
+        await s.commit()
+
+    assert [c["id"] for c in (await client.get("/api/assistant/chats")).json()] == [recent]
+    assert (await client.get(f"/api/assistant/chats/{old}")).status_code == 404
+    # Continuing an expired chat starts a new one rather than reviving it.
+    assert (await _say(client, [("user", "again")], old)).json()["chat_id"] not in (old, recent)
+
+    assert await purge_expired_chats() == 1
+    async with AsyncSessionLocal() as s:
+        left = await s.scalar(
+            select(func.count()).select_from(ChatMessage).where(ChatMessage.chat_id == old))
+        assert left == 0
+
+
+async def test_delete_one_and_all(client, monkeypatch):
+    _chain(monkeypatch, (_Scripted([AssistantMessage(text=str(i)) for i in range(3)]), "m1"))
+    ids = [(await _say(client, [("user", f"q{i}")])).json()["chat_id"] for i in range(3)]
+    assert (await client.delete(f"/api/assistant/chats/{ids[0]}")).status_code == 204
+    assert {c["id"] for c in (await client.get("/api/assistant/chats")).json()} == set(ids[1:])
+    assert (await client.delete("/api/assistant/chats")).status_code == 204
+    assert (await client.get("/api/assistant/chats")).json() == []
+
+
+async def test_trimmed_history_starts_with_user_turn(client, monkeypatch):
+    fake = _Scripted([AssistantMessage(text="ok")])
+    _chain(monkeypatch, (fake, "m1"))
+    r = await _say(client, [("assistant", "older answer"), ("user", "next question")])
+    assert r.status_code == 200
+    assert isinstance(fake.seen[0][0], UserMessage)
+
+
+def test_chat_title_is_first_question_shortened():
+    from services.assistant_chats import title_for
+
+    assert title_for("  Is\nBBCA   cheap? ") == "Is BBCA cheap?"
+    long = title_for("x" * 200)
+    assert len(long) == 80 and long.endswith("…")

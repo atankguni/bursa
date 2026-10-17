@@ -57,7 +57,7 @@ All admin only.
 | GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |
 | GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values (admin) |
-| GET/PUT | `/api/preferences` | Your preferences: investing style, assistant access to your data, `display` settings (camelCase, as the Settings menu), `alerts_seen_at` (only moves forward) |
+| GET/PUT | `/api/preferences` | Your preferences: investing style, assistant access to your data, `assistant_save_chats` (`false` also deletes saved chats), `display` settings (camelCase, as the Settings menu), `alerts_seen_at` (only moves forward) |
 
 ## Stocks
 
@@ -136,4 +136,8 @@ All admin only.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET    | `/api/assistant/status` | Whether the assistant is configured + usage |
-| POST   | `/api/assistant/chat` | Ask a question (answers via read-only tools) |
+| POST   | `/api/assistant/chat` | Ask a question (answers via read-only tools). Send `chat_id` to continue a saved chat; the answer returns the chat's id (`null` when saving is off) |
+| GET    | `/api/assistant/chats` | Your saved chats, most recently used first |
+| GET    | `/api/assistant/chats/{id}` | One chat with its messages (`404` once expired) |
+| DELETE | `/api/assistant/chats/{id}` | Delete a chat |
+| DELETE | `/api/assistant/chats` | Delete all your chats |

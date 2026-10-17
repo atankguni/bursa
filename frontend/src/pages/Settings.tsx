@@ -12,7 +12,7 @@ import {
   Users as UsersIcon,
 } from 'lucide-react'
 import { DEFAULT_INDEXES, type InvestingStyle } from '../api'
-import { usePreferences } from '../hooks'
+import { useAssistantStatus, usePreferences } from '../hooks'
 import { useAuth } from '../lib/auth'
 import {
   ACCENTS,
@@ -248,9 +248,20 @@ function InvestingSettings() {
     setStyle,
     personalData,
     setPersonalData,
+    saveChats,
+    setSaveChats,
     isSaving,
     error: styleError,
   } = usePreferences()
+  const chatDays = useAssistantStatus().data?.chat_days ?? 7
+  const onSaveChats = (on: boolean) => {
+    if (
+      on ||
+      window.confirm('Stop saving assistant chats and delete the ones saved so far?')
+    ) {
+      setSaveChats(on)
+    }
+  }
   return (
     <Rows>
       <ListRow
@@ -281,6 +292,12 @@ function InvestingSettings() {
           onChange={setPersonalData}
           label="Assistant sees my portfolio"
         />
+      </ListRow>
+      <ListRow
+        label="Save assistant chats"
+        hint={`Continue a chat later or on another device. Each chat is deleted ${chatDays} day${chatDays === 1 ? '' : 's'} after its last message; turning this off deletes them now.`}
+      >
+        <Switch checked={saveChats} onChange={onSaveChats} label="Save assistant chats" />
       </ListRow>
     </Rows>
   )

@@ -37,8 +37,14 @@ export function usePreferences() {
       if (patch.investing_style !== undefined) {
         SIGNAL_QUERIES.forEach((key) => qc.invalidateQueries({ queryKey: key }))
       }
-      if (patch.assistant_personal_data !== undefined) {
+      if (
+        patch.assistant_personal_data !== undefined ||
+        patch.assistant_save_chats !== undefined
+      ) {
         qc.invalidateQueries({ queryKey: queryKeys.assistantStatus })
+      }
+      if (patch.assistant_save_chats === false) {
+        qc.setQueryData(queryKeys.assistantChats, []) // the server deleted them
       }
     },
   })
@@ -46,10 +52,14 @@ export function usePreferences() {
   return {
     style: query.data?.investing_style ?? 'investor',
     personalData: query.data?.assistant_personal_data ?? false,
+    saveChats: query.data?.assistant_save_chats ?? true,
     setStyle: (investing_style: Preferences['investing_style']) =>
       mutation.mutate({ investing_style }),
     setPersonalData: (assistant_personal_data: boolean) =>
       mutation.mutate({ assistant_personal_data }),
+    /** Turning it off also deletes the saved chats (server side). */
+    setSaveChats: (assistant_save_chats: boolean) =>
+      mutation.mutate({ assistant_save_chats }),
     /** Loaded from the server (before that, the values above are defaults). */
     loaded: query.isSuccess,
     alertsSeenAt: query.data?.alerts_seen_at ?? null,

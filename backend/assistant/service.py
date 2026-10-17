@@ -167,6 +167,10 @@ async def ask(
         today=datetime.now(ZoneInfo(settings.timezone)).strftime("%A %d %B %Y, %H:%M"),
         context=f"\nThe user is currently looking at: {context}." if context else "",
     )
+    # A continued chat is trimmed to its recent part by the client; the
+    # conversation sent to the model must still start with a user turn.
+    while history and history[0]["role"] != "user":
+        history = history[1:]
     base: list[Message] = [
         AssistantMessage(text=t["content"]) if t["role"] == "assistant"
         else UserMessage(t["content"])

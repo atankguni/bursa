@@ -10,6 +10,7 @@ Jobs:
   * prune_intraday                -> drop 1m bars older than the retention window (daily)
   * compact_db                    -> VACUUM where the database needs it (weekly)
   * purge_auth                    -> delete expired sessions and invite/reset links (daily)
+  * purge_chats                   -> delete assistant chats past their retention (hourly)
 
 The heavy lifting lives in `market.sync` (batched downloads) and
 `services.fundamentals` (per-ticker statements).
@@ -174,6 +175,15 @@ async def purge_auth() -> None:
         log.info("Purged %d expired session(s) / link(s)", removed)
 
 
+async def purge_chats() -> None:
+    """Delete saved assistant chats older than ASSISTANT_CHAT_DAYS."""
+    from services.assistant_chats import purge_expired_chats
+
+    removed = await purge_expired_chats()
+    if removed:
+        log.info("Deleted %d expired assistant chat(s)", removed)
+
+
 async def log_provider_stats() -> None:
     """Log today's outbound provider calls, then reset the daily counter."""
     from market.providers.governor import governor
@@ -326,6 +336,17 @@ def start_scheduler() -> None:
         purge_auth,
         trigger=CronTrigger(hour=3, minute=30),
         id="purge_auth",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Assistant chats past their retention (hourly; they're hidden from the
+    # user the moment they expire, this removes them).
+    scheduler.add_job(
+        purge_chats,
+        trigger=CronTrigger(minute=17),
+        id="purge_chats",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

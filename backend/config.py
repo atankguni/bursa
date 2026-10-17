@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # Off by default: when on, watchlist and portfolio are sent to the AI provider
     # (Gemini's free tier may use prompts for training).
     assistant_personal_data: bool = False
+    # Saved assistant chats are deleted this many days after their last message
+    # (each user can also turn saving off in Settings).
+    assistant_chat_days: int = 7
     # yfinance's timezone cache. Kept on the data volume so it survives rebuilds.
     yfinance_cache_dir: str = "./data/yfinance-cache"
 

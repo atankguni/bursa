@@ -10,10 +10,12 @@ from schemas import PreferencesIn, PreferencesOut
 from services.preferences import (
     get_alerts_seen_at,
     get_assistant_personal_data,
+    get_assistant_save_chats,
     get_display,
     get_investing_style,
     mark_alerts_seen,
     set_assistant_personal_data,
+    set_assistant_save_chats,
     set_display,
     set_investing_style,
 )
@@ -25,6 +27,7 @@ async def _current(session: AsyncSession, user: User) -> PreferencesOut:
     return PreferencesOut(
         investing_style=await get_investing_style(session, user.id),
         assistant_personal_data=await get_assistant_personal_data(session, user.id),
+        assistant_save_chats=await get_assistant_save_chats(session, user.id),
         display=await get_display(session, user.id),
         alerts_seen_at=await get_alerts_seen_at(session, user.id),
     )
@@ -49,6 +52,8 @@ async def update_preferences(
         await set_investing_style(session, user.id, payload.investing_style)
     if payload.assistant_personal_data is not None:
         await set_assistant_personal_data(session, user.id, payload.assistant_personal_data)
+    if payload.assistant_save_chats is not None:
+        await set_assistant_save_chats(session, user.id, payload.assistant_save_chats)
     if payload.display is not None:
         await set_display(session, user.id, payload.display)
     if payload.alerts_seen_at is not None:

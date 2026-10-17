@@ -133,6 +133,8 @@ export interface AssistantReply {
   model: string
   tools_used: string[]
   remaining_today: number
+  /** The saved chat this answer went into; null when the user doesn't save chats. */
+  chat_id: number | null
 }
 
 export interface AssistantStatus {
@@ -142,6 +144,27 @@ export interface AssistantStatus {
   personal_data: boolean
   remaining_today: number
   daily_limit: number
+  save_chats: boolean
+  /** Saved chats are deleted this many days after their last message. */
+  chat_days: number
+}
+
+export interface ChatSummary {
+  id: number
+  /** The first question. */
+  title: string
+  created_at: string
+  /** Time of the last message. */
+  updated_at: string
+}
+
+export interface SavedChatMessage extends ChatTurn {
+  tools_used: string[] | null
+  created_at: string
+}
+
+export interface ChatDetail extends ChatSummary {
+  messages: SavedChatMessage[]
 }
 
 /** The Settings-menu options saved per user (they follow you across devices). */
@@ -160,6 +183,8 @@ export interface Preferences {
   investing_style: InvestingStyle
   /** Opt-in: the AI assistant may read the watchlist and portfolio. */
   assistant_personal_data: boolean
+  /** Keep assistant chats so they can be continued (deleted after a few days). */
+  assistant_save_chats: boolean
   /** null until first saved: the browser then uploads what it had. */
   display: DisplaySettings | null
   /** Alert events up to this (server) time were seen: the bell's unread count. */

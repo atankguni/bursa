@@ -487,6 +487,8 @@ class AssistantChatIn(BaseModel):
     """The visible conversation (oldest first); the last turn is the new question."""
 
     messages: list[ChatTurn] = Field(min_length=1, max_length=40)
+    # Saved chat this continues; None starts a new one. Ignored when saving is off.
+    chat_id: int | None = None
     context: str | None = Field(None, max_length=200)  # e.g. "the BBCA.JK detail view"
 
 
@@ -496,6 +498,7 @@ class AssistantChatOut(BaseModel):
     model: str
     tools_used: list[str] = []
     remaining_today: int
+    chat_id: int | None = None  # None when the user doesn't save chats
 
 
 class AssistantStatusOut(BaseModel):
@@ -505,6 +508,30 @@ class AssistantStatusOut(BaseModel):
     personal_data: bool
     remaining_today: int
     daily_limit: int
+    save_chats: bool = True
+    chat_days: int = 7  # saved chats are deleted this long after their last message
+
+
+class ChatSummaryOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    title: str
+    created_at: datetime
+    updated_at: datetime
+
+
+class ChatMessageOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    role: Literal["user", "assistant"]
+    content: str
+    tools_used: list[str] | None = None
+    created_at: datetime
+
+
+class ChatDetailOut(ChatSummaryOut):
+    messages: list[ChatMessageOut]
 
 
 _Name = Annotated[str, StringConstraints(max_length=32)]
@@ -541,6 +568,8 @@ class PreferencesOut(BaseModel):
     investing_style: InvestingStyle = "investor"
     # Opt-in: the AI assistant may read the watchlist and portfolio.
     assistant_personal_data: bool = False
+    # Keep assistant chats (for ASSISTANT_CHAT_DAYS) so they can be continued.
+    assistant_save_chats: bool = True
     # None until first saved (the browser then uploads what it had locally).
     display: DisplaySettings | None = None
     # Alert events up to this time were seen (the navbar bell's unread count).
@@ -552,6 +581,7 @@ class PreferencesIn(BaseModel):
 
     investing_style: InvestingStyle | None = None
     assistant_personal_data: bool | None = None
+    assistant_save_chats: bool | None = None  # False also deletes saved chats
     display: DisplaySettings | None = None  # replaces the saved settings
     # Only ever moves forward, so a device with an older list can't un-read alerts.
     alerts_seen_at: datetime | None = None

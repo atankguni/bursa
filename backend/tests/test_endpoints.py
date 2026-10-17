@@ -213,7 +213,7 @@ async def test_history_range_is_validated(client):
 async def test_assistant_personal_data_is_opt_in_and_partial_updates(client):
     p = (await client.get("/api/preferences")).json()
     assert p == {"investing_style": "investor", "assistant_personal_data": False,
-                 "display": None, "alerts_seen_at": None}
+                 "assistant_save_chats": True, "display": None, "alerts_seen_at": None}
     assert (await client.get("/api/assistant/status")).json()["personal_data"] is False
 
     p = (await client.put("/api/preferences", json={"assistant_personal_data": True})).json()

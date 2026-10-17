@@ -3,9 +3,27 @@ import { createPortal } from 'react-dom'
 import { useLocation } from 'react-router-dom'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
-import { Loader2, RotateCcw, SendHorizontal, Sparkles, X } from 'lucide-react'
-import { askAssistant, type ChatTurn } from '../api'
-import { queryKeys, useAssistantStatus } from '../hooks'
+import {
+  ArrowLeft,
+  History,
+  Loader2,
+  SendHorizontal,
+  SquarePen,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react'
+import {
+  askAssistant,
+  deleteAllChats,
+  deleteChat,
+  fetchChat,
+  type ChatDetail,
+  type ChatSummary,
+  type ChatTurn,
+} from '../api'
+import { queryKeys, useAssistantChats, useAssistantStatus } from '../hooks'
+import { fmtShortDateTime, parseServerTime } from '../lib/format'
 import { renderMarkdown } from '../lib/markdown'
 
 interface Message extends ChatTurn {
@@ -30,6 +48,37 @@ const PAGE_CONTEXT: Record<string, string> = {
   '/alerts': 'the Alerts page',
 }
 
+// The model sees only the recent part of a long chat (the API takes 40 turns).
+const MAX_TURNS = 40
+
+const iconBtn =
+  'rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink disabled:opacity-40'
+
+const toMessages = (chat: ChatDetail): Message[] =>
+  chat.messages.map((m) => ({
+    role: m.role,
+    content: m.content,
+    tools: m.tools_used ?? undefined,
+  }))
+
+const dayStart = (d: Date) =>
+  new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+
+/** Today / Yesterday / Earlier, by the chat's last message (local time). */
+function groupChats(chats: ChatSummary[]) {
+  const today = dayStart(new Date())
+  const groups: { label: string; chats: ChatSummary[] }[] = [
+    { label: 'Today', chats: [] },
+    { label: 'Yesterday', chats: [] },
+    { label: 'Earlier', chats: [] },
+  ]
+  for (const c of chats) {
+    const t = dayStart(parseServerTime(c.updated_at) ?? new Date())
+    groups[t >= today ? 0 : t >= today - 86_400_000 ? 1 : 2].chats.push(c)
+  }
+  return groups.filter((g) => g.chats.length > 0)
+}
+
 const errorText = (err: unknown) =>
   isAxiosError(err)
     ? ((err.response?.data?.detail as string | undefined) ??
@@ -43,22 +92,33 @@ export default function AssistantPanel() {
   const [open, setOpen] = useState(false)
   const [messages, setMessages] = useState<Message[]>([])
   const [draft, setDraft] = useState('')
+  // The saved chat being continued (null: a new one, created by the first answer).
+  const [chatId, setChatId] = useState<number | null>(null)
+  // Last message time of a chat opened from history: older answers may be outdated.
+  const [resumedFrom, setResumedFrom] = useState<string | null>(null)
+  const [showHistory, setShowHistory] = useState(false)
+  const resumed = useRef(false)
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const { pathname } = useLocation()
   const qc = useQueryClient()
   const status = useAssistantStatus(open)
+  const saving = !!status.data?.save_chats
+  const chats = useAssistantChats(open && saving)
 
   const ask = useMutation({
-    mutationFn: (history: ChatTurn[]) => askAssistant(history, PAGE_CONTEXT[pathname]),
+    mutationFn: (history: ChatTurn[]) =>
+      askAssistant(history, PAGE_CONTEXT[pathname], chatId),
     onSuccess: (r) => {
       setMessages((m) => [
         ...m,
         { role: 'assistant', content: r.reply, tools: r.tools_used },
       ])
+      setChatId(r.chat_id)
       qc.setQueryData(queryKeys.assistantStatus, (s: typeof status.data) =>
         s ? { ...s, remaining_today: r.remaining_today } : s,
       )
+      if (r.chat_id != null) qc.invalidateQueries({ queryKey: queryKeys.assistantChats })
     },
     onError: (err) =>
       setMessages((m) => [
@@ -67,17 +127,70 @@ export default function AssistantPanel() {
       ]),
   })
 
+  const openChat = useMutation({
+    mutationFn: fetchChat,
+    onSuccess: (chat) => {
+      setMessages(toMessages(chat))
+      setChatId(chat.id)
+      setResumedFrom(chat.updated_at)
+      setShowHistory(false)
+    },
+    // Expired or deleted on another device: refresh the list.
+    onError: () => qc.invalidateQueries({ queryKey: queryKeys.assistantChats }),
+  })
+  const removeChat = useMutation({
+    mutationFn: deleteChat,
+    onSuccess: (_r, id) => {
+      if (id === chatId) newChat()
+      qc.invalidateQueries({ queryKey: queryKeys.assistantChats })
+    },
+  })
+  const removeAll = useMutation({
+    mutationFn: deleteAllChats,
+    onSuccess: () => {
+      newChat()
+      qc.setQueryData(queryKeys.assistantChats, [])
+    },
+  })
+
+  function newChat() {
+    setMessages([])
+    setChatId(null)
+    setResumedFrom(null)
+    setShowHistory(false)
+    ask.reset()
+  }
+
+  // First open: continue the most recent saved chat.
+  useEffect(() => {
+    if (resumed.current || !chats.data) return
+    resumed.current = true
+    if (chats.data.length > 0 && messages.length === 0 && !ask.isPending) {
+      openChat.mutate(chats.data[0].id)
+    }
+  }, [chats.data, messages.length, ask.isPending, openChat])
+
   const send = (text: string) => {
     const question = text.trim()
     if (!question || ask.isPending) return
     const next: Message[] = [...messages, { role: 'user', content: question }]
     setMessages(next)
     setDraft('')
-    // Only real conversation turns go to the model, never our error bubbles.
+    // Only real conversation turns go to the model, never our error bubbles,
+    // and only the recent part of a long chat.
     ask.mutate(
-      next.filter((m) => !m.error).map(({ role, content }) => ({ role, content })),
+      next
+        .filter((m) => !m.error)
+        .map(({ role, content }) => ({ role, content }))
+        .slice(-MAX_TURNS),
     )
   }
+
+  const confirmDeleteAll = () => {
+    if (window.confirm('Delete all your saved assistant chats?')) removeAll.mutate()
+  }
+  const resumedDate = parseServerTime(resumedFrom)
+  const outdated = resumedDate && dayStart(resumedDate) < dayStart(new Date())
 
   // Keep the newest message in view; focus the input when opened.
   useEffect(() => {
@@ -133,15 +246,26 @@ export default function AssistantPanel() {
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                {messages.length > 0 && (
+                {saving && (
                   <button
-                    onClick={() => setMessages([])}
-                    disabled={ask.isPending}
-                    title="New conversation"
-                    aria-label="New conversation"
-                    className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink disabled:opacity-40"
+                    onClick={() => setShowHistory((v) => !v)}
+                    title="Saved chats"
+                    aria-label="Saved chats"
+                    aria-pressed={showHistory}
+                    className={`${iconBtn} ${showHistory ? 'bg-panelalt text-ink' : ''}`}
                   >
-                    <RotateCcw size={15} />
+                    <History size={15} />
+                  </button>
+                )}
+                {(messages.length > 0 || showHistory) && (
+                  <button
+                    onClick={newChat}
+                    disabled={ask.isPending}
+                    title="New chat"
+                    aria-label="New chat"
+                    className={iconBtn}
+                  >
+                    <SquarePen size={15} />
                   </button>
                 )}
                 <button
@@ -154,11 +278,91 @@ export default function AssistantPanel() {
               </div>
             </div>
 
+            {showHistory && (
+              <div className="flex-1 overflow-y-auto px-2 py-3 text-xs">
+                <button
+                  onClick={() => setShowHistory(false)}
+                  className="mb-2 flex items-center gap-1.5 px-2 text-muted hover:text-ink"
+                >
+                  <ArrowLeft size={13} /> Back to chat
+                </button>
+                {chats.isPending ? (
+                  <p className="px-2 text-subtle">Loading…</p>
+                ) : (chats.data?.length ?? 0) === 0 ? (
+                  <p className="px-2 text-subtle">No saved chats yet.</p>
+                ) : (
+                  groupChats(chats.data!).map((g) => (
+                    <div key={g.label} className="mb-3">
+                      <h3 className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-subtle">
+                        {g.label}
+                      </h3>
+                      {g.chats.map((c) => (
+                        <div
+                          key={c.id}
+                          className={`group flex items-center gap-1 rounded ${
+                            c.id === chatId ? 'bg-panelalt' : 'hover:bg-panelalt/60'
+                          }`}
+                        >
+                          <button
+                            onClick={() => openChat.mutate(c.id)}
+                            disabled={openChat.isPending || ask.isPending}
+                            className="min-w-0 flex-1 px-2 py-1.5 text-left"
+                          >
+                            <span className="block truncate text-ink">{c.title}</span>
+                            <span className="text-[10px] text-subtle">
+                              {fmtShortDateTime(c.updated_at)}
+                            </span>
+                          </button>
+                          <button
+                            onClick={() => removeChat.mutate(c.id)}
+                            disabled={removeChat.isPending}
+                            title="Delete chat"
+                            aria-label={`Delete chat: ${c.title}`}
+                            className={`${iconBtn} mr-1 hover:text-bear`}
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  ))
+                )}
+                <div className="space-y-2 border-t border-line px-2 pt-3 text-[11px] text-subtle">
+                  <p>
+                    Chats are private to you and deleted {status.data?.chat_days ?? 7}{' '}
+                    days after their last message. Turn saving off in Settings →
+                    Investing.
+                  </p>
+                  {(chats.data?.length ?? 0) > 0 && (
+                    <button
+                      onClick={confirmDeleteAll}
+                      disabled={removeAll.isPending}
+                      className="text-bear hover:underline disabled:opacity-50"
+                    >
+                      Delete all chats
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Conversation */}
             <div
               ref={listRef}
+              hidden={showHistory}
               className="flex-1 space-y-3 overflow-y-auto px-4 py-4 text-xs"
             >
+              {openChat.isPending && (
+                <div className="flex items-center gap-2 px-1 text-subtle">
+                  <Loader2 size={13} className="animate-spin" /> Opening chat…
+                </div>
+              )}
+              {outdated && messages.length > 0 && (
+                <div className="rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 ring-1 ring-amber-500/20 dark:text-amber-400">
+                  Continued from {fmtShortDateTime(resumedFrom)}. Prices in earlier
+                  answers may be outdated; new questions use fresh data.
+                </div>
+              )}
               {notConfigured && (
                 <div className="rounded-md bg-bear/10 px-3 py-2 text-bear ring-1 ring-bear/20">
                   The assistant isn’t set up. Add{' '}
@@ -166,7 +370,7 @@ export default function AssistantPanel() {
                   and restart the backend.
                 </div>
               )}
-              {messages.length === 0 && !notConfigured && (
+              {messages.length === 0 && !notConfigured && !openChat.isPending && (
                 <div className="space-y-3">
                   <p className="text-muted">
                     Ask about stocks, signals, the screener or the market. Answers use
@@ -226,6 +430,7 @@ export default function AssistantPanel() {
 
             {/* Composer */}
             <form
+              hidden={showHistory}
               onSubmit={(e) => {
                 e.preventDefault()
                 send(draft)
@@ -265,7 +470,8 @@ export default function AssistantPanel() {
                 AI can make mistakes · not financial advice ·{' '}
                 {s?.personal_data
                   ? 'can read your portfolio'
-                  : 'portfolio & watchlist not shared'}
+                  : 'portfolio & watchlist not shared'}{' '}
+                · {s?.save_chats ? `chats kept ${s.chat_days} days` : 'chats not saved'}
               </p>
             </form>
           </aside>,

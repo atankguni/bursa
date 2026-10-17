@@ -20,6 +20,7 @@ from schemas import DisplaySettings, InvestingStyle
 
 INVESTING_STYLE_KEY = "investing_style"
 ASSISTANT_PERSONAL_KEY = "assistant_personal_data"
+ASSISTANT_SAVE_CHATS_KEY = "assistant_save_chats"
 DISPLAY_KEY = "display_settings"
 ALERTS_SEEN_KEY = "alerts_seen_at"
 DEFAULT_STYLE: InvestingStyle = "investor"
@@ -87,6 +88,21 @@ async def get_assistant_personal_data(session: AsyncSession, user_id: int) -> bo
 
 async def set_assistant_personal_data(session: AsyncSession, user_id: int, enabled: bool) -> None:
     await _set(session, user_id, ASSISTANT_PERSONAL_KEY, "true" if enabled else "false")
+    await session.commit()
+
+
+async def get_assistant_save_chats(session: AsyncSession, user_id: int) -> bool:
+    """Whether assistant chats are saved so they can be continued (on by default)."""
+    return await _get(session, user_id, ASSISTANT_SAVE_CHATS_KEY) != "false"
+
+
+async def set_assistant_save_chats(session: AsyncSession, user_id: int, enabled: bool) -> None:
+    """Turning saving off deletes the chats saved so far."""
+    from services.assistant_chats import delete_all_chats
+
+    await _set(session, user_id, ASSISTANT_SAVE_CHATS_KEY, "true" if enabled else "false")
+    if not enabled:
+        await delete_all_chats(session, user_id)
     await session.commit()
 
 
