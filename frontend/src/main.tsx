@@ -13,7 +13,12 @@ const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 30_000,
-      retry: 1,
+      // Retry once on network/server errors; never on 401/403/404, which won't
+      // change by asking again (401 sends the app back to sign-in).
+      retry: (failureCount, error) => {
+        const status = (error as { response?: { status?: number } })?.response?.status
+        return failureCount < 1 && !(status && status >= 400 && status < 500)
+      },
       refetchOnWindowFocus: false,
     },
   },

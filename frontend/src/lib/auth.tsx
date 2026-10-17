@@ -24,19 +24,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     retry: false,
   })
 
-  // Another user's cached data must never show: start from an empty cache
+  // Another user's cached data must never show: drop every cached query
   // whenever the account changes, keeping only the answer to "who am I".
+  // (Not qc.clear(): that would also detach the useQuery above from the cache,
+  // so this provider would never see the new user.)
   const reset = useCallback(
     (next: Me | null) => {
-      qc.clear()
       qc.setQueryData(ME_KEY, next)
+      const me = qc.getQueryCache().find({ queryKey: ME_KEY, exact: true })
+      qc.removeQueries({ predicate: (q) => q !== me })
     },
     [qc],
   )
 
   useEffect(() => {
     const onUnauthorized = () => {
-      if (qc.getQueryData(ME_KEY)) reset(null)
+      if (qc.getQueryData(ME_KEY) !== null) reset(null)
     }
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
     return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
