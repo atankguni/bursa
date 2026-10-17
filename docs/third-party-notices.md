@@ -1,6 +1,6 @@
 # Third-party notices
 
-Bursa is released under the [MIT License](LICENSE). It is built on the
+Bursa is released under the [MIT License](../LICENSE). It is built on the
 open-source projects below, each under its own license (all permissive and
 compatible with MIT). Full license texts ship with each package
 (`frontend/node_modules/<package>/LICENSE`, or the package's metadata in the
@@ -67,3 +67,9 @@ fetches at runtime:
 Bursa is not affiliated with or endorsed by Yahoo, the Indonesia Stock
 Exchange, TradingView, Google or Telegram. All trademarks belong to their
 respective owners.
+
+## Not financial advice
+
+Prices may be delayed, incomplete or wrong; signals, ratings, risk figures and
+dividend dates are heuristic estimates for personal reference. Do your own
+research before making investment decisions.
