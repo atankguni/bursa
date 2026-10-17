@@ -107,6 +107,8 @@ class MailProvider(ABC):
     name: ClassVar[str]
     # Settings / environment variables the provider needs (shown in setup hints).
     required_env: ClassVar[tuple[str, ...]]
+    # Used when MAIL_FROM is unset (providers that never really send).
+    default_sender: ClassVar[str | None] = None
 
     @classmethod
     @abstractmethod

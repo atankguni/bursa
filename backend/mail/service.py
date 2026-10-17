@@ -17,7 +17,7 @@ import logging
 from dataclasses import replace
 
 from config import settings
-from mail.base import Email, MailError, split_addresses, validate
+from mail.base import Email, MailError, MailProvider, split_addresses, validate
 from mail.registry import get_provider, provider_name, setup_hint
 
 log = logging.getLogger("bursa.mail")
@@ -27,9 +27,14 @@ class MailNotConfiguredError(MailError):
     """Email is disabled or its provider settings are incomplete."""
 
 
+def _sender(provider: MailProvider | None) -> str | None:
+    return settings.mail_from or (provider.default_sender if provider else None)
+
+
 def configured() -> bool:
     """A provider is set up and there is a sender. (Recipients may come per call.)"""
-    return get_provider() is not None and bool(settings.mail_from)
+    provider = get_provider()
+    return provider is not None and bool(_sender(provider))
 
 
 def default_recipients() -> tuple[str, ...]:
@@ -42,11 +47,12 @@ async def send(email: Email) -> str | None:
     Raises MailNotConfiguredError, MailBusyError (retry later) or MailError.
     """
     provider = get_provider()
-    if provider is None or not settings.mail_from:
+    sender = _sender(provider)
+    if provider is None or not sender:
         raise MailNotConfiguredError(f"Email isn't set up: set {setup_hint()} in backend/.env")
     email = replace(
         email,
-        sender=email.sender or settings.mail_from,
+        sender=email.sender or sender,
         to=email.to or default_recipients(),
     )
     validate(email)
@@ -73,7 +79,7 @@ def status() -> dict[str, object]:
     return {
         "configured": configured(),
         "provider": provider_name(),
-        "sender": settings.mail_from if configured() else None,
+        "sender": _sender(get_provider()) if configured() else None,
         "recipients": len(default_recipients()),
         "setup_hint": "" if configured() and default_recipients() else setup_hint(),
     }

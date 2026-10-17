@@ -159,6 +159,21 @@ MAIL_TO=you@example.com
 RESEND_API_KEY=re_...
 ```
 
+**Console (development only)** prints every email (2FA codes, invites, reset links)
+to the backend log instead of sending it, so these flows work without a mail account:
+
+```env
+MAIL_PROVIDER=console
+```
+
+```bash
+docker compose logs -f backend | grep -A12 "DEV EMAIL"
+```
+
+Anyone who can read the logs can use those codes and links, so it only works while
+`PUBLIC_URL` is localhost; on any other address it stays disabled. Remove it before
+deploying.
+
 `MAIL_TO` takes several comma-separated addresses. Providers live in `backend/mail/`;
 adding one (Mailgun, SES, ...) means writing one adapter and registering it. See
 [Architecture](architecture.md#email).

@@ -9,6 +9,7 @@ import logging
 
 from config import settings
 from mail.base import MailProvider
+from mail.console import ConsoleProvider
 from mail.resend import ResendProvider
 from mail.smtp import SmtpProvider
 
@@ -18,6 +19,7 @@ log = logging.getLogger("bursa.mail")
 _REGISTRY: dict[str, type[MailProvider]] = {
     SmtpProvider.name: SmtpProvider,
     ResendProvider.name: ResendProvider,
+    ConsoleProvider.name: ConsoleProvider,  # development: prints to the log
 }
 
 
@@ -46,4 +48,6 @@ def setup_hint() -> str:
     cls = _REGISTRY.get(provider_name() or "")
     if cls is None:
         return f"MAIL_PROVIDER ({' or '.join(sorted(_REGISTRY))})"
+    if cls is ConsoleProvider:
+        return "PUBLIC_URL on localhost (the console provider is for development only)"
     return ", ".join((*cls.required_env, "MAIL_TO"))

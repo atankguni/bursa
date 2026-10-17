@@ -240,3 +240,23 @@ async def test_test_endpoint_errors(client, monkeypatch, smtp_settings, fake_smt
     r = await client.post("/api/mail/test")
     assert r.status_code == 400 and "MAIL_PROVIDER" in r.json()["detail"]
     assert (await client.get("/api/mail/status")).json()["configured"] is False
+
+
+# --- console (development) -------------------------------------------------------
+async def test_console_provider_prints_instead_of_sending(monkeypatch, caplog):
+    monkeypatch.setattr(settings, "mail_provider", "console")
+    monkeypatch.setattr(settings, "public_url", "http://localhost:5173")
+    assert mail.configured()  # no MAIL_FROM needed
+    with caplog.at_level("WARNING", logger="bursa.mail.console"):
+        msg_id = await mail.send(Email(subject="Your Bursa code: 123456", text="Code 123456",
+                                       to=("a@example.com",)))
+    assert msg_id and msg_id.startswith("console-")
+    assert "Your Bursa code: 123456" in caplog.text and "To: a@example.com" in caplog.text
+
+
+@pytest.mark.parametrize("url", ["https://bursa.example.com", "http://192.168.1.10:5173"])
+def test_console_provider_refuses_non_local_servers(monkeypatch, url):
+    monkeypatch.setattr(settings, "mail_provider", "console")
+    monkeypatch.setattr(settings, "public_url", url)
+    assert get_provider() is None and not mail.configured()
+    assert "localhost" in setup_hint()

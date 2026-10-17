@@ -38,6 +38,7 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 
+import mail as mail_service
 from config import settings
 from database import init_db
 from deps import current_user, require_admin
@@ -120,6 +121,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await seed()
     # Fresh install: log the one-time link that creates the first admin.
     await ensure_setup_invite()
+    if mail_service.configured() and mail_service.status()["provider"] == "console":
+        log.warning("DEVELOPMENT EMAIL: messages (2FA codes, reset links) are printed to "
+                    "this log, not sent. Never use MAIL_PROVIDER=console on a real server.")
 
     # Drop fundamentals rows written before currency-aware storage.
     await purge_stale_fundamentals()
