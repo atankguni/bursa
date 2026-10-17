@@ -29,6 +29,20 @@ export default function Footer() {
           >
             <Mail size={11} /> atankguni@gmail.com
           </a>
+          <span aria-hidden>·</span>
+          <span title="Free and open-source software under the MIT License">
+            Open source · MIT
+          </span>
+          <span aria-hidden>·</span>
+          {/* Required attribution for TradingView Lightweight Charts (Apache-2.0). */}
+          <a
+            href="https://www.tradingview.com/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="transition hover:text-ink"
+          >
+            Charts by TradingView
+          </a>
         </span>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

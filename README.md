@@ -1,9 +1,13 @@
 # Bursa
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 A personal stock monitor for the **Indonesia Stock Exchange (IDX / Bursa Efek Indonesia)**.
 
 Track index constituents, watch your hand-picked stocks, and review yearly fundamentals
 to compute valuation ratios like **PBV** and **RoE** — all self-hosted via Docker Compose.
+
+Bursa is **free and open source** under the [MIT License](#license).
 
 ---
 
@@ -325,3 +329,32 @@ npm run format          # prettier --write .
 - **ISSI** is a seeded subset of well-known sharia names, not the full ~500 constituents.
 - Fundamentals are fetched **per ticker** (yfinance has no batch statement API), so syncing is throttled.
 - yfinance may occasionally rate-limit or omit a ticker; failed jobs are retried and never crash the app.
+
+---
+
+## License
+
+Bursa is free and open-source software, released under the **[MIT License](LICENSE)**
+© 2026 Lalu Haryadi Guni.
+
+You may use, copy, modify, merge, publish, distribute, sublicense and/or sell copies of
+it, for personal or commercial use, provided the copyright and license notice are kept
+in all copies or substantial portions. It comes **without any warranty**.
+
+Bursa builds on open-source libraries under their own permissive licenses, including
+**TradingView Lightweight Charts™**, which requires an attribution notice and a visible
+link to TradingView (shown in the app footer). See
+**[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)** for the full list.
+
+### Data and disclaimer
+
+- The license covers the **source code only**. Market data comes from **Yahoo Finance**
+  (via the unofficial `yfinance` library) and the **IDX website**, and is subject to
+  their terms, intended for personal, non-commercial use. The optional AI assistant
+  (Google Gemini) and Telegram alerts use your own keys under those services' terms.
+- Bursa is **not affiliated with** Yahoo, the Indonesia Stock Exchange, TradingView,
+  Google or Telegram.
+- **Not financial advice.** Prices may be delayed, incomplete or wrong; signals,
+  ratings, risk figures and dividend dates are heuristic estimates for personal
+  reference. Do your own research before making investment decisions.
+
