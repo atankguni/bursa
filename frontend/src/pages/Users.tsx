@@ -1,6 +1,14 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, KeyRound, Trash2, UserPlus, Users as UsersIcon } from 'lucide-react'
+import {
+  Check,
+  Copy,
+  KeyRound,
+  ShieldOff,
+  Trash2,
+  UserPlus,
+  Users as UsersIcon,
+} from 'lucide-react'
 import {
   createInvite,
   createResetLink,
@@ -8,6 +16,7 @@ import {
   errorMessage,
   fetchInvites,
   fetchUsers,
+  resetTwoFactor,
   revokeInvite,
   updateUser,
   type AdminUser,
@@ -108,6 +117,23 @@ export default function Users() {
     },
     onError: onError("Couldn't delete the account."),
   })
+  const resetMfa = useMutation({
+    mutationFn: resetTwoFactor,
+    onSuccess: () => {
+      setError(null)
+      refresh()
+    },
+    onError: onError("Couldn't reset two-factor authentication."),
+  })
+  const confirmResetMfa = (u: AdminUser) => {
+    if (
+      window.confirm(
+        `Turn off two-factor authentication for ${u.email}? Only do this if you're sure it's them (they lost their phone and recovery codes). ${u.role === 'admin' ? 'As an admin, they must set it up again at their next sign-in.' : 'They can set it up again from their account.'}`,
+      )
+    ) {
+      resetMfa.mutate(u.id)
+    }
+  }
   const reset = useMutation({
     mutationFn: (u: AdminUser) => createResetLink(u.id),
     onSuccess: (result, u) => {
@@ -238,6 +264,7 @@ export default function Users() {
                 <th className="px-4 py-2 font-medium">Name</th>
                 <th className="px-4 py-2 font-medium">Email</th>
                 <th className="px-4 py-2 font-medium">Role</th>
+                <th className="px-4 py-2 font-medium">2FA</th>
                 <th className="px-4 py-2 font-medium">Last sign-in</th>
                 <th className="px-4 py-2 font-medium">Status</th>
                 <th className="px-4 py-2" />
@@ -246,7 +273,7 @@ export default function Users() {
             <tbody>
               {users.isPending && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-3 text-subtle">
+                  <td colSpan={7} className="px-4 py-3 text-subtle">
                     Loading…
                   </td>
                 </tr>
@@ -274,6 +301,15 @@ export default function Users() {
                         <option value="admin">Admin</option>
                       </select>
                     </td>
+                    <td className="px-4 py-2">
+                      {u.has_2fa ? (
+                        <span className="text-bull">On</span>
+                      ) : (
+                        <span className={u.role === 'admin' ? 'text-bear' : 'text-subtle'}>
+                          Off
+                        </span>
+                      )}
+                    </td>
                     <td className="px-4 py-2 text-muted">
                       {u.last_login_at ? fmtTimeAgo(u.last_login_at) : 'Never'}
                     </td>
@@ -295,6 +331,16 @@ export default function Users() {
                           >
                             <KeyRound size={12} /> Reset link
                           </button>
+                          {u.has_2fa && (
+                            <button
+                              onClick={() => confirmResetMfa(u)}
+                              disabled={resetMfa.isPending}
+                              title="Turn off their 2FA (lost phone and recovery codes)"
+                              className={smallBtn}
+                            >
+                              <ShieldOff size={12} /> Reset 2FA
+                            </button>
+                          )}
                           <button
                             onClick={() =>
                               update.mutate({ id: u.id, patch: { is_active: !u.is_active } })

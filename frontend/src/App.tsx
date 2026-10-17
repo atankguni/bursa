@@ -15,6 +15,8 @@ const Alerts = lazy(() => import('./pages/Alerts'))
 const Browse = lazy(() => import('./pages/Browse'))
 const DataHealth = lazy(() => import('./pages/DataHealth'))
 const Users = lazy(() => import('./pages/Users'))
+const Security = lazy(() => import('./pages/Security'))
+const SetupTwoFactor = lazy(() => import('./pages/auth/SetupTwoFactor'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
@@ -41,6 +43,8 @@ export default function App() {
               <div className="min-h-full bg-app" /> // checking the session
             ) : user === null ? (
               <Login />
+            ) : user.mfa_setup_required ? (
+              <SetupTwoFactor /> // admins: 2FA first
             ) : (
               <Shell isAdmin={isAdmin} />
             )
@@ -68,6 +72,7 @@ function Shell({ isAdmin }: { isAdmin: boolean }) {
             <Route path="/browse" element={<Browse />} />
             {isAdmin && <Route path="/data" element={<DataHealth />} />}
             {isAdmin && <Route path="/admin/users" element={<Users />} />}
+            <Route path="/account/security" element={<Security />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>

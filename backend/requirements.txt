@@ -17,6 +17,10 @@ apscheduler==3.11.3
 pydantic==2.14.1
 # Password hashing (Argon2id) for accounts.
 argon2-cffi==25.1.0
+# Encrypts authenticator-app (TOTP) secrets at rest.
+cryptography==50.0.2
+# QR code (SVG) for adding Bursa to an authenticator app; pure Python.
+segno==1.6.6
 pydantic-settings==2.16.0
 pandas==3.0.6
 # Async SQLAlchemy runtime dependency (kept explicit for cp314 wheels).

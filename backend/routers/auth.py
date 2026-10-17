@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 import mail
 from config import settings
-from deps import current_user, get_session, session_token
+from deps import get_session, session_token, signed_in_user
 from mail.templates import layout
 from models import PasswordReset, User
 from schemas import (
@@ -23,12 +23,14 @@ from schemas import (
     AuthOptionsOut,
     InviteInfoOut,
     LoginIn,
+    LoginOut,
     MeOut,
     PasswordChangeIn,
     ResetPasswordIn,
     ResetRequestIn,
+    TwoFactorChallengeOut,
 )
-from services import auth
+from services import auth, two_factor
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -49,7 +51,21 @@ def _set_cookie(response: Response, raw: str) -> None:
     )
 
 
-async def _sign_in(
+# "Remember this device": only ever sent to the sign-in endpoints.
+TRUSTED_COOKIE = "bursa_trusted"
+TRUSTED_PATH = "/api/auth"
+
+
+def set_trusted_cookie(response: Response, raw: str) -> None:
+    response.set_cookie(
+        TRUSTED_COOKIE, raw,
+        max_age=settings.trusted_device_days * 86400,
+        httponly=True, secure=settings.session_cookie_secure, samesite="lax",
+        path=TRUSTED_PATH,
+    )
+
+
+async def sign_in(
     session: AsyncSession, user: User, request: Request, response: Response
 ) -> MeOut:
     raw = await auth.create_session(
@@ -71,11 +87,13 @@ async def options() -> AuthOptionsOut:
     )
 
 
-@router.post("/login", response_model=MeOut)
+@router.post("/login", response_model=LoginOut)
 async def login(
     payload: LoginIn, request: Request, response: Response,
     session: AsyncSession = Depends(get_session),
-) -> MeOut:
+) -> LoginOut:
+    """Check the password. With 2FA on (and this device not remembered) the answer
+    is a challenge for /api/auth/2fa/verify instead of a session."""
     ip = client_ip(request)
     if auth.login_blocked(payload.email, ip):
         raise HTTPException(
@@ -87,8 +105,19 @@ async def login(
         auth.record_failure(payload.email, ip)
         # Same message whether the email exists or not.
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    if user.has_2fa and not await two_factor.is_trusted(
+        session, user, request.cookies.get(TRUSTED_COOKIE)
+    ):
+        # Failures aren't cleared yet: wrong codes keep counting toward the limit.
+        raw, challenge = await two_factor.start_login(session, user)
+        return LoginOut(two_factor=TwoFactorChallengeOut(
+            token=raw,
+            methods=two_factor.login_methods(user),
+            email_hint=two_factor.email_hint(user.email),
+            email_sent=challenge.email_sent_at is not None,
+        ))
     auth.clear_failures(payload.email)
-    return await _sign_in(session, user, request, response)
+    return LoginOut(user=await sign_in(session, user, request, response))
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)
@@ -104,14 +133,14 @@ async def logout(
 
 
 @router.get("/me", response_model=MeOut)
-async def me(user: User = Depends(current_user)) -> MeOut:
+async def me(user: User = Depends(signed_in_user)) -> MeOut:
     return MeOut.model_validate(user)
 
 
 @router.post("/password", status_code=status.HTTP_204_NO_CONTENT)
 async def change_password(
     payload: PasswordChangeIn, request: Request,
-    session: AsyncSession = Depends(get_session), user: User = Depends(current_user),
+    session: AsyncSession = Depends(get_session), user: User = Depends(signed_in_user),
 ) -> Response:
     """Change the password; every other browser is signed out."""
     try:
@@ -120,6 +149,8 @@ async def change_password(
         )
     except auth.AuthError as exc:
         raise _bad_request(exc) from exc
+    await two_factor.notify(user, "Your Bursa password was changed",
+                            "The password of your Bursa account was just changed.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -145,7 +176,7 @@ async def accept_invite(
         )
     except auth.AuthError as exc:
         raise _bad_request(exc) from exc
-    return await _sign_in(session, user, request, response)
+    return await sign_in(session, user, request, response)
 
 
 # --- password reset ----------------------------------------------------------
@@ -208,7 +239,9 @@ async def reset_password(
 ) -> Response:
     """Set a new password; signs the account out everywhere (sign in again)."""
     try:
-        await auth.reset_password(session, token, payload.password)
+        user = await auth.reset_password(session, token, payload.password)
     except auth.AuthError as exc:
         raise _bad_request(exc) from exc
+    await two_factor.notify(user, "Your Bursa password was reset",
+                            "The password of your Bursa account was reset with a reset link.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)

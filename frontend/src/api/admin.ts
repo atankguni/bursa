@@ -7,6 +7,7 @@ export interface AdminUser {
   name: string
   role: Role
   is_active: boolean
+  has_2fa: boolean
   created_at: string
   last_login_at: string | null
 }
@@ -44,6 +45,12 @@ export async function deleteUser(id: number): Promise<void> {
 
 export async function createResetLink(id: number): Promise<OneTimeLink> {
   const { data } = await api.post<OneTimeLink>(`/api/admin/users/${id}/reset-link`)
+  return data
+}
+
+/** Turn off a user's 2FA (they lost their phone and recovery codes). */
+export async function resetTwoFactor(id: number): Promise<AdminUser> {
+  const { data } = await api.post<AdminUser>(`/api/admin/users/${id}/reset-2fa`)
   return data
 }
 

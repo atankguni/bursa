@@ -53,11 +53,13 @@ async def test_cross_site_writes_are_refused(client):
 
 # --- sign in / out ------------------------------------------------------------
 async def test_login_me_logout(anon, client):
-    r = await _login(anon)
-    assert r.status_code == 200 and r.json()["role"] == "admin"
+    await make_user("bob@example.com")  # no 2FA: the password signs in directly
+    r = await _login(anon, "bob@example.com")
+    assert r.status_code == 200 and r.json()["user"]["role"] == "user"
+    assert r.json()["two_factor"] is None
     cookie = r.headers["set-cookie"].lower()
     assert "httponly" in cookie and "samesite=lax" in cookie
-    assert (await anon.get("/api/auth/me")).json()["email"] == ADMIN_EMAIL
+    assert (await anon.get("/api/auth/me")).json()["email"] == "bob@example.com"
     assert (await anon.post("/api/auth/logout")).status_code == 204
     assert (await anon.get("/api/auth/me")).status_code == 401
 
@@ -127,8 +129,15 @@ async def test_setup_invite_creates_first_admin_and_claims_old_data(anon):
     r = await anon.post(f"/api/auth/invites/{raw}/accept", json={
         "name": "Lalu", "email": "Owner@Example.com", "password": PASSWORD})
     assert r.status_code == 201 and r.json()["email"] == "owner@example.com"
-    assert r.json()["role"] == "admin"
-    assert [w["ticker"] for w in (await anon.get("/api/watchlist")).json()] == ["BBCA.JK"]
+    assert r.json()["role"] == "admin" and r.json()["mfa_setup_required"] is True
+    # 2FA is required for admins: only the setup works until it is turned on.
+    blocked = await anon.get("/api/watchlist")
+    assert blocked.status_code == 403 and blocked.json()["detail"] == "two_factor_setup_required"
+    assert (await anon.get("/api/auth/2fa")).json()["required"] is True
+    async with AsyncSessionLocal() as s:
+        owner = (await s.execute(select(User.id).where(User.email == "owner@example.com"))).scalar()
+        claimed = (await s.execute(select(Watchlist.user_id))).scalars().all()
+    assert claimed == [owner]
     # Used once only; and no new setup link once an account exists.
     again = await anon.post(f"/api/auth/invites/{raw}/accept",
                             json={"name": "X", "email": "x@example.com", "password": PASSWORD})

@@ -6,6 +6,8 @@ The backend serves interactive OpenAPI docs at http://localhost:8000/docs.
 Every endpoint needs a signed-in session (the `bursa_session` cookie from
 `POST /api/auth/login`) except `/api/health` and the public `/api/auth` routes.
 Without one the API answers `401`; **admin** endpoints answer `403` to other users.
+An admin without two-factor authentication gets `403` with detail
+`two_factor_setup_required` everywhere except `/api/auth/me` and `/api/auth/2fa`.
 Watchlist, portfolio, alerts, preferences and the assistant act on the signed-in
 user's own data. Writes from another site's page are refused (`403`).
 
@@ -14,7 +16,15 @@ user's own data. Writes from another site's page are refused (`403`).
 | Method | Path | Description |
 |--------|------|-------------|
 | GET    | `/api/auth/options` | Public: whether reset-by-email is available, minimum password length |
-| POST   | `/api/auth/login` | Sign in (`email`, `password`); sets the session cookie |
+| POST   | `/api/auth/login` | Sign in (`email`, `password`). Returns `{user}` and sets the session cookie, or `{two_factor}` (challenge `token`, `methods`) when a code is needed |
+| POST   | `/api/auth/2fa/verify` | Public: finish signing in (`token`, `method`: totp/email/recovery, `code`, `remember_device`) |
+| POST   | `/api/auth/2fa/resend` | Public: email a new sign-in code (once a minute) |
+| GET    | `/api/auth/2fa` | Your 2FA status (methods, recovery codes left, remembered devices, required) |
+| POST   | `/api/auth/2fa/totp` · `/totp/confirm` | Start authenticator setup (secret, `otpauth://` URI, QR SVG) / turn it on with a code |
+| POST   | `/api/auth/2fa/email` · `/email/confirm` | Email a code / turn email codes on with it |
+| POST   | `/api/auth/2fa/{totp,email}/disable` | Turn a method off (`password`) |
+| POST   | `/api/auth/2fa/recovery-codes` | New recovery codes (`password`); shown once |
+| DELETE | `/api/auth/2fa/trusted-devices` | Forget every remembered device |
 | POST   | `/api/auth/logout` | Sign out this browser |
 | GET    | `/api/auth/me` | The signed-in user |
 | POST   | `/api/auth/password` | Change password (signs out other browsers) |
@@ -33,6 +43,7 @@ All admin only.
 | PATCH  | `/api/admin/users/{id}` | Change `role` or `is_active` (not your own; one active admin always remains) |
 | DELETE | `/api/admin/users/{id}` | Delete an account and its data |
 | POST   | `/api/admin/users/{id}/reset-link` | One-time password reset link (also emailed if possible) |
+| POST   | `/api/admin/users/{id}/reset-2fa` | Turn off a user's 2FA (lost phone and recovery codes) |
 | GET/POST | `/api/admin/invites` | Pending invites / invite an email (`email`, `role`); returns the link |
 | DELETE | `/api/admin/invites/{id}` | Revoke a pending invite |
 

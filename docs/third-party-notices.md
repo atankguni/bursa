@@ -47,6 +47,9 @@ License).
 | pydantic-settings | 2.16.0 | MIT |
 | pandas | 3.0.6 | BSD-3-Clause |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 |
+| argon2-cffi | 25.1.0 | MIT |
+| cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
+| segno | 1.6.6 | BSD-3-Clause |
 
 Optional database drivers, installed only when building for that database
 (`DB_DRIVER` build arg):
@@ -55,7 +58,6 @@ Optional database drivers, installed only when building for that database
 |---|---|---|
 | asyncpg (PostgreSQL) | 0.32.0 | Apache-2.0 |
 | aiomysql + PyMySQL (MySQL/MariaDB) | 0.3.2 / 1.2.3 | MIT |
-| cryptography (MySQL 8 logins) | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 
 (Versions as pinned at the time of writing; transitive dependencies carry their
 own licenses.)

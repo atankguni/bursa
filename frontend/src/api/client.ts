@@ -9,6 +9,8 @@ export const api = axios.create({ baseURL, timeout: 15_000, withCredentials: tru
 
 /** Fired when the API answers 401 (session expired or signed out elsewhere). */
 export const UNAUTHORIZED_EVENT = 'bursa:unauthorized'
+/** Fired when an admin must set up two-factor authentication first (403). */
+export const MFA_SETUP_EVENT = 'bursa:mfa-setup-required'
 
 api.interceptors.response.use(undefined, (error) => {
   const url: string = error?.config?.url ?? ''
@@ -16,6 +18,12 @@ api.interceptors.response.use(undefined, (error) => {
   // means the session is gone, so the app returns to the sign-in screen.
   if (error?.response?.status === 401 && !url.startsWith('/api/auth/')) {
     window.dispatchEvent(new Event(UNAUTHORIZED_EVENT))
+  }
+  if (
+    error?.response?.status === 403 &&
+    error?.response?.data?.detail === 'two_factor_setup_required'
+  ) {
+    window.dispatchEvent(new Event(MFA_SETUP_EVENT))
   }
   return Promise.reject(error)
 })

@@ -62,7 +62,11 @@ backtest (see [Development](development.md#signal-backtest)).
   settings belong to each user. Market data (prices, fundamentals, indices) is shared.
 - **Email + password** sign-in. Change your password from the account menu (other
   devices are signed out). Forgot it? Get a reset link by email, or from an admin.
-- **Admins** also manage users (role, disable, delete), start data syncs, track new
+- **Two-factor authentication**: an authenticator app (QR setup), email codes and
+  single-use recovery codes, with "remember this device" for 30 days. Required for
+  admins, optional for others. Security changes (password, 2FA, a recovery code used)
+  are emailed to the user when email is set up.
+- **Admins** also manage users (role, disable, delete, reset 2FA), start data syncs, track new
   symbols, and see data health, email and Telegram setup.
 
 ## Personal tracking

@@ -56,6 +56,7 @@ from routers import (
     preferences,
     screener,
     stocks,
+    two_factor,
     watchlist,
 )
 from scheduler import (
@@ -71,6 +72,7 @@ from scheduler import (
 )
 from services.auth import ensure_setup_invite
 from services.bootstrap import purge_stale_fundamentals, seed
+from services.crypto import ensure_secret
 from services.idx_listing import sync_if_stale as sync_idx_listing_if_stale
 from services.market_clock import last_closed_trading_day
 
@@ -113,6 +115,7 @@ async def _catalog_coverage() -> float:
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup: init DB -> seed -> purge stale -> backfill -> start scheduler."""
+    ensure_secret()  # load / create the 2FA server secret before anything uses it
     await init_db()
     await seed()
     # Fresh install: log the one-time link that creates the first admin.
@@ -202,6 +205,7 @@ admins = [Depends(require_admin)]
 
 app.include_router(meta.public)  # /api/health
 app.include_router(auth.router)  # sign-in flow (public; /me and /password check the cookie)
+app.include_router(two_factor.router)  # 2FA: second step (public) + your own methods
 app.include_router(admin.router)  # admins only (router dependency)
 app.include_router(meta.router, dependencies=signed_in)
 app.include_router(stocks.router, dependencies=signed_in)

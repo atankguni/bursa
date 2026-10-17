@@ -34,6 +34,7 @@ from sqlalchemy import (
     String,
     Text,
     UniqueConstraint,
+    false,
     func,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -57,9 +58,79 @@ class User(Base):
         DateTime, server_default=func.now(), nullable=False
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # Two-factor authentication (services/two_factor.py). Either or both methods.
+    mfa_email: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    # Authenticator-app secret, encrypted (services/crypto.py). Pending = shown
+    # as a QR code but not confirmed with a code yet.
+    totp_secret: Mapped[str | None] = mapped_column(Text, nullable=True)
+    totp_pending: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Last accepted time step: each authenticator code works only once.
+    totp_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    @property
+    def has_2fa(self) -> bool:
+        return self.mfa_email or self.totp_secret is not None
+
+    @property
+    def mfa_setup_required(self) -> bool:
+        """2FA is required for admins: until set up, they can only reach the setup."""
+        return self.role == "admin" and not self.has_2fa
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<User {self.email} ({self.role})>"
+
+
+class RecoveryCode(Base):
+    """A single-use backup code for 2FA (keyed hash only: services/crypto.py)."""
+
+    __tablename__ = "recovery_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    code_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class MfaChallenge(Base):
+    """
+    A pending second step: after the password at sign-in (`purpose="login"`,
+    found by its token), or confirming email as a 2FA method ("enroll_email").
+    Holds the emailed code's keyed hash and counts wrong attempts.
+    """
+
+    __tablename__ = "mfa_challenges"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    token_hash: Mapped[str | None] = mapped_column(String(64), unique=True, nullable=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    purpose: Mapped[str] = mapped_column(String(16), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+    attempts: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    email_code_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    email_sent_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class TrustedDevice(Base):
+    """A browser that skips the 2FA step for a while (cookie token, hash stored)."""
+
+    __tablename__ = "trusted_devices"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
 
 
 class UserSession(Base):

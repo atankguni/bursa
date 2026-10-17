@@ -670,6 +670,68 @@ class MeOut(BaseModel):
     email: str
     name: str
     role: Role
+    has_2fa: bool
+    # Admin without 2FA: everything but the 2FA setup answers 403 until it's done.
+    mfa_setup_required: bool
+
+
+TwoFactorMethod = Literal["totp", "email", "recovery"]
+
+
+class TwoFactorChallengeOut(BaseModel):
+    """The password was right; a second step is needed."""
+
+    token: str  # identifies this sign-in attempt for /api/auth/2fa/verify
+    methods: list[TwoFactorMethod]  # usable now, preferred first
+    email_hint: str  # "l***@example.com"
+    email_sent: bool  # a code was emailed already
+
+
+class LoginOut(BaseModel):
+    """Either signed in (`user`) or a second step is needed (`two_factor`)."""
+
+    user: MeOut | None = None
+    two_factor: TwoFactorChallengeOut | None = None
+
+
+class TwoFactorVerifyIn(BaseModel):
+    token: str = Field(max_length=64)
+    method: TwoFactorMethod
+    code: str = Field(max_length=32)
+    remember_device: bool = False
+
+
+class TwoFactorTokenIn(BaseModel):
+    token: str = Field(max_length=64)
+
+
+class TwoFactorStatusOut(BaseModel):
+    totp: bool
+    email: bool
+    email_available: bool  # email is set up on the server
+    recovery_codes_left: int
+    trusted_devices: int
+    required: bool  # admins must keep 2FA on
+
+
+class TotpSetupOut(BaseModel):
+    secret: str  # for typing into the app when the QR can't be scanned
+    uri: str  # otpauth:// link (opens the app on a phone)
+    qr_svg: str
+
+
+class CodeIn(BaseModel):
+    code: str = Field(max_length=32)
+
+
+class PasswordConfirmIn(BaseModel):
+    password: str = Field(max_length=256)
+
+
+class RecoveryCodesOut(BaseModel):
+    """Shown once: only keyed hashes are stored."""
+
+    recovery_codes: list[str] | None = None
 
 
 class LoginIn(BaseModel):
@@ -716,6 +778,7 @@ class UserOut(BaseModel):
     name: str
     role: Role
     is_active: bool
+    has_2fa: bool
     created_at: datetime
     last_login_at: datetime | None
 

@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, type ReactNode } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchMe, logout, UNAUTHORIZED_EVENT, type Me } from '../api'
+import { fetchMe, logout, MFA_SETUP_EVENT, UNAUTHORIZED_EVENT, type Me } from '../api'
 
 export const ME_KEY = ['auth', 'me'] as const
 
@@ -41,8 +41,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const onUnauthorized = () => {
       if (qc.getQueryData(ME_KEY) !== null) reset(null)
     }
+    // E.g. just promoted to admin: re-read /me, which shows the 2FA setup screen.
+    const onMfaSetup = () => void qc.invalidateQueries({ queryKey: ME_KEY })
     window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
-    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+    window.addEventListener(MFA_SETUP_EVENT, onMfaSetup)
+    return () => {
+      window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized)
+      window.removeEventListener(MFA_SETUP_EVENT, onMfaSetup)
+    }
   }, [qc, reset])
 
   const signOut = useCallback(async () => {

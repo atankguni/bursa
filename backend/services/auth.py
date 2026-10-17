@@ -32,8 +32,10 @@ from models import (
     Alert,
     AlertEvent,
     Invite,
+    MfaChallenge,
     PasswordReset,
     Transaction,
+    TrustedDevice,
     User,
     UserPreference,
     UserSession,
@@ -360,13 +362,17 @@ async def reset_password(session: AsyncSession, raw: str, password: str) -> User
     user.password_hash = hash_password(password)
     reset.used_at = datetime.utcnow()
     await revoke_sessions(session, user.id)  # sign out everywhere
+    # Remembered devices must pass 2FA again. 2FA itself stays on: a reset link
+    # only proves access to the inbox.
+    await session.execute(delete(TrustedDevice).where(TrustedDevice.user_id == user.id))
     await session.commit()
     clear_failures(user.email)
     return user
 
 
 async def purge_expired() -> int:
-    """Delete expired sessions and stale invite / reset links (daily job)."""
+    """Delete expired sessions, invite / reset links, 2FA challenges and
+    remembered devices (daily job)."""
     from database import AsyncSessionLocal
 
     now = datetime.utcnow()
@@ -376,6 +382,8 @@ async def purge_expired() -> int:
             delete(UserSession).where(UserSession.expires_at <= now),
             delete(Invite).where(Invite.accepted_at.is_(None), Invite.expires_at <= now),
             delete(PasswordReset).where(PasswordReset.expires_at <= now),
+            delete(MfaChallenge).where(MfaChallenge.expires_at <= now),
+            delete(TrustedDevice).where(TrustedDevice.expires_at <= now),
         ):
             removed += (await session.execute(stmt)).rowcount or 0  # type: ignore[attr-defined]
         await session.commit()

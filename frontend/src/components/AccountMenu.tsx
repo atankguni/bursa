@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router-dom'
 import { useMutation } from '@tanstack/react-query'
-import { KeyRound, LogOut, Users, X } from 'lucide-react'
+import { KeyRound, LogOut, ShieldCheck, Users, X } from 'lucide-react'
 import { changePassword, errorMessage } from '../api'
 import { useAuth } from '../lib/auth'
 import { Field, FormError } from '../pages/auth/AuthLayout'
@@ -55,6 +55,14 @@ export default function AccountMenu() {
                 <Users size={14} /> Users &amp; invites
               </Link>
             )}
+            <Link to="/account/security" onClick={() => setOpen(false)} className={itemCls}>
+              <ShieldCheck size={14} /> Two-factor authentication
+              {!user.has_2fa && (
+                <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                  Off
+                </span>
+              )}
+            </Link>
             <button
               onClick={() => {
                 setOpen(false)

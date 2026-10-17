@@ -18,6 +18,8 @@ _TEST_DB = pathlib.Path(__file__).parent / "test_bursa.db"
 os.environ["DATABASE_URL"] = os.environ.get(
     "TEST_DATABASE_URL", f"sqlite+aiosqlite:///{_TEST_DB}"
 )
+# Fixed 2FA server secret, so tests never write data/secret.key.
+os.environ["SECRET_KEY"] = "test-secret-key-0123456789-abcdefghijklmnop"
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
@@ -27,17 +29,24 @@ from config import settings  # noqa: E402
 from database import AsyncSessionLocal, engine, init_db  # noqa: E402
 from main import app  # noqa: E402
 from models import Base, User  # noqa: E402
-from services import auth  # noqa: E402
+from services import auth, crypto  # noqa: E402
 from services.bootstrap import seed  # noqa: E402
 
 ADMIN_EMAIL = "admin@example.com"
 PASSWORD = "correct horse battery"
+# Authenticator secret of users made with totp=True (admins by default: 2FA is
+# required for them). services.two_factor.totp_code(TOTP_SECRET) gives a code.
+TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
 
 
-async def make_user(email: str, role: str = "user", password: str = PASSWORD) -> int:
+async def make_user(
+    email: str, role: str = "user", password: str = PASSWORD, totp: bool | None = None
+) -> int:
+    with_totp = role == "admin" if totp is None else totp
     async with AsyncSessionLocal() as s:
         user = User(email=email, name=email.split("@")[0], role=role,
-                    password_hash=auth.hash_password(password))
+                    password_hash=auth.hash_password(password),
+                    totp_secret=crypto.encrypt(TOTP_SECRET) if with_totp else None)
         s.add(user)
         await s.commit()
         return user.id

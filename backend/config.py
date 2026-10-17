@@ -65,6 +65,17 @@ class Settings(BaseSettings):
     login_max_failures: int = 10
     login_window_minutes: int = 15
 
+    # Two-factor authentication (services/two_factor.py). Required for admins.
+    # Server secret that encrypts authenticator-app secrets and keys the hashes of
+    # recovery / email codes. Unset: generated once into `secret_key_file` (back it
+    # up with the database; without it, 2FA has to be reset for every user).
+    secret_key: str | None = None
+    secret_key_file: str = "./data/secret.key"
+    mfa_issuer: str = "Bursa"  # the name shown in authenticator apps
+    mfa_code_minutes: int = 10  # a sign-in / email code expires after this
+    mfa_max_attempts: int = 5  # wrong codes allowed per sign-in attempt
+    trusted_device_days: int = 30  # "Remember this device"
+
     # Optional email (mail/ package). `mail_provider` picks the adapter:
     # "smtp" (any mailbox: Gmail app password, Outlook, Zoho, Brevo, ...) or
     # "resend" (Resend API). Unset = email disabled. Secrets go in backend/.env.

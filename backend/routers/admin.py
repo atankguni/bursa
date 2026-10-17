@@ -18,7 +18,7 @@ from mail.templates import layout
 from models import Invite, User
 from routers.auth import send_reset_email
 from schemas import InviteIn, LinkOut, PendingInviteOut, UserOut, UserUpdateIn
-from services import auth
+from services import auth, two_factor
 
 router = APIRouter(prefix="/api/admin", tags=["admin"], dependencies=[Depends(require_admin)])
 
@@ -88,6 +88,20 @@ async def reset_link(user_id: int, session: AsyncSession = Depends(get_session))
     link = auth.link(f"/reset/{await auth.create_reset(session, user)}")
     emailed = mail.configured() and await send_reset_email(user, link)
     return LinkOut(link=link, emailed=emailed)
+
+
+@router.post("/users/{user_id}/reset-2fa", response_model=UserOut)
+async def reset_two_factor(
+    user_id: int, session: AsyncSession = Depends(get_session), me: User = Depends(require_admin),
+) -> UserOut:
+    """For someone who lost their phone and recovery codes: turn their 2FA off so
+    they can sign in with the password and set it up again (admins must, at once)."""
+    user = await _user(session, user_id)
+    if user.id == me.id:
+        raise HTTPException(status_code=400, detail="Manage your own 2FA from your account")
+    await two_factor.admin_reset(session, user)
+    await session.refresh(user)
+    return UserOut.model_validate(user)
 
 
 @router.get("/invites", response_model=list[PendingInviteOut])

@@ -21,16 +21,28 @@ def session_token(request: Request) -> str | None:
     return request.cookies.get(settings.session_cookie_name) or None
 
 
-async def current_user(
+# 403 detail while an admin hasn't set up two-factor authentication yet.
+MFA_SETUP_REQUIRED = "two_factor_setup_required"
+
+
+async def signed_in_user(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> User:
-    """The signed-in user, or 401. Every non-public router depends on this."""
+    """The signed-in user, or 401, without the 2FA policy (for /me and 2FA setup)."""
     from services.auth import user_for_token
 
     raw = session_token(request)
     user = await user_for_token(session, raw) if raw else None
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Sign in required")
+    return user
+
+
+async def current_user(user: User = Depends(signed_in_user)) -> User:
+    """The signed-in user, or 401. Every non-public router depends on this.
+    Admins without two-factor authentication get 403 until they set it up."""
+    if user.mfa_setup_required:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MFA_SETUP_REQUIRED)
     return user
 
 

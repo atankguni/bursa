@@ -111,6 +111,15 @@ Invite-only accounts (`services/auth.py`, `routers/auth.py`, `routers/admin.py`)
   whose `Origin` isn't the app's own host, `PUBLIC_URL` or `CORS_ORIGINS`.
 - **Invite and reset links** are one-time tokens, also stored hashed, that expire
   (`INVITE_DAYS`, `PASSWORD_RESET_HOURS`). A daily job deletes expired sessions and links.
+- **Two-factor** (`services/two_factor.py`, `routers/two_factor.py`): after the
+  password, `/api/auth/login` returns a short-lived challenge instead of a session.
+  TOTP is RFC 6238 (standard library, ±1 step, each code accepted once). Secrets are
+  encrypted with Fernet and recovery / emailed codes stored as HMAC-SHA256, both
+  keyed by the server secret (`services/crypto.py`). Each challenge allows
+  `MFA_MAX_ATTEMPTS` wrong codes, which also count toward sign-in throttling.
+  "Remember this device" is a separate HttpOnly cookie limited to `/api/auth`.
+  `deps.current_user` holds admins without 2FA at the setup (403); `signed_in_user`
+  skips that check for `/me` and the 2FA endpoints. Password resets keep 2FA on.
 - **Routing**: `main.py` mounts every router behind the `current_user` dependency,
   except `/api/health` and the public `/api/auth` routes. Admin-only routes add
   `require_admin` (data health, mail, syncs, tracking, Telegram, user management).
@@ -189,4 +198,5 @@ loaded on demand.
 - Yahoo has no long history for some smaller indices; they build up daily from first sync.
 - Sign-in throttling is kept in memory, so it resets on restart and assumes a single
   backend process.
+- No passkeys (WebAuthn) yet; they need HTTPS on the final domain.
 - Telegram delivery uses one server-wide chat, so only admins' alerts are sent there.

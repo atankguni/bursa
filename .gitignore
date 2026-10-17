@@ -8,6 +8,8 @@ venv/
 backend/data/*.db
 backend/data/*.db-wal
 backend/data/*.db-shm
+# Server secret for 2FA (services/crypto.py): never commit it.
+backend/data/secret.key
 !backend/data/.gitkeep
 backend/data/yfinance-cache/
 

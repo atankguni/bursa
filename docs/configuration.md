@@ -74,6 +74,29 @@ also emailed when email is set up.
 Before exposing Bursa on the internet, put it behind HTTPS, set `PUBLIC_URL` to the
 public address and `SESSION_COOKIE_SECURE=true`.
 
+### Two-factor authentication
+
+Required for admins (an admin without it only sees the setup screen), optional for
+everyone else; set up from **Two-factor authentication** in the account menu.
+Methods: an **authenticator app** (works without email), **email codes** (need
+[Email](#email-optional)), and 10 single-use **recovery codes**. "Remember this device"
+skips the code on that browser for a while. A password reset does not turn 2FA off;
+an admin can reset a user's 2FA from the Users page.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `SECRET_KEY` | *(generated)* | Server secret that encrypts authenticator secrets and keys the code hashes. Unset: created once in `SECRET_KEY_FILE` |
+| `SECRET_KEY_FILE` | `./data/secret.key` | Where the generated secret lives (in the mounted `backend/data/`, git-ignored) |
+| `MFA_ISSUER` | `Bursa` | Name shown in authenticator apps |
+| `MFA_CODE_MINUTES` | `10` | A sign-in step / emailed code expires after this |
+| `MFA_MAX_ATTEMPTS` | `5` | Wrong codes per sign-in attempt (they also count as failed sign-ins) |
+| `TRUSTED_DEVICE_DAYS` | `30` | How long "Remember this device" lasts |
+
+**Back up `backend/data/secret.key` together with the database.** Without it the
+stored authenticator secrets and recovery codes can't be checked, and every user's
+2FA has to be reset by an admin (or, for the last admin, by deleting the
+`totp_secret` and `mfa_email` values in the `users` table).
+
 ## Data providers
 
 `price_provider` / `fundamentals_provider` in `backend/config.py` select the source
@@ -105,7 +128,8 @@ writing one adapter and registering it; the UI and API stay the same.
 ## Email (optional)
 
 Email is disabled until a provider is configured in `backend/.env`. It is used for
-invites and password resets (both also work without it), and is the delivery layer
+invites, password resets and 2FA codes / security notices (all optional without it),
+and is the delivery layer
 future alerts, digests or reports will use.
 Check the setup with `GET /api/mail/status`, and `POST /api/mail/test` sends a test
 message to `MAIL_TO`.
