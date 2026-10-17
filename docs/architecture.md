@@ -16,14 +16,14 @@ bursa/
 ├── backend/
 │   ├── main.py            # app factory: settings, middleware, lifespan, routers
 │   ├── config.py          # Settings (env-driven)
-│   ├── deps.py            # FastAPI dependencies (get_session)
+│   ├── deps.py            # FastAPI dependencies (DB session, current user, admin, style)
 │   ├── database.py        # async engine + session factory, init_db()
 │   ├── db/                # database adapter: portable upsert, maintenance, migration runner
 │   ├── migrations/        # Alembic migration scripts (+ alembic.ini)
 │   ├── models.py          # ORM models
 │   ├── schemas.py         # Pydantic response models
-│   ├── routers/           # HTTP endpoints (stocks, screener, portfolio, alerts, indices, …)
-│   ├── services/          # business logic (recommendation, portfolio, risk, sync jobs, …)
+│   ├── routers/           # HTTP endpoints (auth, admin, stocks, screener, portfolio, alerts, …)
+│   ├── services/          # business logic (auth, recommendation, portfolio, risk, sync jobs, …)
 │   ├── market/            # tickers, holidays, IDX site/listing, indices, providers + sync
 │   ├── assistant/         # AI assistant: provider adapters, read-only tools, service
 │   ├── mail/              # email: provider adapters (SMTP, Resend), service, HTML layout
@@ -37,11 +37,12 @@ bursa/
     ├── index.html
     ├── src/
     │   ├── App.tsx            # shell + routes
-    │   ├── pages/             # Home, Market, Browse, Screener, Watchlist, Portfolio, Alerts, DataHealth
+    │   ├── pages/             # Home, Market, Browse, Screener, Watchlist, Portfolio, Alerts,
+    │   │                      # DataHealth, Users; auth/ (sign in, invite, password reset)
     │   ├── components/        # navbar, charts, modals, panels
     │   ├── api/               # typed API client
     │   ├── hooks/             # React Query hooks + keys
-    │   └── lib/               # formatting, theme, helpers
+    │   └── lib/               # auth context, formatting, theme, helpers
     ├── public/                # favicons, manifest
     ├── package.json
     └── Dockerfile
@@ -94,6 +95,33 @@ Portability rules for new queries (the test suite runs on all three databases to
 
 MongoDB is not supported: it isn't SQL, and supporting it would need a repository
 layer over every query.
+
+## Accounts & security
+
+Invite-only accounts (`services/auth.py`, `routers/auth.py`, `routers/admin.py`):
+
+- **Passwords** are hashed with Argon2id (`argon2-cffi`). Sign-in takes the same time
+  whether or not the email exists, and failures are throttled per email and per IP
+  (in memory: the app is one process).
+- **Sessions** are random 256-bit tokens in an `HttpOnly`, `SameSite=Lax` cookie
+  (`Secure` with `SESSION_COOKIE_SECURE`). Only the token's SHA-256 is stored, so a
+  database copy can't be used to sign in. Sessions slide while in use and are deleted
+  on sign-out, password change/reset or when an admin disables the account.
+- **CSRF**: besides SameSite, a middleware in `main.py` refuses POST/PUT/PATCH/DELETE
+  whose `Origin` isn't the app's own host, `PUBLIC_URL` or `CORS_ORIGINS`.
+- **Invite and reset links** are one-time tokens, also stored hashed, that expire
+  (`INVITE_DAYS`, `PASSWORD_RESET_HOURS`). A daily job deletes expired sessions and links.
+- **Routing**: `main.py` mounts every router behind the `current_user` dependency,
+  except `/api/health` and the public `/api/auth` routes. Admin-only routes add
+  `require_admin` (data health, mail, syncs, tracking, Telegram, user management).
+
+**Per-user data.** `watchlist`, `transactions`, `alerts`, `alert_events`,
+`user_preferences` and `rating_state` have a `user_id`; every query filters by the
+signed-in user. Market data is shared. Signals depend on the investing style, so the
+scoring cache is keyed by style and routes pass the user's style
+(`deps.user_style`). Alert evaluation runs per user with their own style and rating
+baselines. Rows from before accounts existed have no owner until the first admin
+accepts the setup invite and claims them.
 
 ## Email
 
@@ -156,3 +184,6 @@ loaded on demand.
 - Fundamentals are fetched **per ticker** (yfinance has no batch statement API), so syncing is throttled.
 - yfinance may occasionally rate-limit or omit a ticker; failed jobs are retried and never crash the app.
 - Yahoo has no long history for some smaller indices; they build up daily from first sync.
+- Sign-in throttling is kept in memory, so it resets on restart and assumes a single
+  backend process.
+- Telegram delivery uses one server-wide chat, so only admins' alerts are sent there.

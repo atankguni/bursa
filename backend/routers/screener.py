@@ -4,8 +4,8 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from deps import get_session
-from schemas import ScreenerPage, ScreenerRow, SyncStartOut, SyncStatusOut
+from deps import get_session, require_admin, user_style
+from schemas import InvestingStyle, ScreenerPage, ScreenerRow, SyncStartOut, SyncStatusOut
 from services import sync_job
 from services.screener import build_rows, filter_rows
 
@@ -23,9 +23,10 @@ async def screener(
     limit: int = Query(100, ge=1, le=200),
     offset: int = Query(0, ge=0),
     session: AsyncSession = Depends(get_session),
+    style: InvestingStyle = Depends(user_style),
 ) -> ScreenerPage:
     """Rank/filter the whole universe, one page at a time (`total` = all matches)."""
-    rows = await build_rows(session)
+    rows = await build_rows(session, style)
     rows = filter_rows(
         rows,
         min_score=min_score,
@@ -53,7 +54,11 @@ async def screener_sync_status() -> SyncStatusOut:
     return SyncStatusOut(**sync_job.status(), missing=await sync_job.missing_count())
 
 
-@router.post("/screener/sync", response_model=SyncStartOut)
+@router.post(
+    "/screener/sync",
+    response_model=SyncStartOut,
+    dependencies=[Depends(require_admin)],  # provider calls for the whole universe
+)
 async def screener_sync(
     limit: int | None = Query(None, ge=1, le=200, description="Cap tickers per run"),
     all_missing: bool = Query(
@@ -85,7 +90,9 @@ async def screener_sync(
     )
 
 
-@router.post("/screener/sync/cancel", response_model=SyncStatusOut)
+@router.post(
+    "/screener/sync/cancel", response_model=SyncStatusOut, dependencies=[Depends(require_admin)]
+)
 async def screener_sync_cancel() -> SyncStatusOut:
     """Stop the running sync after the current stock."""
     sync_job.cancel()

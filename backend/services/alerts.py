@@ -4,7 +4,8 @@ services/alerts.py
 Evaluate alert rules and record in-app notifications.
 
 `evaluate_alert` is pure (unit-tested); `evaluate_alerts` loads the data and
-writes `AlertEvent` rows. Rating-change detection uses `RatingState` snapshots.
+writes `AlertEvent` rows. Rating-change detection uses per-user `RatingState`
+snapshots, scored with each user's own investing style.
 """
 
 import logging
@@ -14,8 +15,9 @@ from sqlalchemy import select
 
 from config import settings
 from database import AsyncSessionLocal
-from models import Alert, AlertEvent, RatingState
+from models import Alert, AlertEvent, RatingState, User
 from services.notify import send_quietly
+from services.preferences import styles_by_user
 from services.prices import latest_daily
 from services.recommendation import compute_universe_cached
 
@@ -66,38 +68,52 @@ def _message(
 
 
 async def evaluate_alerts() -> int:
-    """Evaluate every active alert; return the number of events created."""
+    """Evaluate every active alert of every user; return the number of events created."""
     async with AsyncSessionLocal() as session:
         alerts = (
-            await session.execute(select(Alert).where(Alert.active.is_(True)))
+            await session.execute(
+                select(Alert).where(Alert.active.is_(True), Alert.user_id.is_not(None))
+            )
         ).scalars().all()
         if not alerts:
             return 0
 
+        user_ids = {a.user_id for a in alerts if a.user_id is not None}
         tickers = sorted({a.ticker for a in alerts})
         price_map = await latest_daily(session, tickers)
-        rec_map = await compute_universe_cached(session)
+        # Ratings depend on each user's investing style: score once per style used.
+        style_of = await styles_by_user(session, user_ids)
+        recs = {st: await compute_universe_cached(session, st) for st in set(style_of.values())}
         states = {
-            s.ticker: s
+            (s.user_id, s.ticker): s
             for s in (
                 await session.execute(
-                    select(RatingState).where(RatingState.ticker.in_(tickers))
+                    select(RatingState).where(
+                        RatingState.user_id.in_(user_ids), RatingState.ticker.in_(tickers)
+                    )
                 )
             ).scalars().all()
         }
+        # Telegram is the operator's own chat (backend/.env): only admins' alerts go there.
+        admins = set((
+            await session.execute(
+                select(User.id).where(User.id.in_(user_ids), User.role == "admin")
+            )
+        ).scalars().all())
 
         cooldown = timedelta(hours=settings.alert_cooldown_hours)
-        outbox: list[str] = []  # sent after the events are safely committed
+        outbox: list[str] = []  # sent after the events are safely committed (admins only)
         now = datetime.utcnow()
         created = 0
 
         for a in alerts:
+            assert a.user_id is not None  # filtered in the query
             info = price_map.get(a.ticker, {})
             price = info.get("close")
             prev = info.get("prev_close")
-            rec = rec_map.get(a.ticker)
+            rec = recs[style_of[a.user_id]].get(a.ticker)
             rating = rec.rating if rec else None
-            state = states.get(a.ticker)
+            state = states.get((a.user_id, a.ticker))
             prev_rating = state.rating if state else None
 
             triggered, value = evaluate_alert(
@@ -107,14 +123,15 @@ async def evaluate_alerts() -> int:
             # Keep the rating snapshot current (also creates the baseline).
             if a.type == "rating_change" and rec is not None:
                 if state is None:
-                    session.add(
-                        RatingState(
-                            ticker=a.ticker,
-                            rating=rec.rating,
-                            strength=rec.strength,
-                            updated_at=now,
-                        )
+                    state = RatingState(
+                        user_id=a.user_id,
+                        ticker=a.ticker,
+                        rating=rec.rating,
+                        strength=rec.strength,
+                        updated_at=now,
                     )
+                    states[(a.user_id, a.ticker)] = state  # two alerts on one ticker
+                    session.add(state)
                 elif state.rating != rec.rating:
                     state.rating = rec.rating
                     state.strength = rec.strength
@@ -133,6 +150,7 @@ async def evaluate_alerts() -> int:
             message = _message(a, value, rating, prev_rating)
             session.add(
                 AlertEvent(
+                    user_id=a.user_id,
                     alert_id=a.id,
                     ticker=a.ticker,
                     triggered_at=now,
@@ -142,7 +160,8 @@ async def evaluate_alerts() -> int:
             )
             a.last_triggered_at = now
             created += 1
-            outbox.append(message)
+            if a.user_id in admins:
+                outbox.append(message)
 
         await session.commit()
 

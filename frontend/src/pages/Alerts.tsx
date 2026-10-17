@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Bell, Trash2 } from 'lucide-react'
 import { createAlert, deleteAlert, toggleAlert, type AlertType } from '../api'
 import { useAlertEvents, useAlerts, useStocks } from '../hooks'
+import { useAuth } from '../lib/auth'
 import { fmtShortDateTime } from '../lib/format'
 import NotificationsCard from '../components/NotificationsCard'
 
@@ -19,6 +20,7 @@ const inputCls =
 
 export default function Alerts() {
   const qc = useQueryClient()
+  const { isAdmin } = useAuth() // Telegram is the server owner's chat
   const { data: stocks = [] } = useStocks([])
   const { data: alerts = [] } = useAlerts()
   const { data: events = [] } = useAlertEvents()
@@ -52,12 +54,12 @@ export default function Alerts() {
         <Bell size={16} className="text-accent" />
         <h2 className="text-sm font-semibold tracking-tight">Alerts</h2>
         <p className="text-[11px] text-subtle">
-          Evaluated after each market sync · in the app, and on Telegram if connected
+          Evaluated after each market sync · shown here{isAdmin && ', and on Telegram if connected'}
         </p>
       </div>
 
       <div className="space-y-3">
-        <NotificationsCard />
+        {isAdmin && <NotificationsCard />}
 
         {/* Create */}
         <div className="surface flex flex-wrap items-end gap-3 p-3">

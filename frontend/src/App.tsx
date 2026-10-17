@@ -1,8 +1,10 @@
 import { lazy, Suspense } from 'react'
-import { Route, Routes } from 'react-router-dom'
+import { Navigate, Route, Routes } from 'react-router-dom'
 import Footer from './components/Footer'
 import NavBar from './components/NavBar'
+import { useAuth } from './lib/auth'
 import Home from './pages/Home'
+import Login from './pages/auth/Login'
 
 // Secondary routes are loaded on demand.
 const Watchlist = lazy(() => import('./pages/Watchlist'))
@@ -12,16 +14,50 @@ const Market = lazy(() => import('./pages/Market'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const Browse = lazy(() => import('./pages/Browse'))
 const DataHealth = lazy(() => import('./pages/DataHealth'))
+const Users = lazy(() => import('./pages/Users'))
+const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
+const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
+const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
+
+const loading = <div className="w-full px-3 py-6 text-sm text-subtle">Loading…</div>
+
+// Every page needs a signed-in user; invite / reset links work signed out.
+export default function App() {
+  const { user, isAdmin } = useAuth()
+
+  return (
+    <Suspense fallback={loading}>
+      <Routes>
+        <Route path="/invite/:token" element={<AcceptInvite />} />
+        <Route path="/reset/:token" element={<ResetPassword />} />
+        <Route
+          path="/forgot"
+          element={user ? <Navigate to="/" replace /> : <ForgotPassword />}
+        />
+        <Route
+          path="*"
+          element={
+            user === undefined ? (
+              <div className="min-h-full bg-app" /> // checking the session
+            ) : user === null ? (
+              <Login />
+            ) : (
+              <Shell isAdmin={isAdmin} />
+            )
+          }
+        />
+      </Routes>
+    </Suspense>
+  )
+}
 
 // App shell: persistent top nav + footer, routed pages (full-width layout).
-export default function App() {
+function Shell({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="flex min-h-full flex-col bg-app text-ink">
       <NavBar />
       <div className="flex-1">
-        <Suspense
-          fallback={<div className="w-full px-3 py-6 text-sm text-subtle">Loading…</div>}
-        >
+        <Suspense fallback={loading}>
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/watchlist" element={<Watchlist />} />
@@ -30,7 +66,9 @@ export default function App() {
             <Route path="/market" element={<Market />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/browse" element={<Browse />} />
-            <Route path="/data" element={<DataHealth />} />
+            {isAdmin && <Route path="/data" element={<DataHealth />} />}
+            {isAdmin && <Route path="/admin/users" element={<Users />} />}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </div>

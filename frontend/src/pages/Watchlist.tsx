@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { ArrowDownRight, ArrowUpRight, Info, RefreshCw, Trash2 } from 'lucide-react'
 import { refreshWatchlist, removeFromWatchlist, type WatchlistItem } from '../api'
 import { useWatchlist } from '../hooks'
+import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
 import { fmtCompact, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
@@ -54,6 +55,7 @@ export default function Watchlist() {
   const [selected, setSelected] = useState<WatchlistItem | null>(null)
   const queryClient = useQueryClient()
   const { settings } = useSettings()
+  const { isAdmin } = useAuth() // on-demand refresh calls the data provider
   const show = (key: string) => !settings.hiddenColumns.watchlist.includes(key)
 
   const { data: items = [], isLoading, isFetching } = useWatchlist({ poll: true })
@@ -90,6 +92,7 @@ export default function Watchlist() {
             Fundamentals are yearly (IDR) · PBV &amp; RoE vs latest price
           </p>
         </div>
+        {isAdmin && (
         <button
           onClick={() => refresh.mutate()}
           disabled={refresh.isPending || items.length === 0}
@@ -101,6 +104,7 @@ export default function Watchlist() {
           />
           {refresh.isPending ? 'Refreshing…' : 'Refresh fundamentals'}
         </button>
+        )}
       </div>
 
       {refresh.isSuccess && (

@@ -7,9 +7,14 @@ This module only wires things together: settings, middleware, the lifespan
 (DB init -> seed -> backfill -> scheduler) and the routers. Business logic
 lives in `services/` and market integration in `market/`.
 
+Every /api route needs a signed-in user (session cookie) except /api/health
+and the sign-in flow under /api/auth. Admin-only routes say so in their router.
+
 Endpoints
 ~~~~~~~~~
 GET    /api/health
+POST   /api/auth/login                      (routers/auth.py)
+GET    /api/admin/users                     (routers/admin.py, admins only)
 GET    /api/indexes                         (routers/meta.py)
 GET    /api/stocks?index=LQ45               (routers/stocks.py)
 GET    /api/stocks/{ticker}/history
@@ -22,21 +27,26 @@ POST   /api/watchlist/refresh
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Coroutine
+from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
 from contextlib import asynccontextmanager
 from datetime import datetime
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.responses import JSONResponse
 from sqlalchemy import func, select
 
 from config import settings
 from database import init_db
+from deps import current_user, require_admin
 from models import StockPrice
 from routers import (
+    admin,
     alerts,
     assistant,
+    auth,
     data_health,
     indices,
     mail,
@@ -59,6 +69,7 @@ from scheduler import (
     sync_splits_active,
     sync_watchlist_fundamentals,
 )
+from services.auth import ensure_setup_invite
 from services.bootstrap import purge_stale_fundamentals, seed
 from services.idx_listing import sync_if_stale as sync_idx_listing_if_stale
 from services.market_clock import last_closed_trading_day
@@ -104,6 +115,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Startup: init DB -> seed -> purge stale -> backfill -> start scheduler."""
     await init_db()
     await seed()
+    # Fresh install: log the one-time link that creates the first admin.
+    await ensure_setup_invite()
 
     # Drop fundamentals rows written before currency-aware storage.
     await purge_stale_fundamentals()
@@ -155,15 +168,50 @@ app.add_middleware(
 # Compress JSON responses (saves bandwidth on the price tables).
 app.add_middleware(GZipMiddleware, minimum_size=500)
 
-app.include_router(meta.router)
-app.include_router(stocks.router)
-app.include_router(watchlist.router)
-app.include_router(portfolio.router)
-app.include_router(screener.router)
-app.include_router(market.router)
-app.include_router(alerts.router)
-app.include_router(preferences.router)
-app.include_router(assistant.router)
-app.include_router(indices.router)
-app.include_router(data_health.router)
-app.include_router(mail.router)
+_UNSAFE = {"POST", "PUT", "PATCH", "DELETE"}
+
+
+def _origin(url: str) -> str:
+    parts = urlsplit(url)
+    return f"{parts.scheme}://{parts.netloc}".lower()
+
+
+_TRUSTED_ORIGINS = {_origin(u) for u in [settings.public_url, *settings.cors_origins]}
+
+
+@app.middleware("http")
+async def check_origin(
+    request: Request, call_next: Callable[[Request], Awaitable[Response]]
+) -> Response:
+    """
+    CSRF defence on top of the SameSite=Lax cookie: a browser always sends
+    Origin with cross-site writes, so a write from another site is refused.
+    Requests without Origin (curl, scripts) carry no browser cookies to abuse.
+    """
+    origin = request.headers.get("origin")
+    if request.method in _UNSAFE and origin:
+        same_host = urlsplit(origin).netloc.lower() == request.headers.get("host", "").lower()
+        # "null" (sandboxed frames, file://) has no netloc, so it is refused too.
+        if origin == "null" or not (same_host or _origin(origin) in _TRUSTED_ORIGINS):
+            return JSONResponse({"detail": "Cross-site request refused"}, status_code=403)
+    return await call_next(request)
+
+
+signed_in = [Depends(current_user)]
+admins = [Depends(require_admin)]
+
+app.include_router(meta.public)  # /api/health
+app.include_router(auth.router)  # sign-in flow (public; /me and /password check the cookie)
+app.include_router(admin.router)  # admins only (router dependency)
+app.include_router(meta.router, dependencies=signed_in)
+app.include_router(stocks.router, dependencies=signed_in)
+app.include_router(watchlist.router, dependencies=signed_in)
+app.include_router(portfolio.router, dependencies=signed_in)
+app.include_router(screener.router, dependencies=signed_in)
+app.include_router(market.router, dependencies=signed_in)
+app.include_router(alerts.router, dependencies=signed_in)
+app.include_router(preferences.router, dependencies=signed_in)
+app.include_router(assistant.router, dependencies=signed_in)
+app.include_router(indices.router, dependencies=signed_in)
+app.include_router(data_health.router, dependencies=admins)  # server internals
+app.include_router(mail.router, dependencies=admins)  # server-wide email setup

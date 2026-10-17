@@ -1,13 +1,13 @@
-"""Watchlist endpoints."""
+"""Watchlist endpoints (the signed-in user's list)."""
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from deps import get_session
-from models import Stock, Watchlist
-from schemas import FundamentalOut, RecommendationSummary, WatchlistItemOut
+from deps import current_user, get_session, require_admin, user_style
+from models import Stock, User, Watchlist
+from schemas import FundamentalOut, InvestingStyle, RecommendationSummary, WatchlistItemOut
 from services.fundamentals import sync_many, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily, latest_fundamentals
@@ -16,10 +16,14 @@ from services.recommendation import compute_universe_cached, invalidate_cache
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 
 
-async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
-    """Assemble watchlist rows (stock + price + fundamentals + ratios)."""
+async def _build_watchlist(
+    session: AsyncSession, user_id: int, style: InvestingStyle
+) -> list[WatchlistItemOut]:
+    """Assemble one user's watchlist rows (stock + price + fundamentals + ratios)."""
     links = (
-        await session.execute(select(Watchlist).order_by(Watchlist.added_at))
+        await session.execute(
+            select(Watchlist).where(Watchlist.user_id == user_id).order_by(Watchlist.added_at)
+        )
     ).scalars().all()
     tickers = [w.ticker for w in links]
     if not tickers:
@@ -32,7 +36,7 @@ async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
     index_map = await indices_map(session, tickers)
     price_map = await latest_daily(session, tickers)
     fund_map = await latest_fundamentals(session, tickers)
-    rec_map = await compute_universe_cached(session)  # cross-sectional -> score everyone
+    rec_map = await compute_universe_cached(session, style)  # cross-sectional
 
     items: list[WatchlistItemOut] = []
     for link in links:
@@ -76,16 +80,21 @@ async def _build_watchlist(session: AsyncSession) -> list[WatchlistItemOut]:
 @router.get("", response_model=list[WatchlistItemOut])
 async def get_watchlist(
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
+    style: InvestingStyle = Depends(user_style),
 ) -> list[WatchlistItemOut]:
-    return await _build_watchlist(session)
+    return await _build_watchlist(session, user.id, style)
 
 
 @router.post("/refresh")
 async def refresh_watchlist(
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(require_admin),  # provider calls; everyone's lists refresh daily
 ) -> dict[str, int]:
-    """Re-sync fundamentals for every watchlist ticker (on demand)."""
-    tickers = (await session.execute(select(Watchlist.ticker))).scalars().all()
+    """Re-sync fundamentals for the admin's watchlist tickers (on demand)."""
+    tickers = (
+        await session.execute(select(Watchlist.ticker).where(Watchlist.user_id == user.id))
+    ).scalars().all()
     rows = await sync_many(list(tickers), throttle=1.0)
     invalidate_cache()  # fresh fundamentals -> recompute scores next request
     return {"tickers": len(tickers), "rows": rows}
@@ -99,6 +108,8 @@ async def refresh_watchlist(
 async def add_to_watchlist(
     ticker: str,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
+    style: InvestingStyle = Depends(user_style),
 ) -> WatchlistItemOut:
     """Add a ticker, fetching its fundamentals inline (best-effort)."""
     stock = (
@@ -109,20 +120,20 @@ async def add_to_watchlist(
 
     existing = (
         await session.execute(
-            select(Watchlist).where(Watchlist.ticker == ticker)
+            select(Watchlist).where(Watchlist.user_id == user.id, Watchlist.ticker == ticker)
         )
     ).scalar_one_or_none()
     if existing is not None:
         raise HTTPException(status_code=409, detail="Already on watchlist")
 
-    session.add(Watchlist(ticker=ticker))
+    session.add(Watchlist(user_id=user.id, ticker=ticker))
     await session.commit()
 
     # Populate fundamentals immediately so the new row is useful at once.
     await sync_ticker(ticker)
     invalidate_cache()
 
-    items = await _build_watchlist(session)
+    items = await _build_watchlist(session, user.id, style)
     for item in items:
         if item.ticker == ticker:
             return item
@@ -133,10 +144,11 @@ async def add_to_watchlist(
 async def remove_from_watchlist(
     ticker: str,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
 ) -> Response:
     link = (
         await session.execute(
-            select(Watchlist).where(Watchlist.ticker == ticker)
+            select(Watchlist).where(Watchlist.user_id == user.id, Watchlist.ticker == ticker)
         )
     ).scalar_one_or_none()
     if link is None:

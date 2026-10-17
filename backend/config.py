@@ -50,6 +50,21 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
 
+    # Accounts (invite-only). `public_url` is where people open the app; it is
+    # used in invite / password-reset links and for the cross-site request check.
+    public_url: str = "http://localhost:5173"
+    session_cookie_name: str = "bursa_session"
+    # True when served over HTTPS (production): the cookie is then never sent
+    # over plain HTTP. Must stay False for http://localhost.
+    session_cookie_secure: bool = False
+    session_days: int = 30
+    invite_days: int = 7
+    password_reset_hours: int = 2
+    password_min_length: int = 10
+    # Sign-in attempts allowed per email (and 3x that per IP) in the window below.
+    login_max_failures: int = 10
+    login_window_minutes: int = 15
+
     # Optional email (mail/ package). `mail_provider` picks the adapter:
     # "smtp" (any mailbox: Gmail app password, Outlook, Zoho, Brevo, ...) or
     # "resend" (Resend API). Unset = email disabled. Secrets go in backend/.env.

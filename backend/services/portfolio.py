@@ -114,10 +114,10 @@ def apply_transactions(txs: Sequence[Trade | Transaction | AdjustedTx]) -> dict[
     return books
 
 
-async def build_portfolio(session: AsyncSession) -> tuple[Totals, list[Holding]]:
+async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, list[Holding]]:
     """Return (totals, holdings) enriched with the latest prices."""
     # In today's shares: split-adjusted (shares x ratio, price / ratio).
-    txs = await adjusted_transactions(session)
+    txs = await adjusted_transactions(session, user_id)
     books = apply_transactions(txs)
 
     open_books = {t: b for t, b in books.items() if b["quantity"] > 0}
@@ -225,10 +225,10 @@ def _close_on_or_before(series: list[tuple[date, float]], d: date) -> float | No
     return series[i][1] if i >= 0 else None
 
 
-async def equity_curve(session: AsyncSession) -> list[EquityPointData]:
+async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPointData]:
     """Daily portfolio value reconstructed from transactions + stored closes."""
     # In today's shares: split-adjusted (shares x ratio, price / ratio).
-    txs = await adjusted_transactions(session)
+    txs = await adjusted_transactions(session, user_id)
     if not txs:
         return []
 

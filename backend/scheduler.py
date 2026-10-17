@@ -9,6 +9,7 @@ Jobs:
   * sync_watchlist_fundamentals   -> refresh watchlist statements (weekday 18:00)
   * prune_intraday                -> drop 1m bars older than the retention window (daily)
   * compact_db                    -> VACUUM where the database needs it (weekly)
+  * purge_auth                    -> delete expired sessions and invite/reset links (daily)
 
 The heavy lifting lives in `market.sync` (batched downloads) and
 `services.fundamentals` (per-ticker statements).
@@ -48,7 +49,7 @@ async def active_tickers() -> list[str]:
             (await session.execute(select(StockIndex.ticker))).scalars().all()
         )
         active.update(
-            (await session.execute(select(Watchlist.ticker))).scalars().all()
+            (await session.execute(select(Watchlist.ticker).distinct())).scalars().all()
         )
         active.update(
             (await session.execute(select(Transaction.ticker).distinct()))
@@ -125,12 +126,12 @@ async def sync_splits_active() -> None:
 
 
 async def sync_watchlist_fundamentals() -> None:
-    """Refresh yearly fundamentals for every ticker currently on the watchlist."""
+    """Refresh yearly fundamentals for every ticker on anyone's watchlist."""
     from services.fundamentals import sync_many
 
     async with AsyncSessionLocal() as session:
         tickers = (
-            await session.execute(select(Watchlist.ticker))
+            await session.execute(select(Watchlist.ticker).distinct())
         ).scalars().all()
 
     if not tickers:
@@ -162,6 +163,15 @@ async def compact_db() -> None:
     ran = await maintenance.compact(engine)
     if ran:
         log.info("%s complete", ran)
+
+
+async def purge_auth() -> None:
+    """Delete expired sessions and stale invite / password-reset links."""
+    from services.auth import purge_expired
+
+    removed = await purge_expired()
+    if removed:
+        log.info("Purged %d expired session(s) / link(s)", removed)
 
 
 async def log_provider_stats() -> None:
@@ -306,6 +316,16 @@ def start_scheduler() -> None:
         prune_intraday,
         trigger=CronTrigger(hour=17, minute=0),
         id="prune_intraday",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Expired sessions / invite and reset links (daily, 03:30 WIB).
+    scheduler.add_job(
+        purge_auth,
+        trigger=CronTrigger(hour=3, minute=30),
+        id="purge_auth",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

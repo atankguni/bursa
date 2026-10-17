@@ -12,6 +12,7 @@ and Docker-ignored, and is passed to the container via `env_file`.
 | **Recommendation weights & rating thresholds** (investor and trader) | `backend/config.py` (`recommendation_*`) |
 | IDX holidays | `backend/market/holidays.py` (update annually from the IDX calendar) |
 | IDX lot size | `lot_size` (default 100) in `backend/config.py`; exposed via `/api/status` |
+| Accounts: public URL, cookie, session and link lifetimes | `backend/config.py` (see [Accounts](#accounts)) |
 
 ## Database
 
@@ -39,6 +40,39 @@ For example, in `docker-compose.yml`:
 The schema is created and upgraded automatically on startup (Alembic). Data is not
 copied between databases: a new database starts empty and fills from the providers.
 Your portfolio, watchlist and alerts would need to be moved separately.
+
+## Accounts
+
+Bursa is **invite-only** and every page needs a signed-in user. There is no sign-up:
+an admin invites people from **Users & invites** in the account menu.
+
+On a fresh install (no accounts yet) the backend logs a one-time link that creates the
+first admin account:
+
+```bash
+docker compose logs backend | grep "Create the admin"
+```
+
+The link is regenerated on every start until it is used. Data recorded before accounts
+existed (watchlist, portfolio, alerts, preferences) is given to that first admin.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `PUBLIC_URL` | `http://localhost:5173` | Where people open the app. Used in invite / reset links and trusted for writes (CSRF check) |
+| `SESSION_COOKIE_SECURE` | `false` | Set `true` when the app is served over **HTTPS** (required for a public deployment) |
+| `SESSION_DAYS` | `30` | A session expires after this many days without use |
+| `INVITE_DAYS` | `7` | Invite links expire after this |
+| `PASSWORD_RESET_HOURS` | `2` | Reset links expire after this |
+| `PASSWORD_MIN_LENGTH` | `10` | Minimum password length (no other complexity rules) |
+| `LOGIN_MAX_FAILURES` / `LOGIN_WINDOW_MINUTES` | `10` / `15` | Failed sign-ins allowed per email (3× per IP) before a pause |
+
+**Forgot password** emails a reset link when [Email](#email-optional) is set up.
+Without email, an admin creates a reset link for the user on the Users page and sends
+it to them. Invite links work the same way: they are always shown to the admin, and
+also emailed when email is set up.
+
+Before exposing Bursa on the internet, put it behind HTTPS, set `PUBLIC_URL` to the
+public address and `SESSION_COOKIE_SECURE=true`.
 
 ## Data providers
 
@@ -70,8 +104,9 @@ writing one adapter and registering it; the UI and API stay the same.
 
 ## Email (optional)
 
-Email is disabled until a provider is configured in `backend/.env`. No feature sends
-email yet: this is the delivery layer that alerts, digests or reports will use.
+Email is disabled until a provider is configured in `backend/.env`. It is used for
+invites and password resets (both also work without it), and is the delivery layer
+future alerts, digests or reports will use.
 Check the setup with `GET /api/mail/status`, and `POST /api/mail/test` sends a test
 message to `MAIL_TO`.
 
@@ -107,4 +142,6 @@ adding one (Mailgun, SES, ...) means writing one adapter and registering it. See
 ## Telegram alerts (optional)
 
 Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `backend/.env`. Step-by-step setup
-is shown on the Alerts page, which can also send a test message.
+is shown on the Alerts page (for admins), which can also send a test message. The chat
+belongs to the server owner, so only **admins'** alerts are sent there; everyone's
+alerts appear in the app.

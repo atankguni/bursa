@@ -1,12 +1,12 @@
-"""Alert endpoints (rules + in-app events)."""
+"""Alert endpoints: the signed-in user's rules and in-app events."""
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from deps import get_session
-from models import Alert, AlertEvent, Stock
+from deps import current_user, get_session, require_admin
+from models import Alert, AlertEvent, Stock, User
 from schemas import AlertEventOut, AlertIn, AlertOut, NotificationStatusOut
 from services import notify
 from services.alerts import THRESHOLD_TYPES
@@ -15,9 +15,13 @@ router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 
 
 @router.get("", response_model=list[AlertOut])
-async def list_alerts(session: AsyncSession = Depends(get_session)) -> list[AlertOut]:
+async def list_alerts(
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user)
+) -> list[AlertOut]:
     rows = (
-        await session.execute(select(Alert).order_by(Alert.created_at.desc()))
+        await session.execute(
+            select(Alert).where(Alert.user_id == user.id).order_by(Alert.created_at.desc())
+        )
     ).scalars().all()
     return [AlertOut.model_validate(r) for r in rows]
 
@@ -26,10 +30,14 @@ async def list_alerts(session: AsyncSession = Depends(get_session)) -> list[Aler
 async def list_events(
     limit: int = Query(50, ge=1, le=200),
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
 ) -> list[AlertEventOut]:
     rows = (
         await session.execute(
-            select(AlertEvent).order_by(AlertEvent.triggered_at.desc()).limit(limit)
+            select(AlertEvent)
+            .where(AlertEvent.user_id == user.id)
+            .order_by(AlertEvent.triggered_at.desc())
+            .limit(limit)
         )
     ).scalars().all()
     return [AlertEventOut.model_validate(r) for r in rows]
@@ -39,6 +47,7 @@ async def list_events(
 async def create_alert(
     payload: AlertIn,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
 ) -> AlertOut:
     stock = (
         await session.execute(select(Stock).where(Stock.ticker == payload.ticker))
@@ -49,7 +58,7 @@ async def create_alert(
         raise HTTPException(status_code=400, detail="threshold is required")
 
     alert = Alert(
-        ticker=payload.ticker, type=payload.type, threshold=payload.threshold
+        user_id=user.id, ticker=payload.ticker, type=payload.type, threshold=payload.threshold
     )
     session.add(alert)
     await session.commit()
@@ -61,9 +70,12 @@ async def create_alert(
 async def toggle_alert(
     alert_id: int,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
 ) -> AlertOut:
     alert = (
-        await session.execute(select(Alert).where(Alert.id == alert_id))
+        await session.execute(
+            select(Alert).where(Alert.id == alert_id, Alert.user_id == user.id)
+        )
     ).scalar_one_or_none()
     if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found")
@@ -77,9 +89,12 @@ async def toggle_alert(
 async def delete_alert(
     alert_id: int,
     session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
 ) -> Response:
     alert = (
-        await session.execute(select(Alert).where(Alert.id == alert_id))
+        await session.execute(
+            select(Alert).where(Alert.id == alert_id, Alert.user_id == user.id)
+        )
     ).scalar_one_or_none()
     if alert is None:
         raise HTTPException(status_code=404, detail="Alert not found")
@@ -88,12 +103,20 @@ async def delete_alert(
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.get("/notifications", response_model=NotificationStatusOut)
+@router.get(
+    "/notifications",
+    response_model=NotificationStatusOut,
+    dependencies=[Depends(require_admin)],  # server-wide Telegram setup
+)
 async def notification_status() -> NotificationStatusOut:
     return NotificationStatusOut(telegram=notify.telegram_configured())
 
 
-@router.post("/notifications/test", response_model=NotificationStatusOut)
+@router.post(
+    "/notifications/test",
+    response_model=NotificationStatusOut,
+    dependencies=[Depends(require_admin)],
+)
 async def notification_test() -> NotificationStatusOut:
     """Send a test message through every configured channel."""
     if not notify.telegram_configured():

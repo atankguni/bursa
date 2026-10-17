@@ -14,8 +14,21 @@ docker compose up --build
 The SQLite database lives at `./backend/data/bursa.db` and survives container restarts.
 The first boot fetches ~1 year of daily candles, so initial charts fill in within a few seconds.
 
-Optional extras (AI assistant, Telegram alerts) are enabled through `backend/.env`;
-see [Configuration](configuration.md).
+### First sign-in
+
+Bursa is invite-only. On the first start the backend logs a one-time link that
+creates the admin account:
+
+```bash
+docker compose logs backend | grep "Create the admin"
+```
+
+Open it, choose your name, email and password, and you're in. Invite others from
+**Users & invites** in the account menu (top right). See
+[Configuration → Accounts](configuration.md#accounts).
+
+Optional extras (AI assistant, email, Telegram alerts) are enabled through
+`backend/.env`; see [Configuration](configuration.md).
 
 ## Reset all data
 

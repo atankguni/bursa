@@ -60,10 +60,16 @@ def project(
     return out
 
 
-async def dividend_calendar(session: AsyncSession, days: int = 180) -> list[ExpectedDividend]:
-    _, holdings = await build_portfolio(session)
+async def dividend_calendar(
+    session: AsyncSession, user_id: int, days: int = 180
+) -> list[ExpectedDividend]:
+    _, holdings = await build_portfolio(session, user_id)
     held = {h["ticker"]: h["quantity"] for h in holdings}
-    watched = set((await session.execute(select(Watchlist.ticker))).scalars().all())
+    watched = set(
+        (await session.execute(
+            select(Watchlist.ticker).where(Watchlist.user_id == user_id)
+        )).scalars().all()
+    )
     tickers = sorted(set(held) | watched)
     if not tickers:
         return []

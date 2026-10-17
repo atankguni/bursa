@@ -14,6 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Stock
+from schemas import InvestingStyle
 from services.metrics import derive_metrics
 from services.prices import (
     indices_map,
@@ -44,8 +45,14 @@ class ScreenerRowData(TypedDict):
     board: str | None  # IDX listing board ("Watchlist" = special monitoring)
 
 
-async def build_rows(session: AsyncSession) -> list[ScreenerRowData]:
-    """Assemble the screener dataset (one dict per tracked stock)."""
+async def build_rows(
+    session: AsyncSession, style: InvestingStyle | None
+) -> list[ScreenerRowData]:
+    """
+    Assemble the screener dataset (one dict per tracked stock), rated with the
+    given investing style. `style=None` skips scoring (callers that only need
+    prices and fundamentals); score/rating fields are then None.
+    """
     stocks = (
         await session.execute(select(Stock).order_by(Stock.ticker))
     ).scalars().all()
@@ -55,7 +62,7 @@ async def build_rows(session: AsyncSession) -> list[ScreenerRowData]:
     price_map = await latest_daily(session, tickers)
     fund_map = await latest_fundamentals(session, tickers)
     prof_map = await profiles(session, tickers)
-    rec_map = await compute_universe_cached(session)
+    rec_map = await compute_universe_cached(session, style) if style else {}
 
     rows: list[ScreenerRowData] = []
     for s in stocks:

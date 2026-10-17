@@ -15,16 +15,26 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant.providers import ToolSpec
-from models import Fundamental, Stock, StockPrice
+from models import Fundamental, Stock, StockPrice, Watchlist
+from schemas import InvestingStyle
 from services.market_overview import overview
 from services.metrics import derive_metrics
 from services.portfolio import build_portfolio
-from services.preferences import get_investing_style
 from services.prices import latest_daily
 from services.recommendation import compute_universe_cached
 from services.screener import ScreenerRowData, build_rows, filter_rows
 
-type Handler = Callable[[AsyncSession, dict[str, Any]], Awaitable[Any]]
+
+@dataclass(frozen=True)
+class ToolContext:
+    """What a tool may use: the DB session and who is asking (their style)."""
+
+    session: AsyncSession
+    user_id: int
+    style: InvestingStyle
+
+
+type Handler = Callable[[ToolContext, dict[str, Any]], Awaitable[Any]]
 
 
 @dataclass(frozen=True)
@@ -65,7 +75,8 @@ def _row(r: ScreenerRowData) -> dict[str, Any]:
 # --------------------------------------------------------------------------- #
 # Handlers
 # --------------------------------------------------------------------------- #
-async def search_stocks(session: AsyncSession, args: dict[str, Any]) -> Any:
+async def search_stocks(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
     q = str(args.get("query", "")).strip()
     if len(q) < 2:
         return {"error": "query must be at least 2 characters"}
@@ -81,17 +92,19 @@ async def search_stocks(session: AsyncSession, args: dict[str, Any]) -> Any:
     return [{"ticker": t, "name": n} for t, n in rows]
 
 
-async def get_stock(session: AsyncSession, args: dict[str, Any]) -> Any:
+async def get_stock(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
     ticker = _ticker(args.get("ticker"))
-    for r in await build_rows(session):
+    for r in await build_rows(session, ctx.style):
         if r["ticker"] == ticker:
             return _row(r)
     return {"error": f"{ticker} is not in the app's universe (try search_stocks)"}
 
 
-async def screen_stocks(session: AsyncSession, args: dict[str, Any]) -> Any:
+async def screen_stocks(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
     rows = filter_rows(
-        await build_rows(session),
+        await build_rows(session, ctx.style),
         min_score=_float(args, "min_score"),
         max_pbv=_float(args, "max_pbv"),
         min_roe=_float(args, "min_roe"),
@@ -108,9 +121,10 @@ async def screen_stocks(session: AsyncSession, args: dict[str, Any]) -> Any:
     return {"matched": len(rows), "rows": [_row(r) for r in rows[:limit]]}
 
 
-async def get_signal(session: AsyncSession, args: dict[str, Any]) -> Any:
+async def get_signal(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
     ticker = _ticker(args.get("ticker"))
-    style = await get_investing_style(session)
+    style = ctx.style
     rec = (await compute_universe_cached(session, style)).get(ticker)
     if rec is None:
         need = ("too thinly traded or too little price history" if style == "trader"
@@ -119,7 +133,8 @@ async def get_signal(session: AsyncSession, args: dict[str, Any]) -> Any:
     return {"rated": True, **rec.model_dump()}
 
 
-async def get_fundamentals(session: AsyncSession, args: dict[str, Any]) -> Any:
+async def get_fundamentals(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
     ticker = _ticker(args.get("ticker"))
     funds = (
         await session.execute(
@@ -146,7 +161,8 @@ async def get_fundamentals(session: AsyncSession, args: dict[str, Any]) -> Any:
     }
 
 
-async def get_price_history(session: AsyncSession, args: dict[str, Any]) -> Any:
+async def get_price_history(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
     ticker = _ticker(args.get("ticker"))
     days = max(5, min(int(args.get("days", 30)), 250))
     bars = (
@@ -172,27 +188,30 @@ async def get_price_history(session: AsyncSession, args: dict[str, Any]) -> Any:
     }
 
 
-async def market_overview(session: AsyncSession, args: dict[str, Any]) -> Any:
+async def market_overview(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
     return await overview(session)
 
 
-async def get_investing_style_tool(session: AsyncSession, args: dict[str, Any]) -> Any:
-    style = await get_investing_style(session)
+async def get_investing_style_tool(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    style = ctx.style
     return {"style": style, "meaning": {
         "investor": "long-term; signals from fundamentals (quality, valuation, growth, health)",
         "trader": "swing, 1-4 weeks; signals from price behaviour (stability, setup, pullback)",
     }[style]}
 
 
-async def get_watchlist(session: AsyncSession, args: dict[str, Any]) -> Any:
-    from models import Watchlist
+async def get_watchlist(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
+    tickers = set((await session.execute(
+        select(Watchlist.ticker).where(Watchlist.user_id == ctx.user_id)
+    )).scalars().all())
+    return [_row(r) for r in await build_rows(session, ctx.style) if r["ticker"] in tickers]
 
-    tickers = set((await session.execute(select(Watchlist.ticker))).scalars().all())
-    return [_row(r) for r in await build_rows(session) if r["ticker"] in tickers]
 
-
-async def get_portfolio(session: AsyncSession, args: dict[str, Any]) -> Any:
-    totals, holdings = await build_portfolio(session)
+async def get_portfolio(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
+    totals, holdings = await build_portfolio(session, ctx.user_id)
     return {"totals": totals, "holdings": holdings}
 
 

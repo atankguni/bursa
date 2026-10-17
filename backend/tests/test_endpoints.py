@@ -132,7 +132,8 @@ async def test_switching_style_resets_rating_alert_baselines(client):
     from models import RatingState
 
     async with AsyncSessionLocal() as s:
-        s.add(RatingState(ticker="BBCA.JK", rating="Buy", strength="Strong"))
+        s.add(RatingState(user_id=client.user_id, ticker="BBCA.JK", rating="Buy",
+                          strength="Strong"))
         await s.commit()
 
     await client.put("/api/preferences", json={"investing_style": "trader"})

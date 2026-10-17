@@ -9,6 +9,7 @@ import {
 } from 'lucide-react'
 import { cancelScreenerSync, startScreenerSync, type ScreenerRow } from '../api'
 import { useMarketOverview, useScreener, useSyncStatus } from '../hooks'
+import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
 import { fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
@@ -21,7 +22,7 @@ const PAGE_SIZES = [50, 100, 200] // the API caps a page at 200
 /** Why a PBV / RoE cell is blank (shown as a tooltip on the dash). */
 function blankReason(r: ScreenerRow, metric: 'pbv' | 'roe'): string | undefined {
   if (r[metric] != null) return undefined
-  if (!r.has_fundamentals) return 'No fundamentals yet: use “Sync missing” to fetch them'
+  if (!r.has_fundamentals) return 'No fundamentals yet (an admin can sync them)'
   if (metric === 'pbv' && r.price == null) return 'No price data (possibly suspended)'
   return 'Not meaningful: book value / equity is negative'
 }
@@ -65,7 +66,8 @@ export default function Screener() {
   const { data: overview } = useMarketOverview()
   const sectors = (overview?.sectors ?? []).map((s) => s.sector)
 
-  // Background "sync missing data" job.
+  // Background "sync missing data" job (admins start it; everyone sees progress).
+  const { isAdmin } = useAuth()
   const { data: sync } = useSyncStatus()
   const startSync = useMutation({
     mutationFn: (all: boolean) => startScreenerSync({ all }),
@@ -174,15 +176,17 @@ export default function Screener() {
                 {sync.mode === 'all' ? 'Syncing all' : 'Syncing'} {sync.done}/{sync.total}
                 {sync.note && <span className="text-subtle">· {sync.note}</span>}
               </span>
-              <button
-                onClick={() => stopSync.mutate()}
-                disabled={stopSync.isPending}
-                className="rounded px-2.5 py-1.5 font-medium text-bear ring-1 ring-bear/30 transition hover:bg-bear/10 disabled:opacity-50"
-              >
-                Stop
-              </button>
+              {isAdmin && (
+                <button
+                  onClick={() => stopSync.mutate()}
+                  disabled={stopSync.isPending}
+                  className="rounded px-2.5 py-1.5 font-medium text-bear ring-1 ring-bear/30 transition hover:bg-bear/10 disabled:opacity-50"
+                >
+                  Stop
+                </button>
+              )}
             </div>
-          ) : (
+          ) : isAdmin ? (
             <div className="flex items-center gap-1.5">
               {sync?.last_error && (
                 <span
@@ -213,7 +217,7 @@ export default function Screener() {
                 Sync all
               </button>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
 

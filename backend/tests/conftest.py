@@ -20,26 +20,51 @@ os.environ["DATABASE_URL"] = os.environ.get(
 )
 
 import pytest_asyncio  # noqa: E402
-from alembic import command  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
+from sqlalchemy import text  # noqa: E402
 
-from database import engine, init_db  # noqa: E402
-from db.migrate import alembic_config  # noqa: E402
+from config import settings  # noqa: E402
+from database import AsyncSessionLocal, engine, init_db  # noqa: E402
 from main import app  # noqa: E402
+from models import Base, User  # noqa: E402
+from services import auth  # noqa: E402
 from services.bootstrap import seed  # noqa: E402
+
+ADMIN_EMAIL = "admin@example.com"
+PASSWORD = "correct horse battery"
+
+
+async def make_user(email: str, role: str = "user", password: str = PASSWORD) -> int:
+    async with AsyncSessionLocal() as s:
+        user = User(email=email, name=email.split("@")[0], role=role,
+                    password_hash=auth.hash_password(password))
+        s.add(user)
+        await s.commit()
+        return user.id
+
+
+async def signed_in(email: str) -> AsyncClient:
+    """A client with a session cookie for `email` (caller closes it)."""
+    async with AsyncSessionLocal() as s:
+        user = await auth.user_by_email(s, email)
+        assert user is not None
+        raw = await auth.create_session(s, user, "pytest", None)
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test",
+                       cookies={settings.session_cookie_name: raw})
 
 
 @pytest_asyncio.fixture
-async def client():
+async def db():
+    """Migrated + seeded database, torn down after the test."""
     await init_db()
     await seed()
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://test") as c:
-        yield c
+    auth._failures.clear()
+    yield
     # Tear down the DB between tests for isolation.
     if engine.dialect.name != "sqlite":
         async with engine.begin() as conn:
-            await conn.run_sync(lambda c: command.downgrade(alembic_config(c), "base"))
+            await conn.run_sync(Base.metadata.drop_all)
+            await conn.execute(text("DROP TABLE IF EXISTS alembic_version"))
     await engine.dispose()
     if _TEST_DB.exists():
         _TEST_DB.unlink()
@@ -47,6 +72,22 @@ async def client():
         side = _TEST_DB.with_name(_TEST_DB.name + suffix)
         if side.exists():
             side.unlink()
+
+
+@pytest_asyncio.fixture
+async def anon(db):
+    """Not signed in."""
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+        yield c
+
+
+@pytest_asyncio.fixture
+async def client(db):
+    """Signed in as an admin; `client.user_id` is their id."""
+    user_id = await make_user(ADMIN_EMAIL, role="admin")
+    async with await signed_in(ADMIN_EMAIL) as c:
+        c.user_id = user_id  # type: ignore[attr-defined]
+        yield c
 
 
 @pytest_asyncio.fixture(autouse=True)

@@ -31,7 +31,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from models import Fundamental, Stock, StockProfile
 from schemas import CategoryOut, InvestingStyle, RecommendationOut
-from services.preferences import get_investing_style
 from services.prices import (
     daily_closes,
     fundamental_series,
@@ -405,15 +404,13 @@ _cache: dict[InvestingStyle, tuple[float, dict[str, RecommendationOut]]] = {}
 
 
 async def compute_universe_cached(
-    session: AsyncSession, style: InvestingStyle | None = None
+    session: AsyncSession, style: InvestingStyle
 ) -> dict[str, RecommendationOut]:
     """
-    Whole-universe scores, cached for `recommendation_cache_seconds`.
-
-    Defaults to the user's saved investing style, so every page (and alerts)
-    follow the Settings choice without passing it around.
+    Whole-universe scores for one investing style, cached per style for
+    `recommendation_cache_seconds`. Callers pass the signed-in user's style
+    (`deps`/`services.preferences`), so users with different styles don't mix.
     """
-    style = style or await get_investing_style(session)
     now = time.monotonic()
     cached = _cache.get(style)
     if cached is not None and now - cached[0] < settings.recommendation_cache_seconds:

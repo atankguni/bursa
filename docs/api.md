@@ -3,6 +3,39 @@
 The backend serves interactive OpenAPI docs at http://localhost:8000/docs.
 `{ticker}` uses the Yahoo suffix, e.g. `BBCA.JK`.
 
+Every endpoint needs a signed-in session (the `bursa_session` cookie from
+`POST /api/auth/login`) except `/api/health` and the public `/api/auth` routes.
+Without one the API answers `401`; **admin** endpoints answer `403` to other users.
+Watchlist, portfolio, alerts, preferences and the assistant act on the signed-in
+user's own data. Writes from another site's page are refused (`403`).
+
+## Auth
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/api/auth/options` | Public: whether reset-by-email is available, minimum password length |
+| POST   | `/api/auth/login` | Sign in (`email`, `password`); sets the session cookie |
+| POST   | `/api/auth/logout` | Sign out this browser |
+| GET    | `/api/auth/me` | The signed-in user |
+| POST   | `/api/auth/password` | Change password (signs out other browsers) |
+| GET    | `/api/auth/invites/{token}` | Public: check an invite link |
+| POST   | `/api/auth/invites/{token}/accept` | Public: create the account (`name`, `password`; `email` for the setup link) and sign in |
+| POST   | `/api/auth/password-reset` | Public: email a reset link (needs email set up) |
+| GET/POST | `/api/auth/password-reset/{token}` | Public: check a reset link / set the new password |
+
+## Admin
+
+All admin only.
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/api/admin/users` | All accounts |
+| PATCH  | `/api/admin/users/{id}` | Change `role` or `is_active` (not your own; one active admin always remains) |
+| DELETE | `/api/admin/users/{id}` | Delete an account and its data |
+| POST   | `/api/admin/users/{id}/reset-link` | One-time password reset link (also emailed if possible) |
+| GET/POST | `/api/admin/invites` | Pending invites / invite an email (`email`, `role`); returns the link |
+| DELETE | `/api/admin/invites/{id}` | Revoke a pending invite |
+
 ## Meta
 
 | Method | Path | Description |
@@ -12,8 +45,8 @@ The backend serves interactive OpenAPI docs at http://localhost:8000/docs.
 | GET    | `/api/market-status` | IDX trading status (open / break / closed) |
 | GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |
-| GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values |
-| GET/PUT | `/api/preferences` | Server-side preferences (investing style) |
+| GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values (admin) |
+| GET/PUT | `/api/preferences` | Your preferences (investing style, assistant access to your data) |
 
 ## Stocks
 
@@ -84,8 +117,8 @@ The backend serves interactive OpenAPI docs at http://localhost:8000/docs.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET    | `/api/mail/status` | Whether email is configured (provider, sender, recipient count, setup hint) |
-| POST   | `/api/mail/test` | Send a test email to `MAIL_TO` |
+| GET    | `/api/mail/status` | Whether email is configured (provider, sender, recipient count, setup hint) (admin) |
+| POST   | `/api/mail/test` | Send a test email to `MAIL_TO` (admin) |
 
 ## Assistant
 

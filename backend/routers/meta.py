@@ -15,9 +15,11 @@ from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, ProviderStat, S
 from services.market_clock import status as market_status
 
 router = APIRouter(prefix="/api", tags=["meta"])
+# Liveness probe for Docker / uptime checks: the one endpoint needing no sign-in.
+public = APIRouter(prefix="/api", tags=["meta"])
 
 
-@router.get("/health")
+@public.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok"}
 

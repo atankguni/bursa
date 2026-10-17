@@ -28,6 +28,8 @@ Bursa is **free and open source** under the [MIT License](LICENSE).
 - **AI assistant** (optional): ask questions about the market in English or Indonesian, answered
   from the app's own data (Gemini free tier).
 - **Gentle on free APIs**: tiered sync, a rate-limit governor and the database as the cache.
+- **Invite-only accounts**: everyone gets their own watchlist, portfolio, alerts and style;
+  email + password sign-in, admin-managed invites and reset links.
 - **Your choice of database**: SQLite out of the box; PostgreSQL or MySQL by changing one setting.
 
 See the full **[feature list](docs/features.md)**.
@@ -40,6 +42,12 @@ docker compose up --build
 
 Open **http://localhost:5173**. The API runs at http://localhost:8000 (docs at `/docs`).
 Data is stored in `backend/data/bursa.db` and survives restarts.
+
+Bursa is invite-only. Get the one-time link for the first (admin) account from the logs:
+
+```bash
+docker compose logs backend | grep "Create the admin"
+```
 
 To enable the AI assistant or Telegram alerts, add keys to `backend/.env`. See
 [Configuration](docs/configuration.md).

@@ -72,6 +72,7 @@ async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
     monkeypatch.setattr(indices, "ensure_full_history", no_fetch)
     closes = {1: 1000.0, 2: 1100.0, 3: 1100.0, 4: 1210.0}
     ihsg = {1: 7000.0, 2: 7070.0, 3: 6930.0, 4: 7140.0}
+    uid = client.user_id
     async with AsyncSessionLocal() as s:
         await s.execute(insert(StockPrice).values([
             {"ticker": "BBCA.JK", "timestamp": datetime(2026, 1, d), "interval": "1d",
@@ -81,14 +82,14 @@ async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
             {"code": "COMPOSITE", "day": date(2026, 1, d), "close": c} for d, c in ihsg.items()
         ]))
         s.add_all([
-            Transaction(ticker="BBCA.JK", side="buy", quantity=100, price=1000.0,
+            Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=100, price=1000.0,
                         fees=0.0, trade_date=date(2026, 1, 1)),
             # Day 3: add as much money again at 1100 (a deposit, not a gain).
-            Transaction(ticker="BBCA.JK", side="buy", quantity=100, price=1100.0,
+            Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=100, price=1100.0,
                         fees=0.0, trade_date=date(2026, 1, 3)),
         ])
         await s.commit()
-        curve = await equity_curve(s)
+        curve = await equity_curve(s, client.user_id)
 
     by_day = {p["date"].day: p for p in curve}
     assert by_day[2]["return_pct"] == 10.0   # 1000 -> 1100
@@ -136,12 +137,13 @@ async def test_risk_endpoint_concentration_and_warnings(client, monkeypatch):
         return None
 
     monkeypatch.setattr(indices, "ensure_full_history", no_fetch)
+    uid = client.user_id
     async with AsyncSessionLocal() as s:
         s.add_all([
-            Transaction(ticker="BBCA.JK", side="buy", quantity=900, price=100.0, fees=0.0,
-                        trade_date=date(2026, 1, 2)),
-            Transaction(ticker="TLKM.JK", side="buy", quantity=100, price=100.0, fees=0.0,
-                        trade_date=date(2026, 1, 2)),
+            Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=900, price=100.0,
+                        fees=0.0, trade_date=date(2026, 1, 2)),
+            Transaction(user_id=uid, ticker="TLKM.JK", side="buy", quantity=100, price=100.0,
+                        fees=0.0, trade_date=date(2026, 1, 2)),
         ])
         await s.commit()
     r = (await client.get("/api/portfolio/risk")).json()
@@ -185,10 +187,11 @@ async def test_dividend_calendar_endpoint(client, monkeypatch):
 
     monkeypatch.setattr(cal, "sync_dividends", no_sync)
     last_year = date.today() - timedelta(days=340)  # -> expected in ~25 days
+    uid = client.user_id
     async with AsyncSessionLocal() as s:
-        s.add(Transaction(ticker="BBCA.JK", side="buy", quantity=1000, price=9000.0,
+        s.add(Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=1000, price=9000.0,
                           fees=0.0, trade_date=date(2026, 1, 2)))
-        s.add(Watchlist(ticker="TLKM.JK"))
+        s.add(Watchlist(user_id=uid, ticker="TLKM.JK"))
         s.add_all([Dividend(ticker="BBCA.JK", ex_date=last_year, amount=50.0),
                    Dividend(ticker="TLKM.JK", ex_date=last_year, amount=100.0)])
         await s.commit()

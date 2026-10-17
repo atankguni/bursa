@@ -88,7 +88,7 @@ async def report(session: AsyncSession, jobs: list[dict[str, Any]]) -> dict[str,
     )
 
     # --- suspicious values ----------------------------------------------------
-    rows = await build_rows(session)
+    rows = await build_rows(session, None)  # data checks only, no ratings
     extreme = [
         {"ticker": r["ticker"], "issue": issue}
         for r in rows

@@ -53,6 +53,18 @@
 Signals are heuristics, **not financial advice**. Measure changes with the point-in-time
 backtest (see [Development](development.md#signal-backtest)).
 
+## Accounts
+
+- **Invite-only**: every page needs a signed-in user. Admins invite people by email
+  from **Users & invites**; the invite link is shown to copy, and also emailed when
+  email is set up.
+- **Your own data**: watchlist, portfolio, alerts, investing style and assistant
+  settings belong to each user. Market data (prices, fundamentals, indices) is shared.
+- **Email + password** sign-in. Change your password from the account menu (other
+  devices are signed out). Forgot it? Get a reset link by email, or from an admin.
+- **Admins** also manage users (role, disable, delete), start data syncs, track new
+  symbols, and see data health, email and Telegram setup.
+
 ## Personal tracking
 
 - **Watchlist**: add/remove stocks; yearly figures (shares, revenue, net income, assets,
@@ -69,8 +81,8 @@ backtest (see [Development](development.md#signal-backtest)).
   - An **expected dividend calendar**, projected from last year's ex-dates.
   - Holdings are **split-adjusted** automatically.
 - **Alerts**: price-above/below, %-change and rating-change rules with in-app
-  notifications (navbar bell) and optional **Telegram** delivery. Rules are evaluated after
-  each market sync.
+  notifications (navbar bell) and optional **Telegram** delivery (admins' alerts). Rules
+  are evaluated after each market sync.
 
 ## Assistant and tools
 

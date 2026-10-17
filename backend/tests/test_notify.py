@@ -53,7 +53,8 @@ async def test_triggered_alert_is_sent(client, monkeypatch):
              "open": 100.0, "high": 100.0, "low": 100.0, "close": c, "volume": 1}
             for d, c in ((15, 5000.0), (16, 5175.0))
         ]))
-        s.add(Alert(ticker="BBCA.JK", type="price_above", threshold=5100.0))
+        s.add(Alert(user_id=client.user_id, ticker="BBCA.JK", type="price_above",
+                    threshold=5100.0))
         await s.commit()
 
     assert await evaluate_alerts() == 1

@@ -76,7 +76,7 @@ def _mover(r: ScreenerRowData) -> Mover:
 
 async def overview(session: AsyncSession, top_n: int = 5) -> Overview:
     """Breadth counts, top gainers/losers, and sector performance."""
-    rows = await build_rows(session)
+    rows = await build_rows(session, None)  # prices only, no ratings
 
     # (change, row) pairs so the narrowed float survives the sort.
     with_change = [

@@ -80,10 +80,14 @@ def adjust(txs: Sequence[Transaction], splits: SplitMap) -> list[AdjustedTx]:
 
 
 async def adjusted_transactions(
-    session: AsyncSession, ticker: str | None = None
+    session: AsyncSession, user_id: int, ticker: str | None = None
 ) -> list[AdjustedTx]:
-    """All (or one ticker's) transactions in trade order, split-adjusted."""
-    stmt = select(Transaction).order_by(Transaction.trade_date, Transaction.id)
+    """A user's transactions (all, or one ticker's) in trade order, split-adjusted."""
+    stmt = (
+        select(Transaction)
+        .where(Transaction.user_id == user_id)
+        .order_by(Transaction.trade_date, Transaction.id)
+    )
     if ticker is not None:
         stmt = stmt.where(Transaction.ticker == ticker)
     txs = (await session.execute(stmt)).scalars().all()

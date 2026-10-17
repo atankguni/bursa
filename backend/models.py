@@ -7,7 +7,8 @@ SQLAlchemy 2.0 ORM models.
 `StockIndex`  -> many-to-many membership: which index a ticker belongs to
                  (a stock can be in several indices at once).
 `StockPrice`  -> OHLCV rows (both daily and intraday bars).
-`Watchlist`   -> user's hand-picked tickers to follow.
+`User`        -> accounts (+ UserSession, Invite, PasswordReset for auth).
+`Watchlist`   -> a user's hand-picked tickers to follow.
 `Fundamental` -> yearly financial statement figures per ticker.
 
 Numbers use `Double` (8-byte), not `Float`: MySQL maps Float to a 4-byte FLOAT,
@@ -38,6 +39,76 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
+
+
+class User(Base):
+    """An account. Invite-only: created by accepting an Invite."""
+
+    __tablename__ = "users"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # Stored lower-cased (services/auth.normalize_email).
+    email: Mapped[str] = mapped_column(String(254), unique=True, index=True, nullable=False)
+    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
+    role: Mapped[str] = mapped_column(String(8), default="user", nullable=False)  # user|admin
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), nullable=False
+    )
+    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<User {self.email} ({self.role})>"
+
+
+class UserSession(Base):
+    """A signed-in browser. The cookie holds a random token; only its SHA-256 is stored."""
+
+    __tablename__ = "sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+
+
+class Invite(Base):
+    """A one-time sign-up link for an email address (only the token's hash is stored)."""
+
+    __tablename__ = "invites"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    email: Mapped[str] = mapped_column(String(254), index=True, nullable=False)
+    role: Mapped[str] = mapped_column(String(8), default="user", nullable=False)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    invited_by: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    accepted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+
+class PasswordReset(Base):
+    """A one-time password-reset link (only the token's hash is stored)."""
+
+    __tablename__ = "password_resets"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    expires_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Stock(Base):
@@ -126,13 +197,22 @@ class Watchlist(Base):
     __tablename__ = "watchlist"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # Owner. Nullable only for rows from before accounts existed; the first admin
+    # claims those (services/auth.claim_orphans). Every query filters on it.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     ticker: Mapped[str] = mapped_column(
-        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"),
-        unique=True, index=True, nullable=False,
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
+        nullable=False,
     )
     added_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), nullable=False
     )
+
+    # (ticker, user_id), not (user_id, ticker): MySQL needs an index that starts
+    # with `ticker` for its foreign key while migration 0002 swaps the old index.
+    __table_args__ = (UniqueConstraint("ticker", "user_id", name="uq_watchlist_user_ticker"),)
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Watchlist {self.ticker}>"
@@ -222,6 +302,11 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # Owner. Nullable only for rows from before accounts existed; the first admin
+    # claims those (services/auth.claim_orphans). Every query filters on it.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     ticker: Mapped[str] = mapped_column(
         String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
         nullable=False,
@@ -246,6 +331,11 @@ class Alert(Base):
     __tablename__ = "alerts"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # Owner. Nullable only for rows from before accounts existed; the first admin
+    # claims those (services/auth.claim_orphans). Every query filters on it.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     ticker: Mapped[str] = mapped_column(
         String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
         nullable=False,
@@ -269,6 +359,11 @@ class AlertEvent(Base):
     __tablename__ = "alert_events"
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # Owner. Nullable only for rows from before accounts existed; the first admin
+    # claims those (services/auth.claim_orphans). Every query filters on it.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
+    )
     alert_id: Mapped[int] = mapped_column(
         ForeignKey("alerts.id", ondelete="CASCADE"), index=True, nullable=False
     )
@@ -284,13 +379,20 @@ class AlertEvent(Base):
 
 
 class RatingState(Base):
-    """Last-seen recommendation rating per ticker (for rating-change alerts)."""
+    """
+    Last-seen rating per (user, ticker), for rating-change alerts. Per user
+    because ratings depend on each user's investing style. Derived data: missing
+    rows are rebuilt (as a baseline, without alerting) on the next evaluation.
+    """
 
     __tablename__ = "rating_state"
 
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
     ticker: Mapped[str] = mapped_column(
-        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"),
-        primary_key=True, nullable=False,
+        String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), nullable=False
     )
     rating: Mapped[str] = mapped_column(String(16), nullable=False)
     strength: Mapped[str | None] = mapped_column(String(16), nullable=True)
@@ -298,8 +400,10 @@ class RatingState(Base):
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    __table_args__ = (UniqueConstraint("user_id", "ticker", name="uq_rating_state"),)
+
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return f"<RatingState {self.ticker} {self.rating}>"
+        return f"<RatingState {self.user_id} {self.ticker} {self.rating}>"
 
 
 class Dividend(Base):
@@ -323,19 +427,27 @@ class Dividend(Base):
         return f"<Dividend {self.ticker} {self.ex_date} {self.amount}>"
 
 
-class Preference(Base):
-    """A server-side user preference (key/value; this is a single-user app)."""
+class UserPreference(Base):
+    """A server-side preference of one user (key/value, e.g. investing style)."""
 
-    __tablename__ = "preferences"
+    __tablename__ = "user_preferences"
 
-    key: Mapped[str] = mapped_column(String(64), primary_key=True)
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    # Owner. Nullable only for rows from before accounts existed; the first admin
+    # claims those (services/auth.claim_orphans). Every query filters on it.
+    user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True, nullable=True
+    )
+    key: Mapped[str] = mapped_column(String(64), nullable=False)
     value: Mapped[str] = mapped_column(String(255), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
+    __table_args__ = (UniqueConstraint("user_id", "key", name="uq_user_preference"),)
+
     def __repr__(self) -> str:  # pragma: no cover - debug helper
-        return f"<Preference {self.key}={self.value}>"
+        return f"<UserPreference {self.user_id} {self.key}={self.value}>"
 
 
 class IndexQuote(Base):

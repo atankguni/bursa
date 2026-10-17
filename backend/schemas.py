@@ -507,7 +507,7 @@ class AssistantStatusOut(BaseModel):
 
 
 class PreferencesOut(BaseModel):
-    """Server-side user preferences (single-user app)."""
+    """Server-side preferences of the signed-in user."""
 
     investing_style: InvestingStyle = "investor"
     # Opt-in: the AI assistant may read the watchlist and portfolio.
@@ -619,3 +619,93 @@ class MailTestOut(BaseModel):
     delivered: bool
     message_id: str | None = None
 
+
+
+# --------------------------------------------------------------------------- #
+# Accounts
+# --------------------------------------------------------------------------- #
+Role = Literal["user", "admin"]
+
+
+class MeOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    name: str
+    role: Role
+
+
+class LoginIn(BaseModel):
+    email: str = Field(max_length=254)
+    password: str = Field(max_length=256)
+
+
+class PasswordChangeIn(BaseModel):
+    current_password: str = Field(max_length=256)
+    new_password: str = Field(max_length=256)
+
+
+class AuthOptionsOut(BaseModel):
+    """What the sign-in screens can offer (public)."""
+
+    password_reset_by_email: bool  # "Forgot password?" needs email to be set up
+    password_min_length: int
+
+
+class InviteInfoOut(BaseModel):
+    email: str | None  # None = setup invite: the first admin chooses the email
+    role: Role
+
+
+class AcceptInviteIn(BaseModel):
+    name: str = Field(max_length=80)
+    password: str = Field(max_length=256)
+    email: str | None = Field(None, max_length=254)  # setup invite only
+
+
+class ResetRequestIn(BaseModel):
+    email: str = Field(max_length=254)
+
+
+class ResetPasswordIn(BaseModel):
+    password: str = Field(max_length=256)
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    name: str
+    role: Role
+    is_active: bool
+    created_at: datetime
+    last_login_at: datetime | None
+
+
+class UserUpdateIn(BaseModel):
+    role: Role | None = None
+    is_active: bool | None = None
+
+
+class InviteIn(BaseModel):
+    email: str = Field(max_length=254)
+    role: Role = "user"
+
+
+class PendingInviteOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    role: Role
+    created_at: datetime
+    expires_at: datetime
+
+
+class LinkOut(BaseModel):
+    """A one-time invite / reset link, shown once to the admin who made it."""
+
+    link: str
+    emailed: bool  # also sent by email (when email is set up)

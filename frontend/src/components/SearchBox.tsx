@@ -9,10 +9,13 @@ import {
   type Stock,
 } from '../api'
 import { queryKeys } from '../hooks'
+import { useAuth } from '../lib/auth'
 import StockDetailModal from './StockDetailModal'
 
 /** Navbar symbol search — click a result to inspect it in the detail modal. */
 export default function SearchBox() {
+  // Only admins grow the tracked universe (it costs data-provider calls).
+  const { isAdmin } = useAuth()
   const [q, setQ] = useState('')
   const [debounced, setDebounced] = useState('')
   const [open, setOpen] = useState(false)
@@ -49,10 +52,12 @@ export default function SearchBox() {
     setPreparing(r.symbol)
     try {
       // Ensure the ticker is tracked so the info endpoints can serve it.
-      try {
-        await trackStock(r.symbol, r.name)
-      } catch {
-        /* already tracked (409) or transient — ignore */
+      if (isAdmin) {
+        try {
+          await trackStock(r.symbol, r.name)
+        } catch {
+          /* already tracked (409) or transient — ignore */
+        }
       }
       const stock = await fetchStock(r.symbol)
       setSelected(stock)
@@ -89,6 +94,7 @@ export default function SearchBox() {
 
       {open && debounced.length >= 2 && (
         <div className="absolute left-0 z-20 mt-1 w-80 animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong">
+          {isAdmin && (
           <label className="mb-1 flex cursor-pointer items-center justify-between border-b border-line px-2.5 py-1.5 text-[11px] text-muted">
             <span>All exchanges</span>
             <input
@@ -98,6 +104,7 @@ export default function SearchBox() {
               className="h-3.5 w-3.5 accent-bull"
             />
           </label>
+          )}
 
           {isFetching && results.length === 0 && (
             <div className="px-3 py-2 text-xs text-subtle">Searching…</div>

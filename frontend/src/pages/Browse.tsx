@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Search, Star } from 'lucide-react'
 import { setTracked, type CatalogRow } from '../api'
 import { useCatalog } from '../hooks'
+import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
@@ -19,6 +20,7 @@ export default function Browse() {
   const [selected, setSelected] = useState<CatalogRow | null>(null)
   const qc = useQueryClient()
   const { settings } = useSettings()
+  const { isAdmin } = useAuth() // tracking changes the shared universe
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -168,18 +170,22 @@ export default function Browse() {
                           e.stopPropagation() // don't also open the detail modal
                           toggle.mutate({ ticker: r.ticker, tracked: !r.tracked })
                         }}
-                        disabled={toggle.isPending}
+                        disabled={toggle.isPending || !isAdmin}
                         title={
-                          r.tracked
-                            ? 'Tracked — click to untrack'
-                            : 'Track for live prices'
+                          !isAdmin
+                            ? r.tracked
+                              ? 'Tracked: gets intraday prices'
+                              : 'Not tracked (an admin can track it)'
+                            : r.tracked
+                              ? 'Tracked — click to untrack'
+                              : 'Track for live prices'
                         }
                         aria-pressed={r.tracked}
                         className={`inline-flex items-center justify-center rounded p-2 transition ${
                           r.tracked
                             ? 'text-bull'
-                            : 'text-muted ring-1 ring-line-strong hover:bg-active hover:text-ink'
-                        }`}
+                            : 'text-muted ring-1 ring-line-strong enabled:hover:bg-active enabled:hover:text-ink'
+                        } disabled:cursor-default`}
                       >
                         <Star size={14} className={r.tracked ? 'fill-current' : ''} />
                       </button>

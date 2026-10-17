@@ -1,6 +1,7 @@
 import { Mail } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { useStatus } from '../hooks'
+import { useAuth } from '../lib/auth'
 import { fmtTimeAgo } from '../lib/format'
 
 const SESSION_LABEL: Record<string, string> = {
@@ -13,6 +14,7 @@ const SESSION_LABEL: Record<string, string> = {
 /** Persistent footer: copyright + data freshness/provenance. */
 export default function Footer() {
   const { data } = useStatus()
+  const { isAdmin } = useAuth()
   const year = new Date().getFullYear()
   const calls = Object.values(data?.calls_today ?? {}).reduce((a, b) => a + b, 0)
   const provider = data?.providers?.price ?? 'yahoo'
@@ -46,12 +48,14 @@ export default function Footer() {
         </span>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-          <Link
-            to="/data"
-            className="underline-offset-2 transition hover:text-ink hover:underline"
-          >
-            Data health
-          </Link>
+          {isAdmin && (
+            <Link
+              to="/data"
+              className="underline-offset-2 transition hover:text-ink hover:underline"
+            >
+              Data health
+            </Link>
+          )}
           <span>
             Last sync <span className="text-muted">{fmtTimeAgo(data?.last_sync)}</span>
           </span>

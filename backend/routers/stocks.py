@@ -4,7 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from deps import get_session
+from deps import get_session, require_admin, user_style
 from models import Fundamental, Stock, StockIndex, StockPrice, StockProfile
 from schemas import (
     CatalogPage,
@@ -14,6 +14,7 @@ from schemas import (
     DividendSummary,
     FundamentalOut,
     FundamentalsResponse,
+    InvestingStyle,
     OfficerOut,
     PricePoint,
     RecommendationOut,
@@ -30,7 +31,6 @@ from services.dividends import list_dividends, trailing_dps
 from services.fundamentals import is_stale, sync_ticker
 from services.history import DEEP_RANGES, ensure_full_history, range_start
 from services.metrics import derive_metrics
-from services.preferences import get_investing_style
 from services.prices import indices_map, latest_daily
 from services.recommendation import compute_universe_cached
 from services.search import search
@@ -48,7 +48,12 @@ async def search_symbols(
     return [SearchResultOut(**r) for r in await search(q, idf_only=not all_exchanges)]
 
 
-@router.post("/stocks", response_model=StockOut, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/stocks",
+    response_model=StockOut,
+    status_code=status.HTTP_201_CREATED,
+    dependencies=[Depends(require_admin)],  # grows the shared universe (provider calls)
+)
 async def track_stock(
     payload: TrackStockIn,
     session: AsyncSession = Depends(get_session),
@@ -78,6 +83,7 @@ async def list_stocks(
         description="Filter by one or more index names, e.g. index=LQ45&index=IDX30",
     ),
     session: AsyncSession = Depends(get_session),
+    style: InvestingStyle = Depends(user_style),
 ) -> list[StockOut]:
     """
     List tracked stocks (optionally filtered to one or more indices) with the
@@ -100,7 +106,7 @@ async def list_stocks(
     tickers = [s.ticker for s in stocks]
     index_map = await indices_map(session, tickers)
     latest = await latest_daily(session, tickers)
-    rec_map = await compute_universe_cached(session)  # cross-sectional, cached
+    rec_map = await compute_universe_cached(session, style)  # cross-sectional, cached
 
     result: list[StockOut] = []
     for stock in stocks:
@@ -143,6 +149,7 @@ async def list_stocks(
 async def get_stock(
     ticker: str,
     session: AsyncSession = Depends(get_session),
+    style: InvestingStyle = Depends(user_style),
 ) -> StockOut:
     """Summary for a single tracked stock (price, change, indices, signal)."""
     stock = (
@@ -161,7 +168,7 @@ async def get_stock(
         change_pct = round((last - prev) / prev * 100, 2)
 
     index_map = await indices_map(session, [ticker])
-    rec = (await compute_universe_cached(session)).get(ticker)
+    rec = (await compute_universe_cached(session, style)).get(ticker)
 
     return StockOut(
         id=stock.id,
@@ -296,6 +303,7 @@ async def stock_fundamentals(
 async def stock_recommendation(
     ticker: str,
     session: AsyncSession = Depends(get_session),
+    style: InvestingStyle = Depends(user_style),
 ) -> RecommendationOut:
     """
     Buy-signal score for one ticker.
@@ -309,7 +317,6 @@ async def stock_recommendation(
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
 
-    style = await get_investing_style(session)
     rec = (await compute_universe_cached(session, style)).get(ticker)
     if rec is None:
         # Eligibility differs per style (see services/recommendation._eligible).
@@ -458,7 +465,9 @@ async def catalog(
     return CatalogPage(items=rows, total=total, limit=limit, offset=offset)
 
 
-@router.post("/stocks/{ticker}/track", response_model=CatalogRow)
+@router.post(
+    "/stocks/{ticker}/track", response_model=CatalogRow, dependencies=[Depends(require_admin)]
+)
 async def track_symbol(
     ticker: str,
     session: AsyncSession = Depends(get_session),
@@ -474,7 +483,9 @@ async def track_symbol(
     return CatalogRow(ticker=stock.ticker, name=stock.name, tracked=True)
 
 
-@router.delete("/stocks/{ticker}/track", response_model=CatalogRow)
+@router.delete(
+    "/stocks/{ticker}/track", response_model=CatalogRow, dependencies=[Depends(require_admin)]
+)
 async def untrack_symbol(
     ticker: str,
     session: AsyncSession = Depends(get_session),

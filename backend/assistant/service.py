@@ -34,7 +34,7 @@ from assistant.providers import (
     resolve_chain,
     setup_hint,
 )
-from assistant.tools import Tool, available_tools
+from assistant.tools import Tool, ToolContext, available_tools
 from config import settings
 from services.preferences import get_assistant_personal_data, get_investing_style
 
@@ -81,17 +81,18 @@ class Answer:
     remaining_today: int = 0
 
 
-# In-memory daily counter (single-process app; resets on restart, which only
-# ever loosens the cap - the provider's own quota still applies).
-_usage: dict[str, int] = {}
+# In-memory daily counter per user (single-process app; resets on restart, which
+# only ever loosens the cap - the provider's own quota still applies).
+_usage: dict[tuple[str, int], int] = {}
 
 
 def _today() -> str:
     return datetime.now(ZoneInfo(settings.timezone)).date().isoformat()
 
 
-def remaining_today() -> int:
-    return max(0, settings.assistant_daily_limit - _usage.get(_today(), 0))
+def remaining_today(user_id: int) -> int:
+    """Questions this user may still ask today (`assistant_daily_limit` is per user)."""
+    return max(0, settings.assistant_daily_limit - _usage.get((_today(), user_id), 0))
 
 
 def configured() -> bool:
@@ -103,7 +104,7 @@ def _jsonable(value: Any) -> Any:
     return json.loads(json.dumps(value, default=str))
 
 
-async def _run_tools(session: AsyncSession, tools: dict[str, Tool],
+async def _run_tools(ctx: ToolContext, tools: dict[str, Tool],
                      reply: AssistantMessage, used: list[str]) -> ToolResultsMessage:
     results: list[ToolResult] = []
     for call in reply.tool_calls:
@@ -113,7 +114,7 @@ async def _run_tools(session: AsyncSession, tools: dict[str, Tool],
             results.append(ToolResult(call, f"unknown tool {call.name}", is_error=True))
             continue
         try:
-            results.append(ToolResult(call, _jsonable(await tool.handler(session, call.args))))
+            results.append(ToolResult(call, _jsonable(await tool.handler(ctx, call.args))))
         except Exception as exc:  # noqa: BLE001 - report to the model, keep going
             log.warning("Assistant tool %s failed: %s", call.name, exc)
             results.append(ToolResult(call, f"tool failed: {exc}", is_error=True))
@@ -121,7 +122,7 @@ async def _run_tools(session: AsyncSession, tools: dict[str, Tool],
 
 
 async def _attempt(provider: ChatProvider, model: str, system: str,
-                   history: list[Message], session: AsyncSession,
+                   history: list[Message], ctx: ToolContext,
                    tools: dict[str, Tool]) -> Answer:
     """Answer one question with one (provider, model), running tools as asked."""
     messages = list(history)
@@ -133,7 +134,7 @@ async def _attempt(provider: ChatProvider, model: str, system: str,
         if not reply.tool_calls:
             return Answer(reply.text or "(no answer)", provider.name, model, used)
         messages.append(reply)
-        messages.append(await _run_tools(session, tools, reply, used))
+        messages.append(await _run_tools(ctx, tools, reply, used))
 
     # Out of tool rounds: answer with what it has.
     reply = await provider.complete(model=model, system=system, messages=messages,
@@ -143,22 +144,25 @@ async def _attempt(provider: ChatProvider, model: str, system: str,
 
 async def ask(
     session: AsyncSession,
+    user_id: int,
     history: list[dict[str, str]],
     context: str | None = None,
 ) -> Answer:
     attempts = resolve_chain()
     if not attempts:
         raise AssistantUnavailable(f"The assistant isn't configured: set {setup_hint()}.")
-    if remaining_today() <= 0:
+    if remaining_today(user_id) <= 0:
         raise AssistantUnavailable(
             f"Daily limit of {settings.assistant_daily_limit} questions reached."
         )
-    _usage[_today()] = _usage.get(_today(), 0) + 1
+    key = (_today(), user_id)
+    _usage[key] = _usage.get(key, 0) + 1
 
-    personal = await get_assistant_personal_data(session)
+    personal = await get_assistant_personal_data(session, user_id)
     tools = available_tools(personal)
+    ctx = ToolContext(session, user_id, await get_investing_style(session, user_id))
     system = SYSTEM_PROMPT.format(
-        style=await get_investing_style(session),
+        style=ctx.style,
         personal=_PERSONAL_ON if personal else _PERSONAL_OFF,
         today=datetime.now(ZoneInfo(settings.timezone)).strftime("%A %d %B %Y, %H:%M"),
         context=f"\nThe user is currently looking at: {context}." if context else "",
@@ -172,8 +176,8 @@ async def ask(
     rejected = False
     for provider, model in attempts:
         try:
-            answer = await _attempt(provider, model, system, base, session, tools)
-            answer.remaining_today = remaining_today()
+            answer = await _attempt(provider, model, system, base, ctx, tools)
+            answer.remaining_today = remaining_today(user_id)
             return answer
         except ProviderBusyError as exc:
             log.warning("Assistant attempt %s:%s busy, trying next: %s", provider.name, model, exc)

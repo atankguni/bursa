@@ -20,11 +20,11 @@ def test_split_factor_only_counts_splits_after_the_trade():
     assert ca.split_factor(future, date(2025, 1, 1), today=date(2026, 1, 1)) == 1.0
 
 
-async def _setup_bbca_split():
+async def _setup_bbca_split(user_id: int):
     async with AsyncSessionLocal() as s:
         s.add(Split(ticker="BBCA.JK", ex_date=date(2021, 10, 13), ratio=5.0))
         # Bought 100 shares at 5,000 before the 5:1 split.
-        s.add(Transaction(ticker="BBCA.JK", side="buy", quantity=100, price=5000.0,
+        s.add(Transaction(user_id=user_id, ticker="BBCA.JK", side="buy", quantity=100, price=5000.0,
                           fees=0.0, trade_date=date(2021, 1, 4)))
         await s.execute(insert(StockPrice).values([
             {"ticker": "BBCA.JK", "timestamp": datetime(2026, 1, d), "interval": "1d",
@@ -35,7 +35,7 @@ async def _setup_bbca_split():
 
 
 async def test_portfolio_is_split_adjusted(client):
-    await _setup_bbca_split()
+    await _setup_bbca_split(client.user_id)
     pf = (await client.get("/api/portfolio")).json()
     h = pf["holdings"][0]
     # 100 @ 5,000 became 500 @ 1,000: same capital, no fake -80% loss.
@@ -45,7 +45,7 @@ async def test_portfolio_is_split_adjusted(client):
 
 
 async def test_sell_validation_uses_post_split_shares(client):
-    await _setup_bbca_split()
+    await _setup_bbca_split(client.user_id)
     sell = {"ticker": "BBCA.JK", "side": "sell", "price": 1100.0, "fees": 0.0,
             "trade_date": "2026-01-06"}
     assert (await client.post("/api/portfolio/transactions",

@@ -84,8 +84,8 @@ def max_drawdown(growth_pct: list[float]) -> float | None:
     return round(worst * 100, 2)
 
 
-async def portfolio_risk(session: AsyncSession) -> PortfolioRisk:
-    totals, holdings = await build_portfolio(session)
+async def portfolio_risk(session: AsyncSession, user_id: int) -> PortfolioRisk:
+    totals, holdings = await build_portfolio(session, user_id)
     tickers = [h["ticker"] for h in holdings]
 
     sectors = dict(
@@ -133,7 +133,7 @@ async def portfolio_risk(session: AsyncSession) -> PortfolioRisk:
         round((ihsg.last / ihsg.previous_close - 1) * 100, 2)
         if ihsg and ihsg.previous_close else None
     )
-    curve = await equity_curve(session)
+    curve = await equity_curve(session, user_id)
     ranked = sorted((r["weight"] for r in rows), reverse=True)
 
     warnings: list[str] = []
