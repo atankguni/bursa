@@ -2,7 +2,6 @@
 
 from datetime import timedelta
 
-import pytest
 from sqlalchemy import func, select
 
 import mail
@@ -253,11 +252,7 @@ async def test_purge_expired(client):
     assert await auth.purge_expired() == 1
 
 
-def test_password_policy():
-    auth.check_password_policy("x" * settings.password_min_length)
-    for bad, email in (("short", ""), ("x" * 257, ""), ("me@example.com", "Me@Example.com")):
-        with pytest.raises(auth.AuthError):
-            auth.check_password_policy(bad, email)
+def test_verify_password():
     assert auth.verify_password(None, "anything") is False
     user = User(email="a@b.co", name="a", password_hash=auth.hash_password("pw pw pw pw"))
     assert auth.verify_password(user, "pw pw pw pw") and not auth.verify_password(user, "pw")

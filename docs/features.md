@@ -62,6 +62,11 @@ backtest (see [Development](development.md#signal-backtest)).
   settings belong to each user. Market data (prices, fundamentals, indices) is shared.
 - **Email + password** sign-in. Change your password in Settings → Security (other
   devices are signed out). Forgot it? Get a reset link by email, or from an admin.
+- **Strong passwords**: at least 12 characters and hard to guess. A strength meter on
+  every new-password form explains what to improve; common passwords, keyboard runs,
+  repeats and passwords built from your name, email or "bursa" are refused, as are
+  passwords leaked in data breaches. Passwords set before the policy are checked at
+  sign-in: admins must change a weak one before continuing, other users see a reminder.
 - **Two-factor authentication**: an authenticator app (QR setup), email codes and
   single-use recovery codes, with "remember this device" for 30 days. Required for
   admins, optional for others. Security changes (password, 2FA, a recovery code used)

@@ -63,7 +63,9 @@ existed (watchlist, portfolio, alerts, preferences) is given to that first admin
 | `SESSION_DAYS` | `30` | A session expires after this many days without use |
 | `INVITE_DAYS` | `7` | Invite links expire after this |
 | `PASSWORD_RESET_HOURS` | `2` | Reset links expire after this |
-| `PASSWORD_MIN_LENGTH` | `10` | Minimum password length (no other complexity rules) |
+| `PASSWORD_MIN_LENGTH` | `12` | Minimum password length |
+| `PASSWORD_MIN_SCORE` | `3` | Strength a new password needs: [zxcvbn](https://github.com/dropbox/zxcvbn) score 0–4 (no "uppercase + digit + symbol" rules) |
+| `PASSWORD_BREACH_CHECK` | `true` | Refuse passwords found in data breaches ([Have I Been Pwned](https://haveibeenpwned.com/Passwords)). Only the first 5 characters of the password's SHA-1 hash are sent; if the service can't be reached the check is skipped |
 | `LOGIN_MAX_FAILURES` / `LOGIN_WINDOW_MINUTES` | `10` / `15` | Failed sign-ins allowed per email (3× per IP) before a pause |
 
 **Forgot password** emails a reset link when [Email](#email-optional) is set up.

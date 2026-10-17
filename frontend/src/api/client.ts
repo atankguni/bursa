@@ -9,8 +9,10 @@ export const api = axios.create({ baseURL, timeout: 15_000, withCredentials: tru
 
 /** Fired when the API answers 401 (session expired or signed out elsewhere). */
 export const UNAUTHORIZED_EVENT = 'bursa:unauthorized'
-/** Fired when an admin must set up two-factor authentication first (403). */
+/** Fired when an admin must first set up two-factor authentication or change a
+ * weak password (403): /me is re-read, which shows the matching screen. */
 export const MFA_SETUP_EVENT = 'bursa:mfa-setup-required'
+const ACCOUNT_POLICY = ['two_factor_setup_required', 'password_change_required']
 
 api.interceptors.response.use(undefined, (error) => {
   const url: string = error?.config?.url ?? ''
@@ -21,7 +23,7 @@ api.interceptors.response.use(undefined, (error) => {
   }
   if (
     error?.response?.status === 403 &&
-    error?.response?.data?.detail === 'two_factor_setup_required'
+    ACCOUNT_POLICY.includes(error?.response?.data?.detail)
   ) {
     window.dispatchEvent(new Event(MFA_SETUP_EVENT))
   }

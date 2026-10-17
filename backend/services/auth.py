@@ -76,14 +76,19 @@ def new_token() -> tuple[str, str]:
     return raw, hash_token(raw)
 
 
-def check_password_policy(password: str, email: str = "") -> None:
-    """Length-based policy (NIST SP 800-63B): long passphrases beat complexity rules."""
-    if len(password) < settings.password_min_length:
-        raise AuthError(f"Password must be at least {settings.password_min_length} characters")
-    if len(password) > 256:
-        raise AuthError("Password is too long (256 characters at most)")
-    if email and password.strip().lower() == normalize_email(email):
-        raise AuthError("Password can't be your email address")
+async def check_password_policy(password: str, email: str = "", name: str = "") -> None:
+    """Refuse weak or leaked passwords (services/passwords.py)."""
+    from services.passwords import password_problem
+
+    problem = await password_problem(password, email=normalize_email(email), name=name)
+    if problem:
+        raise AuthError(problem)
+
+
+def _set_password(user: User, password: str) -> None:
+    """Store a password that just passed the policy."""
+    user.password_hash = hash_password(password)
+    user.password_weak = False
 
 
 def hash_password(password: str) -> str:
@@ -211,8 +216,8 @@ async def change_password(
 ) -> None:
     if not verify_password(user, current):
         raise AuthError("Current password is incorrect")
-    check_password_policy(new, user.email)
-    user.password_hash = hash_password(new)
+    await check_password_policy(new, user.email, user.name)
+    _set_password(user, new)
     await revoke_sessions(session, user.id, keep_raw)
     await session.commit()
 
@@ -273,7 +278,7 @@ async def accept_invite(
     name = name.strip()
     if not name or len(name) > 80:
         raise AuthError("Enter your name (80 characters at most)")
-    check_password_policy(password, address)
+    await check_password_policy(password, address, name)
 
     first = (await session.execute(select(func.count()).select_from(User))).scalar_one() == 0
     user = User(email=address, name=name, password_hash=hash_password(password),
@@ -358,8 +363,8 @@ async def open_reset(session: AsyncSession, raw: str) -> tuple[PasswordReset, Us
 
 async def reset_password(session: AsyncSession, raw: str, password: str) -> User:
     reset, user = await open_reset(session, raw)
-    check_password_policy(password, user.email)
-    user.password_hash = hash_password(password)
+    await check_password_policy(password, user.email, user.name)
+    _set_password(user, password)
     reset.used_at = datetime.utcnow()
     await revoke_sessions(session, user.id)  # sign out everywhere
     # Remembered devices must pass 2FA again. 2FA itself stays on: a reset link

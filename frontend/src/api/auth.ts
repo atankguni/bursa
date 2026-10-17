@@ -10,6 +10,10 @@ export interface Me {
   has_2fa: boolean
   /** Admin without 2FA: only the 2FA setup works until it's turned on. */
   mfa_setup_required: boolean
+  /** The password is too guessable or was leaked (checked at sign-in). */
+  password_weak: boolean
+  /** Admin with a weak password: only changing it works until it's done. */
+  password_change_required: boolean
 }
 
 export type TwoFactorMethod = 'totp' | 'email' | 'recovery'
@@ -48,6 +52,8 @@ export interface TotpSetup {
 export interface AuthOptions {
   password_reset_by_email: boolean
   password_min_length: number
+  /** zxcvbn score (0-4) a new password needs. */
+  password_min_score: number
 }
 
 export interface InviteInfo {
@@ -62,7 +68,8 @@ export async function fetchMe(): Promise<Me | null> {
     const { data } = await api.get<Me>('/api/auth/me')
     return data
   } catch (error) {
-    if ((error as { response?: { status?: number } })?.response?.status === 401) return null
+    if ((error as { response?: { status?: number } })?.response?.status === 401)
+      return null
     throw error
   }
 }
@@ -150,7 +157,9 @@ export async function changePassword(current: string, next: string): Promise<voi
 }
 
 export async function fetchInvite(token: string): Promise<InviteInfo> {
-  const { data } = await api.get<InviteInfo>(`/api/auth/invites/${encodeURIComponent(token)}`)
+  const { data } = await api.get<InviteInfo>(
+    `/api/auth/invites/${encodeURIComponent(token)}`,
+  )
   return data
 }
 

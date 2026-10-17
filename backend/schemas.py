@@ -703,6 +703,10 @@ class MeOut(BaseModel):
     has_2fa: bool
     # Admin without 2FA: everything but the 2FA setup answers 403 until it's done.
     mfa_setup_required: bool
+    # The password is too guessable or was leaked (checked at sign-in).
+    password_weak: bool
+    # Admin with a weak password: everything but changing it answers 403.
+    password_change_required: bool
 
 
 TwoFactorMethod = Literal["totp", "email", "recovery"]
@@ -779,6 +783,7 @@ class AuthOptionsOut(BaseModel):
 
     password_reset_by_email: bool  # "Forgot password?" needs email to be set up
     password_min_length: int
+    password_min_score: int  # zxcvbn score 0-4
 
 
 class InviteInfoOut(BaseModel):

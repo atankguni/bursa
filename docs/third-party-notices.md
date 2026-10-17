@@ -30,6 +30,7 @@ License).
 | @tanstack/react-query | 5.104.3 | MIT |
 | axios | 1.20.0 | MIT |
 | lucide-react | 1.57.0 | ISC |
+| @zxcvbn-ts/core, language-common, language-en | 4.2.0 / 4.1.3 / 4.1.1 | MIT |
 
 ## Backend
 
@@ -50,6 +51,7 @@ License).
 | argon2-cffi | 25.1.0 | MIT |
 | cryptography | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 | segno | 1.6.6 | BSD-3-Clause |
+| zxcvbn | 4.5.0 | MIT |
 
 Optional database drivers, installed only when building for that database
 (`DB_DRIVER` build arg):

@@ -23,12 +23,15 @@ def session_token(request: Request) -> str | None:
 
 # 403 detail while an admin hasn't set up two-factor authentication yet.
 MFA_SETUP_REQUIRED = "two_factor_setup_required"
+# 403 detail while an admin's password is weak (they must change it first).
+PASSWORD_CHANGE_REQUIRED = "password_change_required"
 
 
 async def signed_in_user(
     request: Request, session: AsyncSession = Depends(get_session)
 ) -> User:
-    """The signed-in user, or 401, without the 2FA policy (for /me and 2FA setup)."""
+    """The signed-in user, or 401, without the admin policies below (for /me,
+    2FA setup and changing the password)."""
     from services.auth import user_for_token
 
     raw = session_token(request)
@@ -40,9 +43,14 @@ async def signed_in_user(
 
 async def current_user(user: User = Depends(signed_in_user)) -> User:
     """The signed-in user, or 401. Every non-public router depends on this.
-    Admins without two-factor authentication get 403 until they set it up."""
+    Admins without two-factor authentication, or with a weak password, get 403
+    until they fix it."""
     if user.mfa_setup_required:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=MFA_SETUP_REQUIRED)
+    if user.password_change_required:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail=PASSWORD_CHANGE_REQUIRED
+        )
     return user
 
 

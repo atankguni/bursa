@@ -20,6 +20,7 @@ os.environ["DATABASE_URL"] = os.environ.get(
 )
 # Fixed 2FA server secret, so tests never write data/secret.key.
 os.environ["SECRET_KEY"] = "test-secret-key-0123456789-abcdefghijklmnop"
+os.environ["PASSWORD_BREACH_CHECK"] = "false"  # no network in tests
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402

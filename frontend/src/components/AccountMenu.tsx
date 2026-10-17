@@ -64,19 +64,22 @@ export default function AccountMenu() {
   if (!user) return null
   const initial = (user.name || user.email).trim().charAt(0).toUpperCase()
   const close = () => setOpen(false)
+  const attention = user.password_weak
+    ? 'your password is weak'
+    : !user.has_2fa
+      ? 'two-factor authentication is off'
+      : null
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label={
-          user.has_2fa ? 'Account' : 'Account (two-factor authentication is off)'
-        }
+        aria-label={attention ? `Account (${attention})` : 'Account'}
         aria-expanded={open}
         className="relative flex h-8 w-8 items-center justify-center rounded bg-accent/15 text-xs font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/25"
       >
         {initial}
-        {!user.has_2fa && (
+        {attention && (
           <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-panel" />
         )}
       </button>
@@ -135,9 +138,9 @@ export default function AccountMenu() {
             </Link>
             <Link to="/settings/security" onClick={close} className={itemCls}>
               <ShieldCheck size={14} /> Security
-              {!user.has_2fa && (
+              {attention && (
                 <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                  2FA off
+                  {user.password_weak ? 'Weak password' : '2FA off'}
                 </span>
               )}
             </Link>

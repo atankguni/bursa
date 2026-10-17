@@ -592,9 +592,9 @@ export default function Settings() {
           {sections.map((s) => (
             <NavLink key={s.id} to={`/settings/${s.id}`} className={navCls}>
               <s.icon size={14} /> {s.label}
-              {s.id === 'security' && !user?.has_2fa && (
+              {s.id === 'security' && (user?.password_weak || !user?.has_2fa) && (
                 <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                  2FA off
+                  {user?.password_weak ? 'Weak password' : '2FA off'}
                 </span>
               )}
             </NavLink>

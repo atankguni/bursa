@@ -30,7 +30,7 @@ from schemas import (
     ResetRequestIn,
     TwoFactorChallengeOut,
 )
-from services import auth, two_factor
+from services import auth, passwords, two_factor
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -84,6 +84,7 @@ async def options() -> AuthOptionsOut:
     return AuthOptionsOut(
         password_reset_by_email=mail.configured(),
         password_min_length=settings.password_min_length,
+        password_min_score=settings.password_min_score,
     )
 
 
@@ -105,6 +106,12 @@ async def login(
         auth.record_failure(payload.email, ip)
         # Same message whether the email exists or not.
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+    # The only moment the plain password is known: flag it if today's policy
+    # (stronger than when it was chosen, or a breach since) would refuse it.
+    weak = await passwords.is_weak(payload.password, email=user.email, name=user.name)
+    if weak is not None and weak != user.password_weak:
+        user.password_weak = weak
+        await session.commit()
     if user.has_2fa and not await two_factor.is_trusted(
         session, user, request.cookies.get(TRUSTED_COOKIE)
     ):

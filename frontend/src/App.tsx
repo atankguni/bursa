@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Footer from './components/Footer'
 import NavBar from './components/NavBar'
+import WeakPasswordBanner from './components/WeakPasswordBanner'
 import { useAuth } from './lib/auth'
 import Home from './pages/Home'
 import Login from './pages/auth/Login'
@@ -16,6 +17,7 @@ const Browse = lazy(() => import('./pages/Browse'))
 const DataHealth = lazy(() => import('./pages/DataHealth'))
 const Settings = lazy(() => import('./pages/Settings'))
 const SetupTwoFactor = lazy(() => import('./pages/auth/SetupTwoFactor'))
+const ChangeWeakPassword = lazy(() => import('./pages/auth/ChangeWeakPassword'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
@@ -44,6 +46,8 @@ export default function App() {
               <Login />
             ) : user.mfa_setup_required ? (
               <SetupTwoFactor /> // admins: 2FA first
+            ) : user.password_change_required ? (
+              <ChangeWeakPassword /> // admins: then a strong password
             ) : (
               <Shell isAdmin={isAdmin} />
             )
@@ -59,6 +63,7 @@ function Shell({ isAdmin }: { isAdmin: boolean }) {
   return (
     <div className="flex min-h-full flex-col bg-app text-ink">
       <NavBar />
+      <WeakPasswordBanner />
       <div className="flex-1">
         <Suspense fallback={loading}>
           <Routes>

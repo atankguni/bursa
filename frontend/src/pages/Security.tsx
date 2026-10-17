@@ -1,13 +1,10 @@
-import { useState, type FormEvent } from 'react'
-import { useMutation } from '@tanstack/react-query'
+import { useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { KeyRound } from 'lucide-react'
-import { changePassword, errorMessage } from '../api'
+import ChangePasswordForm from '../components/ChangePasswordForm'
 import TwoFactorSettings from '../components/TwoFactorSettings'
-import { useAuth } from '../lib/auth'
-import { Field, FormError } from './auth/AuthLayout'
+import { ME_KEY, useAuth } from '../lib/auth'
 
-const primaryBtn =
-  'rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50'
 const secondaryBtn =
   'rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink'
 
@@ -37,27 +34,10 @@ export default function Security() {
 }
 
 function PasswordCard() {
+  const qc = useQueryClient()
+  const { user } = useAuth()
   const [editing, setEditing] = useState(false)
-  const [current, setCurrent] = useState('')
-  const [next, setNext] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const save = useMutation({
-    mutationFn: () => changePassword(current, next),
-    onSuccess: () => close(),
-  })
-  const mismatch = confirm !== '' && confirm !== next
-
-  function close() {
-    setEditing(false)
-    setCurrent('')
-    setNext('')
-    setConfirm('')
-  }
-
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    if (!mismatch) save.mutate()
-  }
+  const [changed, setChanged] = useState(false)
 
   return (
     <section className="rounded-md bg-panelalt/40 p-4 ring-1 ring-line">
@@ -66,75 +46,32 @@ function PasswordCard() {
           <KeyRound size={16} />
         </span>
         <h3 className="text-sm font-semibold">Password</h3>
+        {user?.password_weak && !changed && (
+          <span className="ml-auto text-xs font-medium text-amber-700 dark:text-amber-400">
+            Weak
+          </span>
+        )}
       </div>
       <div className="space-y-3 text-xs text-muted">
         {editing ? (
-          <form onSubmit={onSubmit} className="max-w-sm space-y-3">
-            <Field
-              label="Current password"
-              type="password"
-              autoComplete="current-password"
-              autoFocus
-              required
-              value={current}
-              onChange={(e) => setCurrent(e.target.value)}
-            />
-            <Field
-              label="New password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={next}
-              onChange={(e) => setNext(e.target.value)}
-            />
-            <Field
-              label="Confirm new password"
-              type="password"
-              autoComplete="new-password"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-            />
-            <FormError>
-              {mismatch
-                ? "Passwords don't match."
-                : save.isError &&
-                  errorMessage(save.error, "Couldn't change the password.")}
-            </FormError>
-            <div className="flex gap-2">
-              <button
-                type="submit"
-                disabled={save.isPending || mismatch}
-                className={primaryBtn}
-              >
-                {save.isPending ? 'Saving…' : 'Change password'}
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  close()
-                  save.reset()
-                }}
-                className={secondaryBtn}
-              >
-                Cancel
-              </button>
-            </div>
-          </form>
+          <ChangePasswordForm
+            onDone={() => {
+              setEditing(false)
+              setChanged(true)
+              void qc.invalidateQueries({ queryKey: ME_KEY }) // clears the "weak" flag
+            }}
+            onCancel={() => setEditing(false)}
+          />
         ) : (
           <>
             <p>
-              {save.isSuccess
+              {changed
                 ? 'Password changed. Your other browsers and devices were signed out.'
-                : 'Changing it signs you out on your other browsers and devices.'}
+                : user?.password_weak
+                  ? 'Your password is easy to guess or appeared in a data breach. Change it to keep your account safe.'
+                  : 'Changing it signs you out on your other browsers and devices.'}
             </p>
-            <button
-              onClick={() => {
-                save.reset()
-                setEditing(true)
-              }}
-              className={secondaryBtn}
-            >
+            <button onClick={() => setEditing(true)} className={secondaryBtn}>
               Change password
             </button>
           </>

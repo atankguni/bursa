@@ -68,6 +68,12 @@ class User(Base):
     totp_pending: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Last accepted time step: each authenticator code works only once.
     totp_last_step: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # The password failed today's policy (too guessable or leaked) when last
+    # checked: at sign-in, the only time the plain password is seen. Cleared by
+    # changing it.
+    password_weak: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
 
     @property
     def has_2fa(self) -> bool:
@@ -77,6 +83,11 @@ class User(Base):
     def mfa_setup_required(self) -> bool:
         """2FA is required for admins: until set up, they can only reach the setup."""
         return self.role == "admin" and not self.has_2fa
+
+    @property
+    def password_change_required(self) -> bool:
+        """Admins with a weak password must change it before anything else."""
+        return self.role == "admin" and self.password_weak
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<User {self.email} ({self.role})>"

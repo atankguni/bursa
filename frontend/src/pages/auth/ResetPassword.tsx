@@ -2,6 +2,8 @@ import { useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { checkResetToken, errorMessage, fetchAuthOptions, resetPassword } from '../../api'
+import PasswordStrength from '../../components/PasswordStrength'
+import { usePasswordStrength } from '../../lib/passwordStrength'
 import AuthLayout, { Field, FormError, primaryBtn } from './AuthLayout'
 
 export default function ResetPassword() {
@@ -11,11 +13,19 @@ export default function ResetPassword() {
     queryFn: () => checkResetToken(token).then(() => true),
     retry: false,
   })
-  const { data: options } = useQuery({ queryKey: ['auth', 'options'], queryFn: fetchAuthOptions })
+  const { data: options } = useQuery({
+    queryKey: ['auth', 'options'],
+    queryFn: fetchAuthOptions,
+  })
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const submit = useMutation({ mutationFn: () => resetPassword(token, password) })
-  const signIn = <Link to="/" className="hover:text-ink">Go to sign in</Link>
+  const strength = usePasswordStrength(password)
+  const signIn = (
+    <Link to="/" className="hover:text-ink">
+      Go to sign in
+    </Link>
+  )
 
   if (check.isPending) return <AuthLayout title="Checking your link…">{null}</AuthLayout>
   if (check.isError) {
@@ -38,7 +48,7 @@ export default function ResetPassword() {
   }
 
   const mismatch = confirm !== '' && confirm !== password
-  const minLength = options?.password_min_length ?? 10
+  const minLength = options?.password_min_length ?? 12
   const onSubmit = (e: FormEvent) => {
     e.preventDefault()
     if (!mismatch) submit.mutate()
@@ -53,7 +63,7 @@ export default function ResetPassword() {
           autoFocus
           required
           minLength={minLength}
-          hint={`At least ${minLength} characters.`}
+          hint={<PasswordStrength strength={strength} />}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -68,9 +78,14 @@ export default function ResetPassword() {
         <FormError>
           {mismatch
             ? "Passwords don't match."
-            : submit.isError && errorMessage(submit.error, "Couldn't change the password.")}
+            : submit.isError &&
+              errorMessage(submit.error, "Couldn't change the password.")}
         </FormError>
-        <button type="submit" disabled={submit.isPending || mismatch} className={primaryBtn}>
+        <button
+          type="submit"
+          disabled={submit.isPending || mismatch || strength?.acceptable === false}
+          className={primaryBtn}
+        >
           {submit.isPending ? 'Saving…' : 'Set password'}
         </button>
       </form>

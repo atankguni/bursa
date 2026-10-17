@@ -63,7 +63,14 @@ class Settings(BaseSettings):
     session_days: int = 30
     invite_days: int = 7
     password_reset_hours: int = 2
-    password_min_length: int = 10
+    password_min_length: int = 12
+    # Strength (services/passwords.py): zxcvbn guessability score 0-4 required.
+    password_min_score: int = 3
+    # Refuse passwords found in data breaches (Have I Been Pwned range API: only the
+    # first 5 characters of the password's SHA-1 leave the server). If the service
+    # can't be reached, the check is skipped rather than blocking sign-up.
+    password_breach_check: bool = True
+    password_breach_timeout: float = 3.0
     # Sign-in attempts allowed per email (and 3x that per IP) in the window below.
     login_max_failures: int = 10
     login_window_minutes: int = 15

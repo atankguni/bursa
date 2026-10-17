@@ -3,6 +3,8 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@tanstack/react-query'
 import { acceptInvite, errorMessage, fetchAuthOptions, fetchInvite } from '../../api'
 import { useAuth } from '../../lib/auth'
+import PasswordStrength from '../../components/PasswordStrength'
+import { usePasswordStrength } from '../../lib/passwordStrength'
 import AuthLayout, { Field, FormError, primaryBtn } from './AuthLayout'
 
 export default function AcceptInvite() {
@@ -14,11 +16,15 @@ export default function AcceptInvite() {
     queryFn: () => fetchInvite(token),
     retry: false,
   })
-  const { data: options } = useQuery({ queryKey: ['auth', 'options'], queryFn: fetchAuthOptions })
+  const { data: options } = useQuery({
+    queryKey: ['auth', 'options'],
+    queryFn: fetchAuthOptions,
+  })
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const strength = usePasswordStrength(password, [invite.data?.email ?? email, name])
 
   const submit = useMutation({
     mutationFn: () =>
@@ -29,12 +35,17 @@ export default function AcceptInvite() {
     },
   })
 
-  if (invite.isPending) return <AuthLayout title="Checking your invite…">{null}</AuthLayout>
+  if (invite.isPending)
+    return <AuthLayout title="Checking your invite…">{null}</AuthLayout>
   if (invite.isError) {
     return (
       <AuthLayout
         title="Invite not valid"
-        footer={<Link to="/" className="hover:text-ink">Go to sign in</Link>}
+        footer={
+          <Link to="/" className="hover:text-ink">
+            Go to sign in
+          </Link>
+        }
       >
         <p className="text-sm text-muted">
           {errorMessage(invite.error, 'This invite link is invalid or has expired.')}
@@ -49,7 +60,7 @@ export default function AcceptInvite() {
     e.preventDefault()
     if (!mismatch) submit.mutate()
   }
-  const minLength = options?.password_min_length ?? 10
+  const minLength = options?.password_min_length ?? 12
 
   return (
     <AuthLayout
@@ -86,7 +97,7 @@ export default function AcceptInvite() {
           autoComplete="new-password"
           required
           minLength={minLength}
-          hint={`At least ${minLength} characters. A few random words work well.`}
+          hint={<PasswordStrength strength={strength} />}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
@@ -101,9 +112,14 @@ export default function AcceptInvite() {
         <FormError>
           {mismatch
             ? "Passwords don't match."
-            : submit.isError && errorMessage(submit.error, "Couldn't create the account.")}
+            : submit.isError &&
+              errorMessage(submit.error, "Couldn't create the account.")}
         </FormError>
-        <button type="submit" disabled={submit.isPending || mismatch} className={primaryBtn}>
+        <button
+          type="submit"
+          disabled={submit.isPending || mismatch || strength?.acceptable === false}
+          className={primaryBtn}
+        >
           {submit.isPending ? 'Creating…' : 'Create account'}
         </button>
       </form>
