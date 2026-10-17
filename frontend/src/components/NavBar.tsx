@@ -6,7 +6,6 @@ import AssistantPanel from './AssistantPanel'
 import IhsgTicker from './IhsgTicker'
 import MarketStatus from './MarketStatus'
 import SearchBox from './SearchBox'
-import SettingsMenu from './SettingsMenu'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition ${
@@ -15,7 +14,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
       : 'text-muted hover:bg-panelalt hover:text-ink'
   }`
 
-/** Full-width, compact top bar: brand, navigation, market status, settings. */
+/** Full-width, compact top bar: brand, navigation, market status, account menu. */
 export default function NavBar() {
   return (
     <header className="sticky top-0 z-30 border-b border-line bg-panel/80 backdrop-blur-md">
@@ -60,7 +59,6 @@ export default function NavBar() {
           </nav>
           <AssistantPanel />
           <AlertsBell />
-          <SettingsMenu />
           <AccountMenu />
         </div>
       </div>

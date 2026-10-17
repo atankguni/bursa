@@ -26,7 +26,7 @@ docker compose logs backend | grep "Create the admin"
 Open it and choose your name, email and password. Admin accounts need two-factor
 authentication, so you're asked to set up an authenticator app (or email codes) and
 to save your recovery codes before the app opens. Invite others from
-**Users & invites** in the account menu (top right). See
+**Settings → Users & invites** (account menu, top right). See
 [Configuration → Accounts](configuration.md#accounts).
 
 Optional extras (AI assistant, email, Telegram alerts) are enabled through

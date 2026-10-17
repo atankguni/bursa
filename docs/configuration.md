@@ -44,7 +44,7 @@ Your portfolio, watchlist and alerts would need to be moved separately.
 ## Accounts
 
 Bursa is **invite-only** and every page needs a signed-in user. There is no sign-up:
-an admin invites people from **Users & invites** in the account menu.
+an admin invites people from **Settings → Users & invites** (also in the account menu).
 
 On a fresh install (no accounts yet) the backend logs a one-time link that creates the
 first admin account:
@@ -77,7 +77,7 @@ public address and `SESSION_COOKIE_SECURE=true`.
 ### Two-factor authentication
 
 Required for admins (an admin without it only sees the setup screen), optional for
-everyone else; set up from **Two-factor authentication** in the account menu.
+everyone else; set up from **Settings → Security** (also in the account menu).
 Methods: an **authenticator app** (works without email), **email codes** (need
 [Email](#email-optional)), and 10 single-use **recovery codes**. "Remember this device"
 skips the code on that browser for a while. A password reset does not turn 2FA off;

@@ -60,7 +60,7 @@ backtest (see [Development](development.md#signal-backtest)).
   email is set up.
 - **Your own data**: watchlist, portfolio, alerts, investing style and assistant
   settings belong to each user. Market data (prices, fundamentals, indices) is shared.
-- **Email + password** sign-in. Change your password from the account menu (other
+- **Email + password** sign-in. Change your password in Settings → Security (other
   devices are signed out). Forgot it? Get a reset link by email, or from an admin.
 - **Two-factor authentication**: an authenticator app (QR setup), email codes and
   single-use recovery codes, with "remember this device" for 30 days. Required for
@@ -106,7 +106,12 @@ backtest (see [Development](development.md#signal-backtest)).
   chips, focus rings, links, the logo and chart lines. Each has its own shade for light, dark
   and high-contrast mode (all WCAG AA). Green and red stay reserved for price up/down, and amber
   for warnings, so the accent never looks like a market signal.
-- **Settings** (gear in the navbar): theme, accent colour, display **density** (compact/medium/large),
+- **Account menu** (your initial, top right): name and email, a **theme** switch
+  (light / dark / system), Settings, Security, Users & invites for admins, and sign out. An
+  amber dot on it means two-factor authentication is off.
+- **Settings** page (`/settings`, from the account menu or the `,` key), one section at a
+  time: Investing, Appearance, Display, Tables & indices, Security (password, two-factor,
+  remembered devices) and, for admins, Users & invites. It covers theme, accent colour, display **density** (compact/medium/large),
   reduce motion, high contrast, default indices, chart defaults, auto-refresh, number format,
   change coloring and per-table **column visibility**. Each section says where it is kept:
   - **Your account** (follows you to every device): investing style, default indices, chart

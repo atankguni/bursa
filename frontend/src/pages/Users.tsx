@@ -1,14 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import {
-  Check,
-  Copy,
-  KeyRound,
-  ShieldOff,
-  Trash2,
-  UserPlus,
-  Users as UsersIcon,
-} from 'lucide-react'
+import { Check, Copy, KeyRound, ShieldOff, Trash2, UserPlus } from 'lucide-react'
 import {
   createInvite,
   createResetLink,
@@ -35,7 +27,11 @@ const smallBtn =
   'inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 
 /** A one-time link: shown once (only its hash is stored), with a copy button. */
-function LinkNotice({ title, result, onDismiss }: {
+function LinkNotice({
+  title,
+  result,
+  onDismiss,
+}: {
   title: string
   result: OneTimeLink
   onDismiss: () => void
@@ -80,14 +76,17 @@ export default function Users() {
   const invites = useQuery({ queryKey: INVITES_KEY, queryFn: fetchInvites })
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<Role>('user')
-  const [notice, setNotice] = useState<{ title: string; result: OneTimeLink } | null>(null)
+  const [notice, setNotice] = useState<{ title: string; result: OneTimeLink } | null>(
+    null,
+  )
   const [error, setError] = useState<string | null>(null)
 
   const refresh = () => {
     qc.invalidateQueries({ queryKey: USERS_KEY })
     qc.invalidateQueries({ queryKey: INVITES_KEY })
   }
-  const onError = (fallback: string) => (e: unknown) => setError(errorMessage(e, fallback))
+  const onError = (fallback: string) => (e: unknown) =>
+    setError(errorMessage(e, fallback))
 
   const invite = useMutation({
     mutationFn: () => createInvite(email, role),
@@ -101,8 +100,13 @@ export default function Users() {
   })
   const revoke = useMutation({ mutationFn: revokeInvite, onSuccess: refresh })
   const update = useMutation({
-    mutationFn: ({ id, patch }: { id: number; patch: Parameters<typeof updateUser>[1] }) =>
-      updateUser(id, patch),
+    mutationFn: ({
+      id,
+      patch,
+    }: {
+      id: number
+      patch: Parameters<typeof updateUser>[1]
+    }) => updateUser(id, patch),
     onSuccess: () => {
       setError(null)
       refresh()
@@ -157,210 +161,90 @@ export default function Users() {
     }
   }
 
+  // Rendered inside Settings → Users & invites, which gives the heading.
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
-      <div className="mb-3 flex items-center gap-2">
-        <UsersIcon size={16} className="text-accent" />
-        <h2 className="text-sm font-semibold tracking-tight">Users &amp; invites</h2>
-        <p className="text-[11px] text-subtle">
-          Invite-only: people join through a link you create here
-        </p>
-      </div>
-
-      <div className="space-y-3">
-        <form onSubmit={onInvite} className="surface flex flex-wrap items-end gap-3 p-3">
-          <label>
-            <span className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-              Email
-            </span>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="friend@example.com"
-              className={`${inputCls} w-64`}
-            />
-          </label>
-          <label>
-            <span className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-              Role
-            </span>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className={inputCls}
-            >
-              <option value="user">User</option>
-              <option value="admin">Admin</option>
-            </select>
-          </label>
-          <button
-            type="submit"
-            disabled={invite.isPending}
-            className="inline-flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
-          >
-            <UserPlus size={13} /> {invite.isPending ? 'Creating…' : 'Create invite'}
-          </button>
-          <p className="basis-full text-[11px] text-subtle">
-            Admins can also manage users, start data syncs, track symbols and see data health.
-          </p>
-        </form>
-
-        {notice && (
-          <LinkNotice
-            title={notice.title}
-            result={notice.result}
-            onDismiss={() => setNotice(null)}
+    <div className="space-y-3">
+      <form onSubmit={onInvite} className="surface flex flex-wrap items-end gap-3 p-3">
+        <label>
+          <span className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
+            Email
+          </span>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="friend@example.com"
+            className={`${inputCls} w-64`}
           />
-        )}
-        {error && (
-          <p role="alert" className="text-xs text-bear">
-            {error}
-          </p>
-        )}
+        </label>
+        <label>
+          <span className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
+            Role
+          </span>
+          <select
+            value={role}
+            onChange={(e) => setRole(e.target.value as Role)}
+            className={inputCls}
+          >
+            <option value="user">User</option>
+            <option value="admin">Admin</option>
+          </select>
+        </label>
+        <button
+          type="submit"
+          disabled={invite.isPending}
+          className="inline-flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+        >
+          <UserPlus size={13} /> {invite.isPending ? 'Creating…' : 'Create invite'}
+        </button>
+        <p className="basis-full text-[11px] text-subtle">
+          Admins can also manage users, start data syncs, track symbols and see data
+          health.
+        </p>
+      </form>
 
-        {(invites.data?.length ?? 0) > 0 && (
-          <div className="surface overflow-hidden">
-            <div className="border-b border-line px-4 py-2 text-xs font-medium">
-              Pending invites
-            </div>
-            <table className="w-full text-xs">
-              <tbody>
-                {invites.data!.map((i) => {
-                  const expired = new Date(`${i.expires_at}Z`).getTime() < Date.now()
-                  return (
-                    <tr key={i.id} className="border-b border-line last:border-0">
-                      <td className="px-4 py-2">{i.email}</td>
-                      <td className="px-4 py-2 capitalize text-muted">{i.role}</td>
-                      <td className="px-4 py-2 text-muted">
-                        {expired ? (
-                          <span className="text-bear">Expired</span>
-                        ) : (
-                          <>Expires {fmtShortDateTime(i.expires_at)}</>
-                        )}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        <button
-                          onClick={() => revoke.mutate(i.id)}
-                          disabled={revoke.isPending}
-                          className={smallBtn}
-                        >
-                          Revoke
-                        </button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
+      {notice && (
+        <LinkNotice
+          title={notice.title}
+          result={notice.result}
+          onDismiss={() => setNotice(null)}
+        />
+      )}
+      {error && (
+        <p role="alert" className="text-xs text-bear">
+          {error}
+        </p>
+      )}
+
+      {(invites.data?.length ?? 0) > 0 && (
+        <div className="surface overflow-hidden">
+          <div className="border-b border-line px-4 py-2 text-xs font-medium">
+            Pending invites
           </div>
-        )}
-
-        <div className="surface overflow-x-auto">
           <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-subtle">
-                <th className="px-4 py-2 font-medium">Name</th>
-                <th className="px-4 py-2 font-medium">Email</th>
-                <th className="px-4 py-2 font-medium">Role</th>
-                <th className="px-4 py-2 font-medium">2FA</th>
-                <th className="px-4 py-2 font-medium">Last sign-in</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2" />
-              </tr>
-            </thead>
             <tbody>
-              {users.isPending && (
-                <tr>
-                  <td colSpan={7} className="px-4 py-3 text-subtle">
-                    Loading…
-                  </td>
-                </tr>
-              )}
-              {users.data?.map((u) => {
-                const self = u.id === me?.id
+              {invites.data!.map((i) => {
+                const expired = new Date(`${i.expires_at}Z`).getTime() < Date.now()
                 return (
-                  <tr key={u.id} className="border-b border-line last:border-0">
-                    <td className="px-4 py-2 font-medium">
-                      {u.name}
-                      {self && <span className="ml-1.5 text-[10px] text-subtle">(you)</span>}
-                    </td>
-                    <td className="px-4 py-2 text-muted">{u.email}</td>
-                    <td className="px-4 py-2">
-                      <select
-                        value={u.role}
-                        disabled={self || update.isPending}
-                        onChange={(e) =>
-                          update.mutate({ id: u.id, patch: { role: e.target.value as Role } })
-                        }
-                        className={`${inputCls} py-1`}
-                        aria-label={`Role of ${u.email}`}
-                      >
-                        <option value="user">User</option>
-                        <option value="admin">Admin</option>
-                      </select>
-                    </td>
-                    <td className="px-4 py-2">
-                      {u.has_2fa ? (
-                        <span className="text-bull">On</span>
-                      ) : (
-                        <span className={u.role === 'admin' ? 'text-bear' : 'text-subtle'}>
-                          Off
-                        </span>
-                      )}
-                    </td>
+                  <tr key={i.id} className="border-b border-line last:border-0">
+                    <td className="px-4 py-2">{i.email}</td>
+                    <td className="px-4 py-2 capitalize text-muted">{i.role}</td>
                     <td className="px-4 py-2 text-muted">
-                      {u.last_login_at ? fmtTimeAgo(u.last_login_at) : 'Never'}
-                    </td>
-                    <td className="px-4 py-2">
-                      {u.is_active ? (
-                        <span className="text-bull">Active</span>
+                      {expired ? (
+                        <span className="text-bear">Expired</span>
                       ) : (
-                        <span className="text-bear">Disabled</span>
+                        <>Expires {fmtShortDateTime(i.expires_at)}</>
                       )}
                     </td>
-                    <td className="px-4 py-2">
-                      {!self && (
-                        <div className="flex justify-end gap-1.5">
-                          <button
-                            onClick={() => reset.mutate(u)}
-                            disabled={reset.isPending || !u.is_active}
-                            title="Create a one-time password reset link"
-                            className={smallBtn}
-                          >
-                            <KeyRound size={12} /> Reset link
-                          </button>
-                          {u.has_2fa && (
-                            <button
-                              onClick={() => confirmResetMfa(u)}
-                              disabled={resetMfa.isPending}
-                              title="Turn off their 2FA (lost phone and recovery codes)"
-                              className={smallBtn}
-                            >
-                              <ShieldOff size={12} /> Reset 2FA
-                            </button>
-                          )}
-                          <button
-                            onClick={() =>
-                              update.mutate({ id: u.id, patch: { is_active: !u.is_active } })
-                            }
-                            disabled={update.isPending}
-                            title={u.is_active ? 'Block sign-in and sign out everywhere' : ''}
-                            className={smallBtn}
-                          >
-                            {u.is_active ? 'Disable' : 'Enable'}
-                          </button>
-                          <button
-                            onClick={() => confirmDelete(u)}
-                            disabled={remove.isPending}
-                            aria-label={`Delete ${u.email}`}
-                            className={`${smallBtn} hover:text-bear`}
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                      )}
+                    <td className="px-4 py-2 text-right">
+                      <button
+                        onClick={() => revoke.mutate(i.id)}
+                        disabled={revoke.isPending}
+                        className={smallBtn}
+                      >
+                        Revoke
+                      </button>
                     </td>
                   </tr>
                 )
@@ -368,7 +252,129 @@ export default function Users() {
             </tbody>
           </table>
         </div>
+      )}
+
+      <div className="surface overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-subtle">
+              <th className="px-4 py-2 font-medium">Name</th>
+              <th className="px-4 py-2 font-medium">Email</th>
+              <th className="px-4 py-2 font-medium">Role</th>
+              <th className="px-4 py-2 font-medium">2FA</th>
+              <th className="px-4 py-2 font-medium">Last sign-in</th>
+              <th className="px-4 py-2 font-medium">Status</th>
+              <th className="px-4 py-2" />
+            </tr>
+          </thead>
+          <tbody>
+            {users.isPending && (
+              <tr>
+                <td colSpan={7} className="px-4 py-3 text-subtle">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {users.data?.map((u) => {
+              const self = u.id === me?.id
+              return (
+                <tr key={u.id} className="border-b border-line last:border-0">
+                  <td className="px-4 py-2 font-medium">
+                    {u.name}
+                    {self && (
+                      <span className="ml-1.5 text-[10px] text-subtle">(you)</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-muted">{u.email}</td>
+                  <td className="px-4 py-2">
+                    <select
+                      value={u.role}
+                      disabled={self || update.isPending}
+                      onChange={(e) =>
+                        update.mutate({
+                          id: u.id,
+                          patch: { role: e.target.value as Role },
+                        })
+                      }
+                      className={`${inputCls} py-1`}
+                      aria-label={`Role of ${u.email}`}
+                    >
+                      <option value="user">User</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </td>
+                  <td className="px-4 py-2">
+                    {u.has_2fa ? (
+                      <span className="text-bull">On</span>
+                    ) : (
+                      <span className={u.role === 'admin' ? 'text-bear' : 'text-subtle'}>
+                        Off
+                      </span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2 text-muted">
+                    {u.last_login_at ? fmtTimeAgo(u.last_login_at) : 'Never'}
+                  </td>
+                  <td className="px-4 py-2">
+                    {u.is_active ? (
+                      <span className="text-bull">Active</span>
+                    ) : (
+                      <span className="text-bear">Disabled</span>
+                    )}
+                  </td>
+                  <td className="px-4 py-2">
+                    {!self && (
+                      <div className="flex justify-end gap-1.5">
+                        <button
+                          onClick={() => reset.mutate(u)}
+                          disabled={reset.isPending || !u.is_active}
+                          title="Create a one-time password reset link"
+                          className={smallBtn}
+                        >
+                          <KeyRound size={12} /> Reset link
+                        </button>
+                        {u.has_2fa && (
+                          <button
+                            onClick={() => confirmResetMfa(u)}
+                            disabled={resetMfa.isPending}
+                            title="Turn off their 2FA (lost phone and recovery codes)"
+                            className={smallBtn}
+                          >
+                            <ShieldOff size={12} /> Reset 2FA
+                          </button>
+                        )}
+                        <button
+                          onClick={() =>
+                            update.mutate({
+                              id: u.id,
+                              patch: { is_active: !u.is_active },
+                            })
+                          }
+                          disabled={update.isPending}
+                          title={
+                            u.is_active ? 'Block sign-in and sign out everywhere' : ''
+                          }
+                          className={smallBtn}
+                        >
+                          {u.is_active ? 'Disable' : 'Enable'}
+                        </button>
+                        <button
+                          onClick={() => confirmDelete(u)}
+                          disabled={remove.isPending}
+                          aria-label={`Delete ${u.email}`}
+                          className={`${smallBtn} hover:text-bear`}
+                        >
+                          <Trash2 size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              )
+            })}
+          </tbody>
+        </table>
       </div>
-    </main>
+    </div>
   )
 }

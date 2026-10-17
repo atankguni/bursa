@@ -1,170 +1,160 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { useMutation } from '@tanstack/react-query'
-import { KeyRound, LogOut, ShieldCheck, Users } from 'lucide-react'
-import { changePassword, errorMessage } from '../api'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
+import {
+  LogOut,
+  Monitor,
+  Moon,
+  Settings as SettingsIcon,
+  ShieldCheck,
+  Sun,
+  Users,
+} from 'lucide-react'
 import { useAuth } from '../lib/auth'
-import { Field, FormError } from '../pages/auth/AuthLayout'
-import Modal from './Modal'
+import { useSettings, type Theme } from '../lib/settings'
 
 const itemCls =
   'flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-xs text-muted transition hover:bg-panelalt hover:text-ink'
 
-/** Avatar button: who is signed in, password, admin links, sign out. */
+const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
+  { value: 'light', label: 'Light', icon: Sun },
+  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'System', icon: Monitor },
+]
+
+/** Typing in a field, or a dialog is open: leave the key alone. */
+function busy(e: KeyboardEvent) {
+  const el = e.target as HTMLElement | null
+  return (
+    !!el?.closest('input, textarea, select, [contenteditable="true"]') ||
+    !!document.querySelector('[aria-modal="true"]')
+  )
+}
+
+/**
+ * Avatar button, the hub for everything about you: who is signed in, theme,
+ * settings (also with the `,` key), security, admin links and sign out.
+ */
 export default function AccountMenu() {
   const { user, isAdmin, signOut } = useAuth()
+  const { settings, update } = useSettings()
+  const navigate = useNavigate()
   const [open, setOpen] = useState(false)
-  const [changing, setChanging] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+      else if (e.key === ',' && !e.metaKey && !e.ctrlKey && !e.altKey && !busy(e)) {
+        e.preventDefault()
+        setOpen(false)
+        navigate('/settings')
+      }
+    }
     document.addEventListener('mousedown', onDoc)
-    return () => document.removeEventListener('mousedown', onDoc)
-  }, [])
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('mousedown', onDoc)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [navigate])
 
   if (!user) return null
   const initial = (user.name || user.email).trim().charAt(0).toUpperCase()
+  const close = () => setOpen(false)
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((v) => !v)}
-        aria-label="Account"
+        aria-label={
+          user.has_2fa ? 'Account' : 'Account (two-factor authentication is off)'
+        }
         aria-expanded={open}
-        className="flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/25"
+        className="relative flex h-8 w-8 items-center justify-center rounded bg-accent/15 text-xs font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/25"
       >
         {initial}
+        {!user.has_2fa && (
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-panel" />
+        )}
       </button>
       {open && (
-        <div className="absolute right-0 z-40 mt-1.5 w-60 animate-fade-in rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong">
+        <div className="absolute right-0 z-40 mt-1.5 w-64 animate-fade-in rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong">
           <div className="border-b border-line px-2.5 py-2">
-            <p className="truncate text-xs font-medium text-ink">{user.name}</p>
+            <div className="flex items-center gap-2">
+              <p className="min-w-0 flex-1 truncate text-xs font-medium text-ink">
+                {user.name}
+              </p>
+              {isAdmin && (
+                <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                  Admin
+                </span>
+              )}
+            </div>
             <p className="truncate text-[11px] text-subtle">{user.email}</p>
-            {isAdmin && (
-              <span className="mt-1 inline-block rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
-                Admin
-              </span>
-            )}
           </div>
-          <div className="pt-1">
-            {isAdmin && (
-              <Link to="/admin/users" onClick={() => setOpen(false)} className={itemCls}>
-                <Users size={14} /> Users &amp; invites
-              </Link>
-            )}
-            <Link
-              to="/account/security"
-              onClick={() => setOpen(false)}
-              className={itemCls}
+
+          <div className="flex items-center justify-between gap-2 border-b border-line px-2.5 py-2">
+            <span className="text-xs text-muted">Theme</span>
+            <div
+              role="radiogroup"
+              aria-label="Theme"
+              className="inline-flex rounded-md bg-panelalt/70 p-0.5 ring-1 ring-line-strong"
             >
-              <ShieldCheck size={14} /> Two-factor authentication
+              {THEMES.map((t) => {
+                const active = settings.theme === t.value
+                return (
+                  <button
+                    key={t.value}
+                    role="radio"
+                    aria-checked={active}
+                    aria-label={t.label}
+                    title={t.label}
+                    onClick={() => update({ theme: t.value })}
+                    className={`rounded p-1.5 transition ${
+                      active
+                        ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
+                        : 'text-muted hover:text-ink'
+                    }`}
+                  >
+                    <t.icon size={13} />
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          <div className="border-b border-line py-1">
+            <Link to="/settings" onClick={close} className={itemCls}>
+              <SettingsIcon size={14} /> Settings
+              <kbd className="ml-auto rounded bg-panelalt px-1.5 font-mono text-[10px] text-subtle ring-1 ring-line">
+                ,
+              </kbd>
+            </Link>
+            <Link to="/settings/security" onClick={close} className={itemCls}>
+              <ShieldCheck size={14} /> Security
               {!user.has_2fa && (
                 <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
-                  Off
+                  2FA off
                 </span>
               )}
             </Link>
-            <button
-              onClick={() => {
-                setOpen(false)
-                setChanging(true)
-              }}
-              className={itemCls}
-            >
-              <KeyRound size={14} /> Change password
-            </button>
+            {isAdmin && (
+              <Link to="/settings/users" onClick={close} className={itemCls}>
+                <Users size={14} /> Users &amp; invites
+              </Link>
+            )}
+          </div>
+
+          <div className="pt-1">
             <button onClick={() => void signOut()} className={itemCls}>
               <LogOut size={14} /> Sign out
             </button>
           </div>
         </div>
       )}
-      {changing && <ChangePasswordModal onClose={() => setChanging(false)} />}
     </div>
-  )
-}
-
-function ChangePasswordModal({ onClose }: { onClose: () => void }) {
-  const [current, setCurrent] = useState('')
-  const [next, setNext] = useState('')
-  const [confirm, setConfirm] = useState('')
-  const save = useMutation({ mutationFn: () => changePassword(current, next) })
-  const mismatch = confirm !== '' && confirm !== next
-
-  const onSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    if (!mismatch) save.mutate()
-  }
-
-  return (
-    <Modal size="form" title="Change password" onClose={onClose}>
-      {save.isSuccess ? (
-        <div className="space-y-4">
-          <p className="text-sm text-muted">
-            Password changed. Your other browsers and devices were signed out.
-          </p>
-          <div className="flex justify-end">
-            <button
-              onClick={onClose}
-              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90"
-            >
-              Done
-            </button>
-          </div>
-        </div>
-      ) : (
-        <form onSubmit={onSubmit} className="space-y-3">
-          <Field
-            label="Current password"
-            type="password"
-            autoComplete="current-password"
-            autoFocus
-            required
-            value={current}
-            onChange={(e) => setCurrent(e.target.value)}
-          />
-          <Field
-            label="New password"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={next}
-            onChange={(e) => setNext(e.target.value)}
-          />
-          <Field
-            label="Confirm new password"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={confirm}
-            onChange={(e) => setConfirm(e.target.value)}
-          />
-          <FormError>
-            {mismatch
-              ? "Passwords don't match."
-              : save.isError && errorMessage(save.error, "Couldn't change the password.")}
-          </FormError>
-          <div className="flex justify-end gap-2 pt-1">
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={save.isPending || mismatch}
-              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
-            >
-              {save.isPending ? 'Saving…' : 'Change password'}
-            </button>
-          </div>
-        </form>
-      )}
-    </Modal>
   )
 }

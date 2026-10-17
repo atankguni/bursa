@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 /**
- * - large: content views (stock detail, charts, settings), 75% of the screen.
+ * - large: content views (stock detail, charts), 75% of the screen.
  * - form: short forms (a few fields), compact width, as tall as the content.
  * Phones get the full screen either way.
  */

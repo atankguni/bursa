@@ -14,8 +14,7 @@ const Market = lazy(() => import('./pages/Market'))
 const Alerts = lazy(() => import('./pages/Alerts'))
 const Browse = lazy(() => import('./pages/Browse'))
 const DataHealth = lazy(() => import('./pages/DataHealth'))
-const Users = lazy(() => import('./pages/Users'))
-const Security = lazy(() => import('./pages/Security'))
+const Settings = lazy(() => import('./pages/Settings'))
 const SetupTwoFactor = lazy(() => import('./pages/auth/SetupTwoFactor'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
@@ -71,8 +70,16 @@ function Shell({ isAdmin }: { isAdmin: boolean }) {
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/browse" element={<Browse />} />
             {isAdmin && <Route path="/data" element={<DataHealth />} />}
-            {isAdmin && <Route path="/admin/users" element={<Users />} />}
-            <Route path="/account/security" element={<Security />} />
+            <Route path="/settings/:section?" element={<Settings />} />
+            {/* Old addresses, kept for bookmarks. */}
+            <Route
+              path="/account/security"
+              element={<Navigate to="/settings/security" replace />}
+            />
+            <Route
+              path="/admin/users"
+              element={<Navigate to="/settings/users" replace />}
+            />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
