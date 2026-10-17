@@ -13,6 +13,33 @@ and Docker-ignored, and is passed to the container via `env_file`.
 | IDX holidays | `backend/market/holidays.py` (update annually from the IDX calendar) |
 | IDX lot size | `lot_size` (default 100) in `backend/config.py`; exposed via `/api/status` |
 
+## Database
+
+SQLite is the default and needs no setup. To use a server database, set
+`DATABASE_URL` and build the backend with that database's async driver:
+
+| Database | `DATABASE_URL` | Build arg |
+|---|---|---|
+| SQLite (default) | `sqlite+aiosqlite:////app/data/bursa.db` | none |
+| PostgreSQL | `postgresql+asyncpg://user:pass@host:5432/bursa` | `DB_DRIVER=asyncpg` |
+| MySQL / MariaDB | `mysql+aiomysql://user:pass@host:3306/bursa` | `DB_DRIVER="aiomysql cryptography"` |
+
+For example, in `docker-compose.yml`:
+
+```yaml
+  backend:
+    build:
+      context: ./backend
+      args:
+        DB_DRIVER: asyncpg
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://bursa:secret@postgres:5432/bursa
+```
+
+The schema is created and upgraded automatically on startup (Alembic). Data is not
+copied between databases: a new database starts empty and fills from the providers.
+Your portfolio, watchlist and alerts would need to be moved separately.
+
 ## Data providers
 
 `price_provider` / `fundamentals_provider` in `backend/config.py` select the source

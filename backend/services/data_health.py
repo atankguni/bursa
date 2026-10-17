@@ -9,7 +9,7 @@ and suspicious values (including Yahoo vs IDX share-count mismatches).
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from market.providers.governor import governor
@@ -54,11 +54,13 @@ async def report(session: AsyncSession, jobs: list[dict[str, Any]]) -> dict[str,
     coverage = current / total if total else 0.0
 
     # --- fundamentals ---------------------------------------------------------
+    # The default is inlined, not a bound parameter: PostgreSQL/MySQL only accept
+    # GROUP BY on an expression identical to the selected one, and two binds differ.
+    source = func.coalesce(Fundamental.source, literal_column("'statements'"))
     by_source = dict(
         (await session.execute(
-            select(func.coalesce(Fundamental.source, "statements"),
-                   func.count(func.distinct(Fundamental.ticker)))
-            .group_by(func.coalesce(Fundamental.source, "statements"))
+            select(source, func.count(func.distinct(Fundamental.ticker)))
+            .group_by(source)
         )).all()
     )
     with_funds = sum(by_source.values())

@@ -78,8 +78,13 @@ async def missing_tickers() -> list[str]:
             await session.execute(
                 select(Stock.ticker)
                 .where(_missing_clause())
-                # SQLite sorts NULL first ascending -> never-tried lead the queue.
-                .order_by(Stock.fundamentals_checked_at, Stock.ticker)
+                # Never-tried (NULL) lead the queue. Databases disagree on where
+                # NULL sorts (and MySQL has no NULLS FIRST), so sort on IS NOT NULL.
+                .order_by(
+                    Stock.fundamentals_checked_at.is_not(None),
+                    Stock.fundamentals_checked_at,
+                    Stock.ticker,
+                )
             )
         ).scalars().all()
     return list(rows)

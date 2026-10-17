@@ -33,7 +33,7 @@ SPLITS = "splits"
 
 # --------------------------------------------------------------------------- #
 # Canonical shapes every adapter returns (keys match the ORM columns, so rows
-# can be passed straight to `sqlite_insert(...).values(...)`).
+# can be passed straight to `db.upsert.upsert(...)`).
 # --------------------------------------------------------------------------- #
 class PriceBar(TypedDict):
     ticker: str

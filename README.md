@@ -27,7 +27,8 @@ Bursa is **free and open source** under the [MIT License](LICENSE).
 - **Alerts**: price, %-change and rating-change rules, in-app or via Telegram.
 - **AI assistant** (optional): ask questions about the market in English or Indonesian, answered
   from the app's own data (Gemini free tier).
-- **Gentle on free APIs**: tiered sync, a rate-limit governor and SQLite as the cache.
+- **Gentle on free APIs**: tiered sync, a rate-limit governor and the database as the cache.
+- **Your choice of database**: SQLite out of the box; PostgreSQL or MySQL by changing one setting.
 
 See the full **[feature list](docs/features.md)**.
 
@@ -49,15 +50,15 @@ To enable the AI assistant or Telegram alerts, add keys to `backend/.env`. See
 |---|---|
 | [Getting started](docs/getting-started.md) | Docker, resetting data, hot-reload dev servers |
 | [Features](docs/features.md) | Everything the app does, plus accessibility |
-| [Configuration](docs/configuration.md) | Settings, `.env` keys, providers, AI assistant, Telegram |
-| [Architecture](docs/architecture.md) | Project layout, data sync, caching, rate-limiting, limitations |
+| [Configuration](docs/configuration.md) | Settings, `.env` keys, database, providers, AI assistant, Telegram |
+| [Architecture](docs/architecture.md) | Project layout, database layer, data sync, caching, rate-limiting |
 | [API reference](docs/api.md) | All REST endpoints |
 | [Development](docs/development.md) | Lint, type check, tests, signal backtest |
 | [Third-party notices](docs/third-party-notices.md) | Dependency licenses, attribution, data sources |
 
 ## Tech stack
 
-Python 3.14 · FastAPI · SQLAlchemy (async) + SQLite · APScheduler · yfinance ·
+Python 3.14 · FastAPI · SQLAlchemy (async) + Alembic · SQLite / PostgreSQL / MySQL · APScheduler · yfinance ·
 React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · Lightweight Charts · Docker + nginx
 
 ## License

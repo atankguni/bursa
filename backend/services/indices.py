@@ -11,10 +11,10 @@ from datetime import date, datetime, timedelta
 from typing import TypedDict
 
 from sqlalchemy import func, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import AsyncSessionLocal
+from db.upsert import upsert
 from market.indices import BY_CODE, BY_SYMBOL, INDICES
 from market.providers.governor import governor
 from market.providers.registry import price_provider
@@ -59,24 +59,18 @@ async def refresh_quotes() -> int:
             idx = BY_SYMBOL.get(q["symbol"])
             if idx is None:
                 continue
-            stmt = sqlite_insert(IndexQuote).values(
-                code=idx.code, last=q["last"], previous_close=q["previous_close"],
-                updated_at=now,
+            await upsert(
+                session, IndexQuote,
+                {"code": idx.code, "last": q["last"], "previous_close": q["previous_close"],
+                 "updated_at": now},
+                keys=["code"],
             )
-            await session.execute(stmt.on_conflict_do_update(
-                index_elements=["code"],
-                set_={"last": stmt.excluded.last, "previous_close": stmt.excluded.previous_close,
-                      "updated_at": stmt.excluded.updated_at},
-            ))
-            bar = sqlite_insert(IndexBar).values(
-                code=idx.code, day=day, open=q["open"], high=q["high"], low=q["low"],
-                close=q["last"],
+            await upsert(
+                session, IndexBar,
+                {"code": idx.code, "day": day, "open": q["open"], "high": q["high"],
+                 "low": q["low"], "close": q["last"]},
+                keys=["code", "day"],
             )
-            await session.execute(bar.on_conflict_do_update(
-                index_elements=["code", "day"],
-                set_={"open": bar.excluded.open, "high": bar.excluded.high,
-                      "low": bar.excluded.low, "close": bar.excluded.close},
-            ))
         await session.commit()
     log.info("Index quotes refreshed: %d of %d", len(quotes), len(symbols))
     return len(quotes)
@@ -107,23 +101,17 @@ async def ensure_full_history(session: AsyncSession, code: str) -> None:
          "low": b["low"], "close": b["close"], "volume": b["volume"]}
         for b in bars
     ]
-    for start in range(0, len(values), 1000):  # stay under SQLite's variable limit
-        stmt = sqlite_insert(IndexBar).values(values[start : start + 1000])
-        await session.execute(stmt.on_conflict_do_update(
-            index_elements=["code", "day"],
-            set_={k: getattr(stmt.excluded, k) for k in ("open", "high", "low", "close", "volume")},
-        ))
+    await upsert(session, IndexBar, values, keys=["code", "day"])
     now = datetime.utcnow()
-    stmt = sqlite_insert(IndexQuote).values(
-        code=code,
-        last=bars[-1]["close"],
-        previous_close=bars[-2]["close"] if len(bars) > 1 else None,
-        updated_at=now,
-        full_history_at=now,
+    # A new quote row gets the history's last close; an existing (fresher) quote
+    # only records that the full history is now stored.
+    await upsert(
+        session, IndexQuote,
+        {"code": code, "last": bars[-1]["close"],
+         "previous_close": bars[-2]["close"] if len(bars) > 1 else None,
+         "updated_at": now, "full_history_at": now},
+        keys=["code"], update=["full_history_at"],
     )
-    await session.execute(stmt.on_conflict_do_update(
-        index_elements=["code"], set_={"full_history_at": stmt.excluded.full_history_at},
-    ))
     await session.commit()
     log.info("Fetched full history for index %s (%d bars)", code, len(values))
 

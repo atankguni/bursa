@@ -5,6 +5,8 @@ uvicorn==0.54.0
 # 2.1.x has cp314 musllinux wheels (2.0.x has none); matches 2.0-style API.
 sqlalchemy==2.1.4
 aiosqlite==0.22.1
+# Schema migrations (db/migrate.py, migrations/); works on every SQL dialect.
+alembic==1.20.0
 # yfinance >=1.0 is required: older 0.2.x builds fail with
 # "Expecting value: line 1 column 1" against Yahoo's current API.
 yfinance==1.7.0

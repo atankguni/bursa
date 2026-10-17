@@ -8,7 +8,7 @@ Jobs:
   * sync_intraday                 -> 1m candles every 3 min, market hours only
   * sync_watchlist_fundamentals   -> refresh watchlist statements (weekday 18:00)
   * prune_intraday                -> drop 1m bars older than the retention window (daily)
-  * compact_db                    -> VACUUM (weekly)
+  * compact_db                    -> VACUUM where the database needs it (weekly)
 
 The heavy lifting lives in `market.sync` (batched downloads) and
 `services.fundamentals` (per-ticker statements).
@@ -24,7 +24,8 @@ from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import CursorResult, delete, select
 
 from config import settings
-from database import AsyncSessionLocal, vacuum, wal_checkpoint
+from database import AsyncSessionLocal, engine
+from db import maintenance
 from market.sync import DAILY_INTERVAL, INTRADAY_INTERVAL, sync_batch
 from market.tickers import all_tickers
 from models import Stock, StockIndex, StockPrice, Transaction, Watchlist
@@ -139,7 +140,7 @@ async def sync_watchlist_fundamentals() -> None:
 
 
 async def prune_intraday() -> None:
-    """Delete old 1m bars, then checkpoint the WAL. Keeps the DB from growing."""
+    """Delete old 1m bars, then checkpoint (SQLite's WAL). Keeps the DB from growing."""
     cutoff = datetime.utcnow() - timedelta(days=settings.intraday_retention_days)
     async with AsyncSessionLocal() as session:
         result = cast(CursorResult[Any], await session.execute(
@@ -149,7 +150,7 @@ async def prune_intraday() -> None:
             )
         ))
         await session.commit()
-    await wal_checkpoint()
+    await maintenance.checkpoint(engine)
     log.info(
         "Pruned %d old intraday rows (>= %d days)",
         result.rowcount, settings.intraday_retention_days,
@@ -157,9 +158,10 @@ async def prune_intraday() -> None:
 
 
 async def compact_db() -> None:
-    """Weekly VACUUM to reclaim disk space."""
-    await vacuum()
-    log.info("VACUUM complete")
+    """Weekly housekeeping: VACUUM on SQLite/PostgreSQL, nothing on MySQL."""
+    ran = await maintenance.compact(engine)
+    if ran:
+        log.info("%s complete", ran)
 
 
 async def log_provider_stats() -> None:

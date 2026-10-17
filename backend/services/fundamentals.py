@@ -12,10 +12,10 @@ import logging
 from datetime import datetime, timedelta
 
 from sqlalchemy import delete
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 
 from config import settings
 from database import AsyncSessionLocal
+from db.upsert import upsert
 from market.providers.governor import governor
 from market.providers.registry import fundamentals_provider
 from models import Fundamental, StockProfile
@@ -53,50 +53,22 @@ async def sync_ticker(ticker: str, with_dividends: bool = True) -> int:
                 )
             )
         if rows:
-            stmt = sqlite_insert(Fundamental).values(rows)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["ticker", "fiscal_year"],
-                set_={
-                    "financial_currency": stmt.excluded.financial_currency,
-                    "total_shares": stmt.excluded.total_shares,
-                    "revenue": stmt.excluded.revenue,
-                    "net_income": stmt.excluded.net_income,
-                    "total_assets": stmt.excluded.total_assets,
-                    "total_liabilities": stmt.excluded.total_liabilities,
-                    "equity": stmt.excluded.equity,
-                    "source": stmt.excluded.source,
-                    "updated_at": stmt.excluded.updated_at,
-                },
+            await upsert(
+                session, Fundamental, rows,
+                keys=["ticker", "fiscal_year"],
+                update=[
+                    "financial_currency", "total_shares", "revenue", "net_income",
+                    "total_assets", "total_liabilities", "equity", "source", "updated_at",
+                ],
             )
-            await session.execute(stmt)
 
         if profile is not None:
-            prof = sqlite_insert(StockProfile).values(
-                ticker=ticker, updated_at=datetime.utcnow(), **profile
+            # Every provided field (and updated_at) overwrites the stored profile.
+            await upsert(
+                session, StockProfile,
+                {"ticker": ticker, "updated_at": datetime.utcnow(), **profile},
+                keys=["ticker"],
             )
-            prof = prof.on_conflict_do_update(
-                index_elements=["ticker"],
-                set_={
-                    "sector": prof.excluded.sector,
-                    "industry": prof.excluded.industry,
-                    "description": prof.excluded.description,
-                    "employees": prof.excluded.employees,
-                    "website": prof.excluded.website,
-                    "country": prof.excluded.country,
-                    "city": prof.excluded.city,
-                    "address": prof.excluded.address,
-                    "phone": prof.excluded.phone,
-                    "officers": prof.excluded.officers,
-                    "trailing_pe": prof.excluded.trailing_pe,
-                    "profit_margin": prof.excluded.profit_margin,
-                    "revenue_growth": prof.excluded.revenue_growth,
-                    "earnings_growth": prof.excluded.earnings_growth,
-                    "dividend_yield": prof.excluded.dividend_yield,
-                    "beta": prof.excluded.beta,
-                    "updated_at": prof.excluded.updated_at,
-                },
-            )
-            await session.execute(prof)
 
         await session.commit()
 

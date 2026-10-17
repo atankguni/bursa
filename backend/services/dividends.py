@@ -5,10 +5,10 @@ from collections import defaultdict
 from datetime import date, timedelta
 
 from sqlalchemy import select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import AsyncSessionLocal
+from db.upsert import upsert
 from market.providers.governor import governor
 from market.providers.registry import fundamentals_provider
 from models import Dividend
@@ -30,12 +30,7 @@ async def sync_dividends(ticker: str) -> int:
         return 0
 
     async with AsyncSessionLocal() as session:
-        stmt = sqlite_insert(Dividend).values(values)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=["ticker", "ex_date"],
-            set_={"amount": stmt.excluded.amount},
-        )
-        await session.execute(stmt)
+        await upsert(session, Dividend, values, keys=["ticker", "ex_date"], update=["amount"])
         await session.commit()
     return len(values)
 

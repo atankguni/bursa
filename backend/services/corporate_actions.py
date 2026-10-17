@@ -12,10 +12,10 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 from sqlalchemy import select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import AsyncSessionLocal
+from db.upsert import upsert
 from market.providers.governor import governor
 from market.providers.registry import price_provider
 from models import Split, Stock, Transaction
@@ -110,12 +110,11 @@ async def sync_splits(tickers: Sequence[str]) -> int:
             if stock is None:
                 continue
             for r in rows:
-                stmt = sqlite_insert(Split).values(
-                    ticker=ticker, ex_date=r["ex_date"], ratio=r["ratio"]
+                await upsert(
+                    session, Split,
+                    {"ticker": ticker, "ex_date": r["ex_date"], "ratio": r["ratio"]},
+                    keys=["ticker", "ex_date"], update=["ratio"],
                 )
-                await session.execute(stmt.on_conflict_do_update(
-                    index_elements=["ticker", "ex_date"], set_={"ratio": stmt.excluded.ratio},
-                ))
                 # A split after the full history was stored: the provider has since
                 # re-adjusted older prices, so fetch the history again on next view.
                 stored = stock.full_history_at

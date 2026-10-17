@@ -8,9 +8,9 @@ work — rating-change alerts — uses the same investing style as every page.
 from typing import cast, get_args
 
 from sqlalchemy import delete, select
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from db.upsert import upsert
 from models import Preference, RatingState
 from schemas import InvestingStyle
 
@@ -32,9 +32,7 @@ async def set_investing_style(session: AsyncSession, style: InvestingStyle) -> b
     """Persist the style. Returns True if it changed."""
     if style == await get_investing_style(session):
         return False
-    stmt = sqlite_insert(Preference).values(key=INVESTING_STYLE_KEY, value=style)
-    stmt = stmt.on_conflict_do_update(index_elements=["key"], set_={"value": style})
-    await session.execute(stmt)
+    await upsert(session, Preference, {"key": INVESTING_STYLE_KEY, "value": style}, keys=["key"])
     # Rating-change alerts compare against the last-seen rating. Ratings from the
     # other style aren't comparable, so drop the baselines (they are rebuilt on
     # the next evaluation) instead of firing a wave of "rating changed" alerts.
@@ -61,8 +59,5 @@ async def get_assistant_personal_data(session: AsyncSession) -> bool:
 
 async def set_assistant_personal_data(session: AsyncSession, enabled: bool) -> None:
     value = "true" if enabled else "false"
-    stmt = sqlite_insert(Preference).values(key=ASSISTANT_PERSONAL_KEY, value=value)
-    await session.execute(
-        stmt.on_conflict_do_update(index_elements=["key"], set_={"value": value})
-    )
+    await upsert(session, Preference, {"key": ASSISTANT_PERSONAL_KEY, "value": value}, keys=["key"])
     await session.commit()

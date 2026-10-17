@@ -59,7 +59,7 @@ async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
     """Doubling the position isn't profit: TWR stays at the price gain (+10%)."""
     from datetime import date, datetime
 
-    from sqlalchemy.dialects.sqlite import insert
+    from sqlalchemy import insert
 
     import services.indices as indices
     from database import AsyncSessionLocal

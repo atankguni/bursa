@@ -12,9 +12,13 @@ FROM python:3.14-alpine AS build
 RUN apk add --no-cache binutils
 
 COPY requirements.txt .
+# Optional async driver for a server database, e.g. --build-arg DB_DRIVER=asyncpg
+# (PostgreSQL) or DB_DRIVER="aiomysql cryptography" (MySQL/MariaDB; MySQL 8
+# logins need cryptography). SQLite needs none.
+ARG DB_DRIVER=""
 # --no-compile: no .pyc at install time (Python compiles on import anyway).
 # All deps ship musllinux wheels, so no compiler/toolchain is required.
-RUN pip install --no-cache-dir --no-compile --prefix=/install -r requirements.txt \
+RUN pip install --no-cache-dir --no-compile --prefix=/install -r requirements.txt $DB_DRIVER \
  && find /install -depth -type d \( -name tests -o -name __pycache__ \) -exec rm -rf {} + \
  && find /install -type f \( -name '*.so' -o -name '*.so.*' \) -exec strip --strip-unneeded {} + \
  && find /install -type f \( -name '*.pyx' -o -name '*.pxd' -o -name '*.c' -o -name '*.h' \) -delete
@@ -50,12 +54,14 @@ EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
 
 # --- test -------------------------------------------------------------------
-# Same packages as production plus dev tools:
+# Same packages as production plus dev tools, and the PostgreSQL/MySQL drivers
+# so the suite can also run against a server database (TEST_DATABASE_URL):
 #   docker build --target test -t bursa-backend-test ./backend
 #   docker run --rm bursa-backend-test
 FROM runtime AS test
 # nodejs: pyright's runtime (the pip package uses the system node when present).
 RUN apk add --no-cache nodejs npm \
  && python -m ensurepip \
- && python -m pip install --no-cache-dir pytest pytest-asyncio httpx ruff pyright
+ && python -m pip install --no-cache-dir pytest pytest-asyncio httpx ruff pyright \
+    asyncpg aiomysql cryptography
 CMD ["sh", "-c", "ruff check . && pyright && python -m pytest -q"]

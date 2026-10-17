@@ -13,7 +13,7 @@ paid in that month a year earlier.
 from datetime import date, timedelta
 from typing import TypedDict
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Dividend, Stock, Watchlist
@@ -82,7 +82,7 @@ async def dividend_calendar(session: AsyncSession, days: int = 180) -> list[Expe
     for t, d, a in (await session.execute(
         select(Dividend.ticker, Dividend.ex_date, Dividend.amount)
         .where(Dividend.ticker.in_(tickers),
-               Dividend.ex_date >= func.date("now", "-800 days"))
+               Dividend.ex_date >= date.today() - timedelta(days=800))
         .order_by(Dividend.ex_date)
     )).all():
         history[t].append((d, a))

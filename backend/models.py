@@ -10,6 +10,9 @@ SQLAlchemy 2.0 ORM models.
 `Watchlist`   -> user's hand-picked tickers to follow.
 `Fundamental` -> yearly financial statement figures per ticker.
 
+Numbers use `Double` (8-byte), not `Float`: MySQL maps Float to a 4-byte FLOAT,
+which would round large IDR figures (assets, revenue) to ~7 significant digits.
+
 The `interval` column ("1d" for daily, "1m" for intraday) keeps the two series
 separate so a chart never mixes a daily close with a minute close. It is not in
 the original field list but is required for correct charting.
@@ -23,7 +26,7 @@ from sqlalchemy import (
     Boolean,
     Date,
     DateTime,
-    Float,
+    Double,
     ForeignKey,
     Index,
     Integer,
@@ -54,7 +57,7 @@ class Stock(Base):
     # "Acceleration", "Watchlist" = special monitoring), listing date, official shares.
     listing_board: Mapped[str | None] = mapped_column(String(24), nullable=True)
     listed_on: Mapped[date | None] = mapped_column(Date, nullable=True)
-    idx_shares: Mapped[float | None] = mapped_column(Float, nullable=True)
+    idx_shares: Mapped[float | None] = mapped_column(Double, nullable=True)
     idx_synced_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # Last time this stock's split history was checked (services/corporate_actions).
     splits_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -101,10 +104,10 @@ class StockPrice(Base):
     )
     timestamp: Mapped[datetime] = mapped_column(DateTime, index=True, nullable=False)
     interval: Mapped[str] = mapped_column(String(8), default="1d", nullable=False)
-    open: Mapped[float] = mapped_column(Float, nullable=False)
-    high: Mapped[float] = mapped_column(Float, nullable=False)
-    low: Mapped[float] = mapped_column(Float, nullable=False)
-    close: Mapped[float] = mapped_column(Float, nullable=False)
+    open: Mapped[float] = mapped_column(Double, nullable=False)
+    high: Mapped[float] = mapped_column(Double, nullable=False)
+    low: Mapped[float] = mapped_column(Double, nullable=False)
+    close: Mapped[float] = mapped_column(Double, nullable=False)
     volume: Mapped[int] = mapped_column(BigInteger, default=0, nullable=False)
 
     # One row per (ticker, timestamp, interval); enables idempotent upserts.
@@ -154,12 +157,12 @@ class Fundamental(Base):
     # monetary columns below are stored CONVERTED to IDR so ratios (PBV) are
     # valid; this column records what the source statements reported in.
     financial_currency: Mapped[str | None] = mapped_column(String(8), nullable=True)
-    total_shares: Mapped[float | None] = mapped_column(Float, nullable=True)
-    revenue: Mapped[float | None] = mapped_column(Float, nullable=True)
-    net_income: Mapped[float | None] = mapped_column(Float, nullable=True)
-    total_assets: Mapped[float | None] = mapped_column(Float, nullable=True)
-    total_liabilities: Mapped[float | None] = mapped_column(Float, nullable=True)
-    equity: Mapped[float | None] = mapped_column(Float, nullable=True)
+    total_shares: Mapped[float | None] = mapped_column(Double, nullable=True)
+    revenue: Mapped[float | None] = mapped_column(Double, nullable=True)
+    net_income: Mapped[float | None] = mapped_column(Double, nullable=True)
+    total_assets: Mapped[float | None] = mapped_column(Double, nullable=True)
+    total_liabilities: Mapped[float | None] = mapped_column(Double, nullable=True)
+    equity: Mapped[float | None] = mapped_column(Double, nullable=True)
     # "statements" or "summary" (see market/providers/base.FundamentalRow);
     # NULL on rows written before the column existed = statements.
     source: Mapped[str | None] = mapped_column(String(16), nullable=True)
@@ -199,12 +202,12 @@ class StockProfile(Base):
     phone: Mapped[str | None] = mapped_column(String(48), nullable=True)
     # Board / management: [{name, title}, ...] from the provider profile.
     officers: Mapped[list | None] = mapped_column(JSON, nullable=True)
-    trailing_pe: Mapped[float | None] = mapped_column(Float, nullable=True)
-    profit_margin: Mapped[float | None] = mapped_column(Float, nullable=True)
-    revenue_growth: Mapped[float | None] = mapped_column(Float, nullable=True)
-    earnings_growth: Mapped[float | None] = mapped_column(Float, nullable=True)
-    dividend_yield: Mapped[float | None] = mapped_column(Float, nullable=True)
-    beta: Mapped[float | None] = mapped_column(Float, nullable=True)
+    trailing_pe: Mapped[float | None] = mapped_column(Double, nullable=True)
+    profit_margin: Mapped[float | None] = mapped_column(Double, nullable=True)
+    revenue_growth: Mapped[float | None] = mapped_column(Double, nullable=True)
+    earnings_growth: Mapped[float | None] = mapped_column(Double, nullable=True)
+    dividend_yield: Mapped[float | None] = mapped_column(Double, nullable=True)
+    beta: Mapped[float | None] = mapped_column(Double, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now(), nullable=False
     )
@@ -224,9 +227,9 @@ class Transaction(Base):
         nullable=False,
     )
     side: Mapped[str] = mapped_column(String(4), nullable=False)  # "buy" | "sell"
-    quantity: Mapped[float] = mapped_column(Float, nullable=False)
-    price: Mapped[float] = mapped_column(Float, nullable=False)
-    fees: Mapped[float] = mapped_column(Float, default=0.0, nullable=False)
+    quantity: Mapped[float] = mapped_column(Double, nullable=False)
+    price: Mapped[float] = mapped_column(Double, nullable=False)
+    fees: Mapped[float] = mapped_column(Double, default=0.0, nullable=False)
     trade_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
     note: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -249,7 +252,7 @@ class Alert(Base):
     )
     # price_above | price_below | pct_change | rating_change
     type: Mapped[str] = mapped_column(String(16), nullable=False)
-    threshold: Mapped[float | None] = mapped_column(Float, nullable=True)
+    threshold: Mapped[float | None] = mapped_column(Double, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     created_at: Mapped[datetime] = mapped_column(
@@ -273,7 +276,7 @@ class AlertEvent(Base):
     triggered_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), index=True, nullable=False
     )
-    value: Mapped[float | None] = mapped_column(Float, nullable=True)
+    value: Mapped[float | None] = mapped_column(Double, nullable=True)
     message: Mapped[str] = mapped_column(String(255), nullable=False)
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
@@ -310,7 +313,7 @@ class Dividend(Base):
         nullable=False,
     )
     ex_date: Mapped[date] = mapped_column(Date, index=True, nullable=False)
-    amount: Mapped[float] = mapped_column(Float, nullable=False)
+    amount: Mapped[float] = mapped_column(Double, nullable=False)
 
     __table_args__ = (
         UniqueConstraint("ticker", "ex_date", name="uq_dividend"),
@@ -341,8 +344,8 @@ class IndexQuote(Base):
     __tablename__ = "index_quotes"
 
     code: Mapped[str] = mapped_column(String(20), primary_key=True)
-    last: Mapped[float] = mapped_column(Float, nullable=False)
-    previous_close: Mapped[float | None] = mapped_column(Float, nullable=True)
+    last: Mapped[float] = mapped_column(Double, nullable=False)
+    previous_close: Mapped[float | None] = mapped_column(Double, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(DateTime, nullable=False)
     # When the provider's full history was fetched (indices that have one).
     full_history_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
@@ -359,10 +362,10 @@ class IndexBar(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     code: Mapped[str] = mapped_column(String(20), index=True, nullable=False)
     day: Mapped[date] = mapped_column(Date, nullable=False)
-    open: Mapped[float | None] = mapped_column(Float, nullable=True)
-    high: Mapped[float | None] = mapped_column(Float, nullable=True)
-    low: Mapped[float | None] = mapped_column(Float, nullable=True)
-    close: Mapped[float] = mapped_column(Float, nullable=False)
+    open: Mapped[float | None] = mapped_column(Double, nullable=True)
+    high: Mapped[float | None] = mapped_column(Double, nullable=True)
+    low: Mapped[float | None] = mapped_column(Double, nullable=True)
+    close: Mapped[float] = mapped_column(Double, nullable=False)
     volume: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     __table_args__ = (UniqueConstraint("code", "day", name="uq_index_bar"),)
@@ -382,7 +385,7 @@ class Split(Base):
         nullable=False,
     )
     ex_date: Mapped[date] = mapped_column(Date, nullable=False)
-    ratio: Mapped[float] = mapped_column(Float, nullable=False)
+    ratio: Mapped[float] = mapped_column(Double, nullable=False)
 
     __table_args__ = (UniqueConstraint("ticker", "ex_date", name="uq_split"),)
 

@@ -39,6 +39,7 @@ License).
 | uvicorn | 0.54.0 | BSD-3-Clause |
 | sqlalchemy | 2.1.4 | MIT |
 | aiosqlite | 0.22.1 | MIT |
+| alembic (+ Mako, MarkupSafe) | 1.20.0 | MIT (MarkupSafe: BSD-3-Clause) |
 | yfinance | 1.7.0 | Apache-2.0 |
 | curl_cffi | 0.16.3 | MIT |
 | apscheduler | 3.11.3 | MIT |
@@ -46,6 +47,15 @@ License).
 | pydantic-settings | 2.16.0 | MIT |
 | pandas | 3.0.6 | BSD-3-Clause |
 | greenlet | 3.5.6 | MIT AND PSF-2.0 |
+
+Optional database drivers, installed only when building for that database
+(`DB_DRIVER` build arg):
+
+| Package | Version | License |
+|---|---|---|
+| asyncpg (PostgreSQL) | 0.32.0 | Apache-2.0 |
+| aiomysql + PyMySQL (MySQL/MariaDB) | 0.3.2 / 1.2.3 | MIT |
+| cryptography (MySQL 8 logins) | 50.0.2 | Apache-2.0 OR BSD-3-Clause |
 
 (Versions as pinned at the time of writing; transitive dependencies carry their
 own licenses.)

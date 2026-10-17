@@ -17,10 +17,9 @@ import logging
 from datetime import UTC, date, datetime, time
 from zoneinfo import ZoneInfo
 
-from sqlalchemy.dialects.sqlite import insert as sqlite_insert
-
 from config import settings
 from database import AsyncSessionLocal
+from db.upsert import upsert
 from market.providers.base import MarketDataProvider, PriceBar
 from market.providers.governor import governor
 from market.providers.registry import price_provider
@@ -76,30 +75,18 @@ def rollup_daily(bars: list[PriceBar], day: date) -> list[PriceBar]:
 
 async def _upsert_rows(rows: list[PriceBar]) -> int:
     """
-    Idempotent bulk upsert keyed on (ticker, timestamp, interval).
-
-    SQLite caps bound variables per statement (~32k), and each row binds 8
-    values, so large inputs are inserted in slices.
+    Idempotent bulk upsert keyed on (ticker, timestamp, interval); `upsert`
+    splits large inputs to stay under the database's bound-parameter limit.
     """
     if not rows:
         return 0
 
-    slice_size = 1000  # 1000 rows * 8 cols = 8000 variables
     async with AsyncSessionLocal() as session:
-        for start in range(0, len(rows), slice_size):
-            part = rows[start : start + slice_size]
-            stmt = sqlite_insert(StockPrice).values(part)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=["ticker", "timestamp", "interval"],
-                set_={
-                    "open": stmt.excluded.open,
-                    "high": stmt.excluded.high,
-                    "low": stmt.excluded.low,
-                    "close": stmt.excluded.close,
-                    "volume": stmt.excluded.volume,
-                },
-            )
-            await session.execute(stmt)
+        await upsert(
+            session, StockPrice, rows,
+            keys=["ticker", "timestamp", "interval"],
+            update=["open", "high", "low", "close", "volume"],
+        )
         await session.commit()
     return len(rows)
 

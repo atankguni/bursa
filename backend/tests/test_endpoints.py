@@ -162,9 +162,8 @@ async def test_screener_total_counts_filtered_matches(client):
 async def _insert_daily_bars(ticker: str, days: int) -> None:
     from datetime import datetime, timedelta
 
-    from sqlalchemy.dialects.sqlite import insert
-
     from database import AsyncSessionLocal
+    from db.upsert import upsert
     from models import StockPrice
 
     today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -174,7 +173,7 @@ async def _insert_daily_bars(ticker: str, days: int) -> None:
         for d in range(days)
     ]
     async with AsyncSessionLocal() as s:
-        await s.execute(insert(StockPrice).values(rows).on_conflict_do_nothing())
+        await upsert(s, StockPrice, rows, keys=["ticker", "timestamp", "interval"], update=[])
         await s.commit()
 
 

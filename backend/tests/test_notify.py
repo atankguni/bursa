@@ -2,7 +2,7 @@
 
 from datetime import datetime
 
-from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy import insert
 
 import services.notify as notify
 from config import settings

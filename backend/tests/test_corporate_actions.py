@@ -2,8 +2,7 @@
 
 from datetime import date, datetime
 
-from sqlalchemy import select
-from sqlalchemy.dialects.sqlite import insert
+from sqlalchemy import insert, select
 
 import services.corporate_actions as ca
 from config import settings

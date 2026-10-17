@@ -67,6 +67,8 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-7s | %(name)s | %(message)s",
 )
 log = logging.getLogger("bursa")
+# Alembic logs a line per autogenerate plugin on import; keep only migration work.
+logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
 
 # Strong references to fire-and-forget startup jobs: the event loop only keeps
 # weak ones, so an unreferenced task can be garbage-collected mid-run.

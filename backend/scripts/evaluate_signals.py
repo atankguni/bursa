@@ -4,7 +4,7 @@ Evaluate the recommendation engine against what prices actually did next.
 Runs the app's own factor functions / `score_universe` at past as-of dates using
 only data that existed then (point-in-time), and reports forward returns per
 rating plus the rank IC (Spearman correlation of score vs forward return).
-Read-only: opens the SQLite file immutably.
+Read-only: it only runs SELECTs, on whichever database DATABASE_URL points at.
 
 Styles: `investor` (monthly as-of dates, 1m/3m horizons) and `trader`
 (weekly as-of dates, 1w/2w/4w horizons; price factors only).
@@ -16,14 +16,16 @@ sector. Caveats: survivorship (current listings), overlapping 3m windows, and
 the history is only as long as the stored daily bars (~1y by default).
 
 Usage (inside the backend environment):
-    python scripts/evaluate_signals.py [--style investor|trader] [--db data/bursa.db]
+    python scripts/evaluate_signals.py [--style investor|trader] [--db data/bursa.db | --url URL]
+
+`--db` is a SQLite file; `--url` any SQLAlchemy async URL. Default: DATABASE_URL.
 
 Rule of thumb for the IC: ~0 = noise, > 0.05 useful, > 0.10 good.
 """
 
 import argparse
+import asyncio
 import collections
-import sqlite3
 import statistics as st
 import sys
 from collections.abc import Callable, Sequence
@@ -33,7 +35,11 @@ from typing import Any, TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+from sqlalchemy import select  # noqa: E402
+from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
+
 from config import settings  # noqa: E402
+from models import Fundamental, StockPrice, StockProfile  # noqa: E402
 from schemas import InvestingStyle  # noqa: E402
 from services.recommendation import (  # noqa: E402
     CATEGORY_ORDER,
@@ -74,29 +80,47 @@ class Sample(TypedDict):
 # --------------------------------------------------------------------------- #
 # Data loading
 # --------------------------------------------------------------------------- #
-def load(db: str) -> tuple[dict[str, list[Bar]], dict[str, list[Any]], dict[str, str | None]]:
-    con = sqlite3.connect(f"file:{db}?immutable=1", uri=True)
-    prices: dict[str, list[Bar]] = collections.defaultdict(list)
-    for ticker, ts, close, volume in con.execute(
-        "select ticker, timestamp, close, volume from stock_prices "
-        "where interval='1d' order by ticker, timestamp"
-    ):
-        prices[ticker].append(Bar(day=ts[:10], close=close, volume=volume or 0))
+def load(url: str) -> tuple[dict[str, list[Bar]], dict[str, list[Any]], dict[str, str | None]]:
+    return asyncio.run(_load(url))
 
-    # Duck-typed stand-ins for models.Fundamental (raw_factors only reads attributes).
-    funds: dict[str, list[Any]] = collections.defaultdict(list)
-    for row in con.execute(
-        "select ticker, fiscal_year, total_shares, revenue, net_income, total_assets, "
-        "total_liabilities, equity from fundamentals order by ticker, fiscal_year"
-    ):
-        funds[row[0]].append(
-            SimpleNamespace(
-                fiscal_year=row[1], total_shares=row[2], revenue=row[3],
-                net_income=row[4], total_assets=row[5], total_liabilities=row[6],
-                equity=row[7],
+
+async def _load(
+    url: str,
+) -> tuple[dict[str, list[Bar]], dict[str, list[Any]], dict[str, str | None]]:
+    engine = create_async_engine(url)
+    try:
+        async with engine.connect() as con:
+            prices: dict[str, list[Bar]] = collections.defaultdict(list)
+            for ticker, ts, close, volume in await con.execute(
+                select(StockPrice.ticker, StockPrice.timestamp, StockPrice.close,
+                       StockPrice.volume)
+                .where(StockPrice.interval == "1d")
+                .order_by(StockPrice.ticker, StockPrice.timestamp)
+            ):
+                prices[ticker].append(
+                    Bar(day=ts.date().isoformat(), close=close, volume=volume or 0)
+                )
+
+            # Duck-typed stand-ins for models.Fundamental (raw_factors only reads attributes).
+            funds: dict[str, list[Any]] = collections.defaultdict(list)
+            for row in await con.execute(
+                select(Fundamental.ticker, Fundamental.fiscal_year, Fundamental.total_shares,
+                       Fundamental.revenue, Fundamental.net_income, Fundamental.total_assets,
+                       Fundamental.total_liabilities, Fundamental.equity)
+                .order_by(Fundamental.ticker, Fundamental.fiscal_year)
+            ):
+                funds[row[0]].append(
+                    SimpleNamespace(
+                        fiscal_year=row[1], total_shares=row[2], revenue=row[3],
+                        net_income=row[4], total_assets=row[5], total_liabilities=row[6],
+                        equity=row[7],
+                    )
+                )
+            sectors: dict[str, str | None] = dict(
+                (await con.execute(select(StockProfile.ticker, StockProfile.sector))).all()
             )
-        )
-    sectors = dict(con.execute("select ticker, sector from stock_profiles"))
+    finally:
+        await engine.dispose()
     return prices, funds, sectors
 
 
@@ -282,12 +306,15 @@ def snapshot(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0] if __doc__ else None)
-    parser.add_argument("--db", default=str(Path(__file__).resolve().parents[1] / "data/bursa.db"))
+    source = parser.add_mutually_exclusive_group()
+    source.add_argument("--db", help="SQLite database file")
+    source.add_argument("--url", help="SQLAlchemy async URL (default: DATABASE_URL)")
     parser.add_argument("--style", choices=list(HORIZONS), default="investor")
     args = parser.parse_args()
     style: InvestingStyle = args.style
 
-    prices, funds, sectors = load(args.db)
+    url = args.url or (f"sqlite+aiosqlite:///{args.db}" if args.db else settings.database_url)
+    prices, funds, sectors = load(url)
     if not prices:
         sys.exit("No daily prices in the database.")
     # Only days most of the universe covers: a few stocks store their full

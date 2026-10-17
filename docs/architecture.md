@@ -3,7 +3,7 @@
 | Layer    | Stack |
 |----------|-------|
 | Backend  | Python 3.14, FastAPI, SQLAlchemy 2.0 (async) + aiosqlite, APScheduler, yfinance |
-| Database | SQLite (WAL mode), persisted on the host |
+| Database | SQLite by default (WAL mode, persisted on the host); PostgreSQL and MySQL/MariaDB supported |
 | Frontend | React 19 + Vite, TypeScript, Tailwind CSS, TanStack Query, lightweight-charts, lucide-react |
 | Infra    | Docker Compose (single stack) + nginx |
 
@@ -17,7 +17,9 @@ bursa/
 │   ├── main.py            # app factory: settings, middleware, lifespan, routers
 │   ├── config.py          # Settings (env-driven)
 │   ├── deps.py            # FastAPI dependencies (get_session)
-│   ├── database.py        # async engine, WAL, light migrations
+│   ├── database.py        # async engine + session factory, init_db()
+│   ├── db/                # database adapter: portable upsert, maintenance, migration runner
+│   ├── migrations/        # Alembic migration scripts (+ alembic.ini)
 │   ├── models.py          # ORM models
 │   ├── schemas.py         # Pydantic response models
 │   ├── routers/           # HTTP endpoints (stocks, screener, portfolio, alerts, indices, …)
@@ -68,12 +70,36 @@ The app uses **tiered sync** so the free Yahoo API is never hammered:
 - **Sleep/wake**: jobs have a misfire grace window, so jobs missed while the host slept
   run on wake.
 
+## Database layer
+
+All data access goes through **SQLAlchemy**, which already speaks SQLite, PostgreSQL
+and MySQL. The few things SQL dialects disagree on are kept in one adapter package,
+`backend/db/`, so services never contain database-specific code:
+
+| Module | What it hides |
+|---|---|
+| `db/upsert.py` | Insert-or-update: `ON CONFLICT` (SQLite/PostgreSQL) vs `ON DUPLICATE KEY` (MySQL). Also chunks large batches under each database's parameter limit. |
+| `db/maintenance.py` | SQLite pragmas (WAL, busy timeout, foreign keys), WAL checkpoints and the weekly `VACUUM`. PostgreSQL gets `VACUUM (ANALYZE)`; MySQL needs nothing. |
+| `db/migrate.py` | Runs **Alembic** migrations on startup. It also upgrades databases created before migrations existed. |
+
+Portability rules for new queries (the test suite runs on all three databases to catch these):
+
+- Use `db.upsert.upsert()` instead of a dialect's `insert(...).on_conflict_...`.
+- Compute dates in Python (`date.today() - timedelta(...)`), not with SQL date functions.
+- Don't rely on where `NULL` sorts. Sort on `column.is_not(None)` first when it matters.
+- `GROUP BY` must cover every selected non-aggregated column. Group on the exact
+  expression you select, and inline constants rather than binding them.
+- Use `Double` for numbers, not `Float`: MySQL's `FLOAT` is 4-byte.
+
+MongoDB is not supported: it isn't SQL, and supporting it would need a repository
+layer over every query.
+
 ## Architecture & rate-limiting
 
 Temporary data lives in two places; no external cache service is used:
 
-- **SQLite is the durable cache / source of truth.** The API serves reads from
-  SQLite, never from the provider, so browsing never hits Yahoo.
+- **The database is the durable cache / source of truth.** The API serves reads from
+  it, never from the provider, so browsing never hits Yahoo.
 - **In-process TTL caches** for derived/volatile data:
   - recommendation scores: `recommendation_cache_seconds` (60s);
   - FX rates: `fx_cache_hours` (6h);
