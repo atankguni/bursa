@@ -26,7 +26,7 @@ function blankReason(r: ScreenerRow, metric: 'pbv' | 'roe'): string | undefined 
   return 'Not meaningful: book value / equity is negative'
 }
 const inputCls =
-  'w-full rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-bull'
+  'w-full rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
 
 export default function Screener() {
   const { settings } = useSettings()
@@ -155,7 +155,7 @@ export default function Screener() {
           onClick={() => setBuyOnly((v) => !v)}
           className={`rounded px-3 py-1.5 text-xs font-medium ring-1 transition ${
             buyOnly
-              ? 'bg-bull/15 text-bull ring-bull/30'
+              ? 'bg-accent/15 text-accent ring-accent/30'
               : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
           }`}
         >

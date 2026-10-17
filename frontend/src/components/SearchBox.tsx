@@ -67,7 +67,7 @@ export default function SearchBox() {
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-bull">
+      <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
         <Search size={13} className="text-muted" />
         <input
           value={q}

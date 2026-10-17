@@ -189,7 +189,7 @@ export default function StockDetailModal({
               title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
               className={`flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-50 ${
                 watched
-                  ? 'text-bull ring-bull/40 hover:bg-bull/10'
+                  ? 'text-accent ring-accent/40 hover:bg-accent/10'
                   : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
               }`}
             >
@@ -316,7 +316,7 @@ export default function StockDetailModal({
                       onClick={() => setInd((s) => ({ ...s, [key]: !s[key] }))}
                       className={`rounded px-2 py-1 text-[11px] font-medium ring-1 transition ${
                         ind[key]
-                          ? 'bg-bull/15 text-bull ring-bull/30'
+                          ? 'bg-accent/15 text-accent ring-accent/30'
                           : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
                       }`}
                     >
@@ -330,7 +330,7 @@ export default function StockDetailModal({
                       title="Compare with IHSG: both lines in % change from the left edge of the chart"
                       className={`rounded px-2 py-1 text-[11px] font-medium ring-1 transition ${
                         vsIhsg
-                          ? 'bg-bull/15 text-bull ring-bull/30'
+                          ? 'bg-accent/15 text-accent ring-accent/30'
                           : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
                       }`}
                     >
@@ -439,7 +439,7 @@ export default function StockDetailModal({
                           </div>
                           <div className="mt-1.5 h-1.5 overflow-hidden rounded-sm bg-panelalt">
                             <div
-                              className="h-full rounded-sm bg-bull"
+                              className="h-full rounded-sm bg-accent"
                               style={{ width: `${row.pct ?? 0}%` }}
                             />
                           </div>

@@ -15,7 +15,7 @@ const TYPES: { value: AlertType; label: string }[] = [
 const THRESHOLD_TYPES: AlertType[] = ['price_above', 'price_below', 'pct_change']
 
 const inputCls =
-  'rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-bull'
+  'rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
 
 export default function Alerts() {
   const qc = useQueryClient()
@@ -49,7 +49,7 @@ export default function Alerts() {
   return (
     <main className="w-full animate-fade-in px-4 py-4">
       <div className="mb-3 flex items-center gap-2">
-        <Bell size={16} className="text-bull" />
+        <Bell size={16} className="text-accent" />
         <h2 className="text-sm font-semibold tracking-tight">Alerts</h2>
         <p className="text-[11px] text-subtle">
           Evaluated after each market sync · in the app, and on Telegram if connected
@@ -112,7 +112,7 @@ export default function Alerts() {
           <button
             onClick={() => add.mutate()}
             disabled={add.isPending || !ticker || (needsThreshold && !threshold)}
-            className="rounded bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+            className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
           >
             {add.isPending ? 'Adding…' : 'Add alert'}
           </button>
@@ -161,7 +161,7 @@ export default function Alerts() {
                         onClick={() => toggle.mutate(a.id)}
                         className={`rounded px-2 py-0.5 text-[10px] font-medium ring-1 transition ${
                           a.active
-                            ? 'bg-bull/15 text-bull ring-bull/30'
+                            ? 'bg-accent/15 text-accent ring-accent/30'
                             : 'text-subtle ring-line-strong'
                         }`}
                       >

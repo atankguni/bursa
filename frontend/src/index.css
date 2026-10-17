@@ -55,6 +55,69 @@ html[data-high-contrast].dark {
   --c-bear: 248 113 113;
 }
 
+/*
+ * Accent colour (Settings -> Appearance): buttons, toggles, selected chips,
+ * focus rings, links, the logo and chart lines. Never used for meaning: price
+ * up/down stays bull/bear and warnings stay amber. Selected by `data-accent`
+ * on <html>; blue is the default. Each accent has a shade per theme and per
+ * high-contrast mode, all >= 4.5:1 as text on every surface (WCAG AA), and
+ * `--c-accent-ink` is the text colour on a solid accent background.
+ * Every accent defines all four combinations, so specificity sorts them out.
+ */
+:root {
+  --c-accent: 37 99 235; /* blue-600 */
+  --c-accent-ink: 255 255 255;
+}
+.dark {
+  --c-accent: 96 165 250; /* blue-400 */
+  --c-accent-ink: 2 6 23; /* slate-950 */
+}
+html[data-high-contrast] {
+  --c-accent: 29 78 216; /* blue-700 */
+}
+html[data-high-contrast].dark {
+  --c-accent: 147 197 253; /* blue-300 */
+}
+
+html[data-accent='indigo'] {
+  --c-accent: 79 70 229; /* indigo-600 */
+}
+html[data-accent='indigo'].dark {
+  --c-accent: 129 140 248; /* indigo-400 */
+}
+html[data-accent='indigo'][data-high-contrast] {
+  --c-accent: 67 56 202; /* indigo-700 */
+}
+html[data-accent='indigo'][data-high-contrast].dark {
+  --c-accent: 165 180 252; /* indigo-300 */
+}
+
+html[data-accent='violet'] {
+  --c-accent: 124 58 237; /* violet-600 */
+}
+html[data-accent='violet'].dark {
+  --c-accent: 167 139 250; /* violet-400 */
+}
+html[data-accent='violet'][data-high-contrast] {
+  --c-accent: 109 40 217; /* violet-700 */
+}
+html[data-accent='violet'][data-high-contrast].dark {
+  --c-accent: 196 181 253; /* violet-300 */
+}
+
+html[data-accent='graphite'] {
+  --c-accent: 51 65 85; /* slate-700 */
+}
+html[data-accent='graphite'].dark {
+  --c-accent: 203 213 225; /* slate-300 */
+}
+html[data-accent='graphite'][data-high-contrast] {
+  --c-accent: 30 41 59; /* slate-800 */
+}
+html[data-accent='graphite'][data-high-contrast].dark {
+  --c-accent: 226 232 240; /* slate-200 */
+}
+
 html,
 body,
 #root {
@@ -102,11 +165,11 @@ html[data-reduce-motion] .animate-ping {
   }
 
   ::selection {
-    background-color: rgb(var(--c-bull) / 0.25);
+    background-color: rgb(var(--c-accent) / 0.25);
   }
 
   :focus-visible {
-    outline: 2px solid rgb(var(--c-ink));
+    outline: 2px solid rgb(var(--c-accent));
     outline-offset: 2px;
   }
 }

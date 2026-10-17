@@ -2,6 +2,7 @@ import {
   createContext,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
   type ReactNode,
@@ -12,11 +13,20 @@ import { setCompactNumbers } from './format'
 export type Theme = 'system' | 'light' | 'dark'
 export type Density = 'compact' | 'medium' | 'large'
 export type NumberFormat = 'compact' | 'full'
+/** UI accent colour; the shades live in index.css (`data-accent`). */
+export type Accent = 'blue' | 'indigo' | 'violet' | 'graphite'
+export const ACCENTS: { value: Accent; label: string }[] = [
+  { value: 'blue', label: 'Blue' },
+  { value: 'indigo', label: 'Indigo' },
+  { value: 'violet', label: 'Violet' },
+  { value: 'graphite', label: 'Graphite' },
+]
 type Resolved = 'light' | 'dark'
 
 export interface Settings {
   // Appearance
   theme: Theme
+  accent: Accent
   density: Density
   reduceMotion: boolean
   highContrast: boolean
@@ -35,6 +45,7 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
+  accent: 'blue',
   density: 'medium',
   reduceMotion: false,
   highContrast: false,
@@ -113,7 +124,9 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }, [settings])
 
   // Theme -> `.dark` class (+ follow the OS when set to "system").
-  useEffect(() => {
+  // Layout effects (here and below): they run before any child's useEffect, so
+  // charts reading CSS variables (readCssColor) see the new theme and accent.
+  useLayoutEffect(() => {
     const mq = window.matchMedia('(prefers-color-scheme: dark)')
     const apply = () => {
       const dark =
@@ -128,13 +141,14 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     }
   }, [settings.theme])
 
-  // Density + reduce-motion + high-contrast -> data attributes on <html>.
-  useEffect(() => {
+  // Accent + density + reduce-motion + high-contrast -> data attributes on <html>.
+  useLayoutEffect(() => {
     const el = document.documentElement
+    el.setAttribute('data-accent', settings.accent)
     el.setAttribute('data-density', settings.density)
     el.toggleAttribute('data-reduce-motion', settings.reduceMotion)
     el.toggleAttribute('data-high-contrast', settings.highContrast)
-  }, [settings.density, settings.reduceMotion, settings.highContrast])
+  }, [settings.accent, settings.density, settings.reduceMotion, settings.highContrast])
 
   // Number format -> module-level formatter flag (keeps call sites unchanged).
   useEffect(() => {
@@ -152,6 +166,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   )
 
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>
+}
+
+/**
+ * A colour token from index.css (e.g. "--c-accent") as a hex string, for canvas
+ * libraries such as the charts that can't use CSS variables directly.
+ */
+export function readCssColor(token: string, fallback = '#2563eb'): string {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(token).trim()
+  const parts = raw.split(/\s+/).map(Number)
+  if (parts.length !== 3 || parts.some((n) => !Number.isFinite(n))) return fallback
+  return `#${parts.map((n) => n.toString(16).padStart(2, '0')).join('')}`
 }
 
 export function useSettings(): SettingsContextValue {

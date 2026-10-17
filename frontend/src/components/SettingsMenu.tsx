@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import {
+  Check,
   Columns3,
   Palette,
   RotateCcw,
@@ -11,7 +12,14 @@ import {
 } from 'lucide-react'
 import { DEFAULT_INDEXES, type InvestingStyle } from '../api'
 import { usePreferences } from '../hooks'
-import { useSettings, type Density, type NumberFormat, type Theme } from '../lib/settings'
+import {
+  ACCENTS,
+  useSettings,
+  type Accent,
+  type Density,
+  type NumberFormat,
+  type Theme,
+} from '../lib/settings'
 
 const STYLE_HINT: Record<InvestingStyle, string> = {
   investor: 'Long term · quality & value from yearly fundamentals',
@@ -71,6 +79,59 @@ function Segmented<T extends string>({
   )
 }
 
+// Swatch previews only (the real shades are CSS tokens in index.css), so every
+// option shows its own colour whatever accent is active.
+const ACCENT_SWATCH: Record<Accent, { light: string; dark: string }> = {
+  blue: { light: '#2563eb', dark: '#60a5fa' },
+  indigo: { light: '#4f46e5', dark: '#818cf8' },
+  violet: { light: '#7c3aed', dark: '#a78bfa' },
+  graphite: { light: '#334155', dark: '#cbd5e1' },
+}
+
+function AccentPicker({
+  value,
+  theme,
+  onChange,
+}: {
+  value: Accent
+  theme: 'light' | 'dark'
+  onChange: (v: Accent) => void
+}) {
+  return (
+    <div role="radiogroup" aria-label="Accent colour" className="flex items-center gap-2">
+      {ACCENTS.map((a) => {
+        const selected = a.value === value
+        const color = ACCENT_SWATCH[a.value][theme]
+        return (
+          <button
+            key={a.value}
+            type="button"
+            role="radio"
+            aria-checked={selected}
+            aria-label={a.label}
+            title={a.label}
+            onClick={() => onChange(a.value)}
+            style={{ backgroundColor: color, color }}
+            className={`flex h-6 w-6 items-center justify-center rounded-full transition ${
+              selected
+                ? 'ring-2 ring-current ring-offset-2 ring-offset-panel'
+                : 'opacity-80 hover:opacity-100'
+            }`}
+          >
+            {selected && (
+              <Check
+                size={13}
+                strokeWidth={3}
+                className={theme === 'dark' ? 'text-app' : 'text-white'}
+              />
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function Switch({
   checked,
   onChange,
@@ -88,7 +149,7 @@ function Switch({
       aria-label={label}
       onClick={() => onChange(!checked)}
       className={`relative h-5 w-9 shrink-0 rounded transition-colors ${
-        checked ? 'bg-bull' : 'bg-active'
+        checked ? 'bg-accent' : 'bg-active'
       }`}
     >
       <span
@@ -115,7 +176,7 @@ function Chip({
       onClick={onClick}
       className={`rounded px-2.5 py-1 text-xs font-medium ring-1 transition ${
         active
-          ? 'bg-bull/15 text-bull ring-bull/30'
+          ? 'bg-accent/15 text-accent ring-accent/30'
           : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
       }`}
     >
@@ -179,7 +240,7 @@ function StackedRow({ label, children }: { label: string; children: ReactNode })
 // --------------------------------------------------------------------------- //
 
 export default function SettingsMenu() {
-  const { settings, update, reset } = useSettings()
+  const { settings, resolvedTheme, update, reset } = useSettings()
   const {
     style,
     setStyle,
@@ -234,7 +295,7 @@ export default function SettingsMenu() {
               {/* Header */}
               <div className="flex items-center justify-between gap-4 border-b border-line px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <div className="rounded-md bg-gradient-to-br from-bull to-emerald-600 p-2 text-white shadow-card">
+                  <div className="rounded-md bg-accent p-2 text-accent-ink shadow-card">
                     <SettingsIcon size={16} strokeWidth={2.5} />
                   </div>
                   <div>
@@ -297,6 +358,16 @@ export default function SettingsMenu() {
                         { value: 'light', label: 'Light' },
                         { value: 'dark', label: 'Dark' },
                       ]}
+                    />
+                  </ListRow>
+                  <ListRow
+                    label="Accent colour"
+                    hint={`${ACCENTS.find((a) => a.value === settings.accent)?.label ?? 'Blue'} · buttons, highlights & charts`}
+                  >
+                    <AccentPicker
+                      value={settings.accent}
+                      theme={resolvedTheme}
+                      onChange={(v) => update({ accent: v })}
                     />
                   </ListRow>
                   <ListRow label="Density">

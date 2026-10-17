@@ -44,7 +44,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
   }
 
   const inputCls =
-    'w-full rounded bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-none focus:ring-bull'
+    'w-full rounded bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
 
   return createPortal(
     <div
@@ -187,7 +187,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
             <button
               onClick={submit}
               disabled={add.isPending || !ticker || !quantity || !price}
-              className="rounded bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90 disabled:opacity-50"
+              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
             >
               {add.isPending ? 'Saving…' : 'Add'}
             </button>

@@ -60,7 +60,7 @@ export default function Browse() {
               : `${from}–${to} of ${total}${isFetching ? ' · updating…' : ''} · track a stock for live prices`}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-bull">
+        <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
           <Search size={13} className="text-muted" />
           <input
             value={q}
@@ -131,7 +131,7 @@ export default function Browse() {
                       }
                     }}
                     tabIndex={0}
-                    className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60 focus-visible:bg-panelalt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-bull"
+                    className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60 focus-visible:bg-panelalt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                   >
                     <td className="px-4 py-2 font-semibold">
                       <span className="inline-flex items-center gap-1.5">

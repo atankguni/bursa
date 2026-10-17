@@ -120,7 +120,7 @@ export default function AssistantPanel() {
             {/* Header */}
             <div className="flex items-center justify-between gap-3 border-b border-line px-4 py-3">
               <div className="flex items-center gap-2.5">
-                <div className="rounded-md bg-gradient-to-br from-bull to-emerald-600 p-1.5 text-white shadow-card">
+                <div className="rounded-md bg-accent p-1.5 text-accent-ink shadow-card">
                   <Sparkles size={14} strokeWidth={2.5} />
                 </div>
                 <div className="leading-tight">
@@ -232,7 +232,7 @@ export default function AssistantPanel() {
               }}
               className="border-t border-line px-3 py-3"
             >
-              <div className="flex items-end gap-2 rounded-md bg-panelalt/70 px-2.5 py-2 ring-1 ring-line-strong focus-within:ring-bull">
+              <div className="flex items-end gap-2 rounded-md bg-panelalt/70 px-2.5 py-2 ring-1 ring-line-strong focus-within:ring-accent">
                 <textarea
                   ref={inputRef}
                   value={draft}
@@ -256,7 +256,7 @@ export default function AssistantPanel() {
                   type="submit"
                   disabled={disabled || !draft.trim()}
                   aria-label="Send"
-                  className="rounded p-1.5 text-bull transition hover:bg-bull/10 disabled:text-subtle disabled:opacity-50"
+                  className="rounded p-1.5 text-accent transition hover:bg-accent/10 disabled:text-subtle disabled:opacity-50"
                 >
                   <SendHorizontal size={16} />
                 </button>

@@ -18,6 +18,9 @@ export default {
         subtle: 'rgb(var(--c-subtle) / <alpha-value>)',
         bull: 'rgb(var(--c-bull) / <alpha-value>)',
         bear: 'rgb(var(--c-bear) / <alpha-value>)',
+        // User-chosen accent (Settings -> Appearance); UI only, never price meaning.
+        accent: 'rgb(var(--c-accent) / <alpha-value>)',
+        'accent-ink': 'rgb(var(--c-accent-ink) / <alpha-value>)',
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06)',

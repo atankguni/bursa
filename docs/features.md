@@ -26,7 +26,8 @@
   Track toggle. Tracked stocks get intraday updates; clicking a row opens the detail modal.
 - **Charts**: candlestick or line, daily (1d) and intraday (1m), 1M–Max spans, an
   optional **vs IHSG** overlay (% change) and stock-split markers, via Lightweight Charts.
-- **Chart indicators**: MA(20/50/200), volume and RSI overlays on the detail chart.
+- **Chart indicators**: MA(20/50/200) in amber / pink / cyan, volume, and RSI overlays on the
+  detail chart.
 - **Relative valuation**: where current PBV/RoE sit within the stock's own history.
 - **Dividends**: dividend history, trailing yield, and projected annual income for holdings.
 - **Company**: a detail tab with the company description, sector/industry, employees,
@@ -85,7 +86,11 @@ backtest (see [Development](development.md#signal-backtest)).
 ## Personalization
 
 - **Theme**: light / dark / **follow system**.
-- **Settings** (gear in the navbar): theme, display **density** (compact/medium/large),
+- **Accent colour**: Blue (default), Indigo, Violet or Graphite for buttons, toggles, selected
+  chips, focus rings, links, the logo and chart lines. Each has its own shade for light, dark
+  and high-contrast mode (all WCAG AA). Green and red stay reserved for price up/down, and amber
+  for warnings, so the accent never looks like a market signal.
+- **Settings** (gear in the navbar): theme, accent colour, display **density** (compact/medium/large),
   reduce motion, high contrast, default indices, chart defaults, auto-refresh, number format,
   change coloring and per-table **column visibility**. These are saved in the browser.
 

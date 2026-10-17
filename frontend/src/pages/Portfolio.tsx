@@ -120,7 +120,7 @@ export default function Portfolio() {
           </button>
           <button
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded bg-bull px-3 py-1.5 text-xs font-medium text-white transition hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90"
           >
             <Plus size={14} /> Add transaction
           </button>

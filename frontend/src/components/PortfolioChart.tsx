@@ -8,16 +8,18 @@ import {
   type LineData,
 } from 'lightweight-charts'
 import type { EquityPoint } from '../api'
-import { useSettings } from '../lib/settings'
+import { readCssColor, useSettings } from '../lib/settings'
 
+// The series colour is the user's accent (readCssColor), not bull green: a
+// rising line shouldn't look like a price signal.
 const SOFT = {
-  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#1e293b', line: '#22c55e' },
-  light: { background: '#ffffff', text: '#475569', grid: '#e2e8f0', line: '#16a34a' },
+  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#1e293b' },
+  light: { background: '#ffffff', text: '#475569', grid: '#e2e8f0' },
 } as const
 
 const HIGH = {
-  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#334155', line: '#4ade80' },
-  light: { background: '#ffffff', text: '#334155', grid: '#cbd5e1', line: '#15803d' },
+  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#334155' },
+  light: { background: '#ffffff', text: '#334155', grid: '#cbd5e1' },
 } as const
 
 /**
@@ -43,6 +45,7 @@ export default function PortfolioChart({
     const el = ref.current
     if (!el) return
     const c = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
+    const accent = readCssColor('--c-accent')
 
     const chart: IChartApi = createChart(el, {
       height,
@@ -62,7 +65,7 @@ export default function PortfolioChart({
         formatter: (v: number) => `${v.toFixed(1)}%`,
       }
       const mine = chart.addLineSeries({
-        color: c.line,
+        color: accent,
         lineWidth: 2,
         title: 'You',
         priceFormat: pct,
@@ -87,9 +90,9 @@ export default function PortfolioChart({
       )
     } else {
       const series = chart.addAreaSeries({
-        lineColor: c.line,
-        topColor: `${c.line}55`,
-        bottomColor: `${c.line}05`,
+        lineColor: accent,
+        topColor: `${accent}55`,
+        bottomColor: `${accent}05`,
         lineWidth: 2,
         lastValueVisible: !hideValues,
         priceLineVisible: !hideValues,
@@ -107,7 +110,15 @@ export default function PortfolioChart({
       observer.disconnect()
       chart.remove()
     }
-  }, [data, height, hideValues, mode, resolvedTheme, settings.highContrast])
+  }, [
+    data,
+    height,
+    hideValues,
+    mode,
+    resolvedTheme,
+    settings.highContrast,
+    settings.accent,
+  ])
 
   const last = data.length > 0 ? data[data.length - 1].value : null
   return (

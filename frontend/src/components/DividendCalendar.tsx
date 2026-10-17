@@ -47,7 +47,7 @@ export default function DividendCalendar({ hideValues }: { hideValues: boolean }
                 </span>
                 <span className="font-semibold">{d.ticker.replace('.JK', '')}</span>
                 {d.in_portfolio && (
-                  <span className="rounded-sm bg-bull/10 px-1 py-0.5 text-[9px] text-bull">
+                  <span className="rounded-sm bg-accent/10 px-1 py-0.5 text-[9px] text-accent">
                     holding
                   </span>
                 )}

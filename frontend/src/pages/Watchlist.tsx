@@ -104,7 +104,7 @@ export default function Watchlist() {
       </div>
 
       {refresh.isSuccess && (
-        <div className="mb-3 flex items-center gap-1.5 rounded bg-bull/10 px-3 py-2 text-[11px] text-bull ring-1 ring-bull/20">
+        <div className="mb-3 flex items-center gap-1.5 rounded bg-accent/10 px-3 py-2 text-[11px] text-accent ring-1 ring-accent/20">
           <Info size={13} /> Updated {refresh.data.tickers} tickers ({refresh.data.rows}{' '}
           rows).
         </div>

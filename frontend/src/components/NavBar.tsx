@@ -10,7 +10,7 @@ import SettingsMenu from './SettingsMenu'
 const linkClass = ({ isActive }: { isActive: boolean }) =>
   `flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition ${
     isActive
-      ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
+      ? 'bg-panel text-accent shadow-card ring-1 ring-line-strong'
       : 'text-muted hover:bg-panelalt hover:text-ink'
   }`
 
@@ -21,7 +21,7 @@ export default function NavBar() {
       <div className="flex w-full items-center justify-between gap-4 px-4 py-2.5">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">
-            <div className="rounded-md bg-gradient-to-br from-bull to-emerald-600 p-2 text-white shadow-card">
+            <div className="rounded-md bg-accent p-2 text-accent-ink shadow-card">
               <Activity size={18} strokeWidth={2.5} />
             </div>
             <div className="leading-tight">

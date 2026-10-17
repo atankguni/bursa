@@ -72,7 +72,7 @@ export default function CompanyPanel({
                   href={data.website}
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-bull transition hover:opacity-80"
+                  className="mt-3 inline-flex items-center gap-1.5 text-xs font-medium text-accent transition hover:opacity-80"
                 >
                   <ExternalLink size={12} /> {data.website.replace(/^https?:\/\//, '')}
                 </a>

@@ -25,7 +25,7 @@ export default function SubTabs<T extends string>({
             onClick={() => onChange(o.value)}
             className={`-mb-px border-b-2 px-0.5 pb-2 text-xs font-medium transition ${
               active
-                ? 'border-ink text-ink'
+                ? 'border-accent text-ink'
                 : 'border-transparent text-muted hover:text-ink'
             }`}
           >

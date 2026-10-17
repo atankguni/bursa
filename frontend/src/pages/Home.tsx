@@ -154,7 +154,7 @@ export default function Home() {
             onClick={() => setBuyOnly((v) => !v)}
             className={`rounded px-2.5 py-1 font-medium ring-1 transition ${
               buyOnly
-                ? 'bg-bull/15 text-bull ring-bull/30'
+                ? 'bg-accent/15 text-accent ring-accent/30'
                 : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
             }`}
           >
@@ -349,7 +349,7 @@ export default function Home() {
                           title={watched ? 'On watchlist' : 'Add to watchlist'}
                           className={`inline-flex items-center justify-center rounded p-2 transition ${
                             watched
-                              ? 'cursor-default text-bull'
+                              ? 'cursor-default text-accent'
                               : 'text-muted hover:bg-active hover:text-ink'
                           }`}
                         >

@@ -13,7 +13,7 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { PricePoint } from '../api'
-import { useSettings } from '../lib/settings'
+import { readCssColor, useSettings } from '../lib/settings'
 import { parseServerTime } from '../lib/format'
 
 export interface Indicators {
@@ -68,7 +68,8 @@ function rsi(points: PricePoint[], period = 14): LineData[] {
   return out
 }
 
-// Soft (default) and high-contrast palettes, per theme.
+// Soft (default) and high-contrast palettes, per theme. Line series (price in
+// line mode, RSI) use the user's accent colour, read from CSS (readCssColor).
 const SOFT = {
   dark: {
     background: '#0f172a',
@@ -77,7 +78,6 @@ const SOFT = {
     border: '#334155',
     bull: '#22c55e',
     bear: '#ef4444',
-    line: '#38bdf8',
   },
   light: {
     background: '#ffffff',
@@ -86,7 +86,6 @@ const SOFT = {
     border: '#e2e8f0',
     bull: '#16a34a',
     bear: '#dc2626',
-    line: '#0284c7',
   },
 } as const
 
@@ -98,7 +97,6 @@ const HIGH = {
     border: '#475569',
     bull: '#4ade80',
     bear: '#f87171',
-    line: '#7dd3fc',
   },
   light: {
     background: '#ffffff',
@@ -107,11 +105,12 @@ const HIGH = {
     border: '#94a3b8',
     bull: '#15803d',
     bear: '#b91c1c',
-    line: '#0369a1',
   },
 } as const
 
-const MA_COLORS = { ma20: '#f59e0b', ma50: '#8b5cf6', ma200: '#ec4899' }
+// Hues kept clear of every accent option (blue, indigo, violet, graphite) and of
+// the bull/bear candles, so moving averages never look like the price line.
+const MA_COLORS = { ma20: '#f59e0b', ma50: '#ec4899', ma200: '#06b6d4' }
 
 export default function StockChart({
   data,
@@ -145,6 +144,7 @@ export default function StockChart({
     const el = mainRef.current
     if (!el) return
     const c = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
+    const accent = readCssColor('--c-accent')
 
     const chart = createChart(el, {
       height,
@@ -178,7 +178,7 @@ export default function StockChart({
       series.setData(bars)
       main = series
     } else {
-      const series = chart.addLineSeries({ color: c.line, lineWidth: 2 })
+      const series = chart.addLineSeries({ color: accent, lineWidth: 2 })
       const pts: LineData[] = data.map((p) => ({
         time: toTime(p.timestamp),
         value: p.close,
@@ -284,7 +284,7 @@ export default function StockChart({
         rightPriceScale: { borderColor: rc.border },
         timeScale: { borderColor: rc.border, timeVisible: true, secondsVisible: false },
       })
-      const rsiSeries = rsiChart.addLineSeries({ color: '#a855f7', lineWidth: 1 })
+      const rsiSeries = rsiChart.addLineSeries({ color: accent, lineWidth: 1 })
       rsiSeries.setData(rsi(data, 14))
       const guide = {
         color: rc.border,
@@ -319,6 +319,7 @@ export default function StockChart({
     height,
     resolvedTheme,
     settings.highContrast,
+    settings.accent,
     ind?.ma20,
     ind?.ma50,
     ind?.ma200,
