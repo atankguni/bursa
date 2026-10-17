@@ -50,6 +50,23 @@ class Settings(BaseSettings):
     telegram_bot_token: str | None = None
     telegram_chat_id: str | None = None
 
+    # Optional email (mail/ package). `mail_provider` picks the adapter:
+    # "smtp" (any mailbox: Gmail app password, Outlook, Zoho, Brevo, ...) or
+    # "resend" (Resend API). Unset = email disabled. Secrets go in backend/.env.
+    mail_provider: str | None = None
+    # Sender, e.g. "Bursa <bursa@example.com>" (Resend: a verified domain).
+    mail_from: str | None = None
+    # Default recipient(s) when a caller names none; comma-separated.
+    mail_to: str | None = None
+    mail_timeout_seconds: float = 20.0
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_username: str | None = None
+    smtp_password: str | None = None
+    # "starttls" (port 587), "ssl" (implicit TLS, port 465) or "none" (local relay).
+    smtp_security: str = "starttls"
+    resend_api_key: str | None = None
+
     # Outbound provider governance (anti-burst / anti-blacklist).
     provider_max_concurrency: int = 2
     provider_min_interval_ms: int = 200

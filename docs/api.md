@@ -80,6 +80,13 @@ The backend serves interactive OpenAPI docs at http://localhost:8000/docs.
 | GET    | `/api/alerts/notifications` | Telegram status |
 | POST   | `/api/alerts/notifications/test` | Send a Telegram test message |
 
+## Mail
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET    | `/api/mail/status` | Whether email is configured (provider, sender, recipient count, setup hint) |
+| POST   | `/api/mail/test` | Send a test email to `MAIL_TO` |
+
 ## Assistant
 
 | Method | Path | Description |

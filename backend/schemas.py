@@ -603,3 +603,19 @@ class ExpectedDividendOut(BaseModel):
     expected_income: float | None = None
     in_portfolio: bool
     in_watchlist: bool
+
+
+class MailStatusOut(BaseModel):
+    """Email delivery setup (no secrets: provider name and sender only)."""
+
+    configured: bool
+    provider: str | None
+    sender: str | None
+    recipients: int  # default recipients in MAIL_TO
+    setup_hint: str = ""  # what to set when not (fully) configured
+
+
+class MailTestOut(BaseModel):
+    delivered: bool
+    message_id: str | None = None
+

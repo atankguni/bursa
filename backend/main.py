@@ -39,6 +39,7 @@ from routers import (
     assistant,
     data_health,
     indices,
+    mail,
     market,
     meta,
     portfolio,
@@ -165,3 +166,4 @@ app.include_router(preferences.router)
 app.include_router(assistant.router)
 app.include_router(indices.router)
 app.include_router(data_health.router)
+app.include_router(mail.router)

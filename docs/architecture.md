@@ -26,6 +26,7 @@ bursa/
 │   ├── services/          # business logic (recommendation, portfolio, risk, sync jobs, …)
 │   ├── market/            # tickers, holidays, IDX site/listing, indices, providers + sync
 │   ├── assistant/         # AI assistant: provider adapters, read-only tools, service
+│   ├── mail/              # email: provider adapters (SMTP, Resend), service, HTML layout
 │   ├── scheduler.py       # APScheduler jobs (prices, fundamentals, indices, retention)
 │   ├── scripts/           # evaluate_signals.py (backtest), gen_idx_list.py
 │   ├── tests/             # pytest
@@ -93,6 +94,31 @@ Portability rules for new queries (the test suite runs on all three databases to
 
 MongoDB is not supported: it isn't SQL, and supporting it would need a repository
 layer over every query.
+
+## Email
+
+`backend/mail/` is a provider-neutral mail service, built the same way as the
+assistant's provider layer:
+
+| Module | Role |
+|---|---|
+| `mail/base.py` | `Email` / `Attachment` types, `MailError` (permanent) and `MailBusyError` (retry later), validation, and the `MailProvider` interface |
+| `mail/smtp.py`, `mail/resend.py` | Adapters; standard library only, no extra packages |
+| `mail/registry.py` | Picks the adapter named by `MAIL_PROVIDER` |
+| `mail/service.py` | The only entry point: `send()` raises errors, `send_quietly()` logs them (for background jobs) |
+| `mail/templates.py` | `layout()`: a shared, inline-styled HTML frame for emails |
+
+```python
+from mail import Email, send_quietly
+from mail.templates import layout
+
+await send_quietly(Email(subject="…", text=plain, html=layout("Title", body_html)))
+```
+
+Callers never see SMTP or a vendor API. Sender and recipients default to `MAIL_FROM` /
+`MAIL_TO`. Messages are validated before sending (no line breaks in headers, valid
+addresses), and logs record only the subject and recipient count, never addresses,
+content or credentials.
 
 ## Architecture & rate-limiting
 

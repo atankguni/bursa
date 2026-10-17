@@ -68,6 +68,42 @@ the tool-round cap and personal-data access are the `assistant_*` settings in
 Providers are abstracted in `backend/assistant/providers/`. Adding another LLM means
 writing one adapter and registering it; the UI and API stay the same.
 
+## Email (optional)
+
+Email is disabled until a provider is configured in `backend/.env`. No feature sends
+email yet: this is the delivery layer that alerts, digests or reports will use.
+Check the setup with `GET /api/mail/status`, and `POST /api/mail/test` sends a test
+message to `MAIL_TO`.
+
+**SMTP** works with any mailbox (Gmail / Google Workspace with an
+[app password](https://myaccount.google.com/apppasswords), Outlook, Zoho) or a relay
+such as Brevo or Mailgun:
+
+```env
+MAIL_PROVIDER=smtp
+MAIL_FROM=Bursa <you@gmail.com>
+MAIL_TO=you@gmail.com
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURITY=starttls   # or "ssl" on port 465, "none" for a local relay
+SMTP_USERNAME=you@gmail.com
+SMTP_PASSWORD=your-app-password
+```
+
+**Resend** ([resend.com](https://resend.com), 3,000 free emails/month) needs a domain
+verified in Resend for real delivery:
+
+```env
+MAIL_PROVIDER=resend
+MAIL_FROM=Bursa <bursa@your-domain.com>
+MAIL_TO=you@example.com
+RESEND_API_KEY=re_...
+```
+
+`MAIL_TO` takes several comma-separated addresses. Providers live in `backend/mail/`;
+adding one (Mailgun, SES, ...) means writing one adapter and registering it. See
+[Architecture](architecture.md#email).
+
 ## Telegram alerts (optional)
 
 Set `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID` in `backend/.env`. Step-by-step setup
