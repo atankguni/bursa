@@ -16,6 +16,7 @@ export default function Login() {
   const { signedIn } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [challenge, setChallenge] = useState<TwoFactorChallenge | null>(null)
   const submit = useMutation({
     mutationFn: () => login(email, password),
@@ -44,9 +45,8 @@ export default function Login() {
 
   return (
     <AuthLayout
-      title="Sign in"
+      title="Sign in to Bursa"
       subtitle="Bursa is invite-only. Ask your admin for an invite link."
-      footer={<Link to="/forgot" className="hover:text-ink">Forgot password?</Link>}
     >
       <form onSubmit={onSubmit} className="space-y-3">
         <Field
@@ -60,13 +60,29 @@ export default function Login() {
         />
         <Field
           label="Password"
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
-        <FormError>{submit.isError && errorMessage(submit.error, "Couldn't sign in.")}</FormError>
+        <div className="-mt-1 flex items-center justify-between gap-3 text-xs">
+          <label className="flex items-center gap-2 text-muted">
+            <input
+              type="checkbox"
+              checked={showPassword}
+              onChange={(e) => setShowPassword(e.target.checked)}
+              className="h-3.5 w-3.5 accent-accent"
+            />
+            Show password
+          </label>
+          <Link to="/forgot" className="text-muted hover:text-ink">
+            Forgot password?
+          </Link>
+        </div>
+        <FormError>
+          {submit.isError && errorMessage(submit.error, "Couldn't sign in.")}
+        </FormError>
         <button type="submit" disabled={submit.isPending} className={primaryBtn}>
           {submit.isPending ? 'Signing in…' : 'Sign in'}
         </button>
@@ -82,7 +98,13 @@ const METHOD_LABEL: Record<TwoFactorMethod, string> = {
 }
 
 /** Second step: a code from the authenticator app, email, or a recovery code. */
-function SecondStep({ challenge, onBack }: { challenge: TwoFactorChallenge; onBack: () => void }) {
+function SecondStep({
+  challenge,
+  onBack,
+}: {
+  challenge: TwoFactorChallenge
+  onBack: () => void
+}) {
   const { signedIn } = useAuth()
   const [method, setMethod] = useState<TwoFactorMethod>(challenge.methods[0])
   const [code, setCode] = useState('')
@@ -91,7 +113,12 @@ function SecondStep({ challenge, onBack }: { challenge: TwoFactorChallenge; onBa
 
   const verify = useMutation({
     mutationFn: () =>
-      verifyTwoFactor({ token: challenge.token, method, code, remember_device: remember }),
+      verifyTwoFactor({
+        token: challenge.token,
+        method,
+        code,
+        remember_device: remember,
+      }),
     onSuccess: signedIn,
   })
   const resend = useMutation({
@@ -157,7 +184,11 @@ function SecondStep({ challenge, onBack }: { challenge: TwoFactorChallenge; onBa
           {(verify.isError && errorMessage(verify.error, "Couldn't check the code.")) ||
             (resend.isError && errorMessage(resend.error, "Couldn't send the email."))}
         </FormError>
-        <button type="submit" disabled={verify.isPending || !code.trim()} className={primaryBtn}>
+        <button
+          type="submit"
+          disabled={verify.isPending || !code.trim()}
+          className={primaryBtn}
+        >
           {verify.isPending ? 'Checking…' : 'Verify'}
         </button>
       </form>
@@ -175,7 +206,11 @@ function SecondStep({ challenge, onBack }: { challenge: TwoFactorChallenge; onBa
         {challenge.methods
           .filter((m) => m !== method)
           .map((m) => (
-            <button key={m} onClick={() => choose(m)} className="block text-muted hover:text-ink">
+            <button
+              key={m}
+              onClick={() => choose(m)}
+              className="block text-muted hover:text-ink"
+            >
               Use {METHOD_LABEL[m].toLowerCase()} instead
             </button>
           ))}
