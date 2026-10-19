@@ -104,7 +104,7 @@ backtest (see [Development](development.md#signal-backtest)).
   later or on another device. Opening the assistant continues your last chat; the
   history button lists the others (Today / Yesterday / Earlier) with **New chat** and
   delete. A chat from an earlier day shows that prices in older answers may be outdated.
-  Chats are private and deleted **7 days after their last message**
+  Chats are private and deleted **90 days after their last message**
   (`ASSISTANT_CHAT_DAYS`). **Save assistant chats** in Settings → Investing turns saving
   off and deletes the saved ones. Long chats are kept whole, but only the last 40
   messages are sent to the AI.

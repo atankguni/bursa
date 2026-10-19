@@ -128,7 +128,7 @@ Chats are saved per user so they can be continued, and deleted a number of days
 after their last message (an hourly job removes them):
 
 ```env
-ASSISTANT_CHAT_DAYS=7
+ASSISTANT_CHAT_DAYS=90
 ```
 
 Each user can turn saving off in Settings → Investing, which also deletes their

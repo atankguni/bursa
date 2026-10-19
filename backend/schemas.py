@@ -509,7 +509,7 @@ class AssistantStatusOut(BaseModel):
     remaining_today: int
     daily_limit: int
     save_chats: bool = True
-    chat_days: int = 7  # saved chats are deleted this long after their last message
+    chat_days: int = 90  # saved chats are deleted this long after their last message
 
 
 class ChatSummaryOut(BaseModel):

@@ -329,7 +329,7 @@ export default function AssistantPanel() {
                 )}
                 <div className="space-y-2 border-t border-line px-2 pt-3 text-[11px] text-subtle">
                   <p>
-                    Chats are private to you and deleted {status.data?.chat_days ?? 7}{' '}
+                    Chats are private to you and deleted {status.data?.chat_days ?? 90}{' '}
                     days after their last message. Turn saving off in Settings →
                     Investing.
                   </p>

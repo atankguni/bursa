@@ -253,7 +253,7 @@ function InvestingSettings() {
     isSaving,
     error: styleError,
   } = usePreferences()
-  const chatDays = useAssistantStatus().data?.chat_days ?? 7
+  const chatDays = useAssistantStatus().data?.chat_days ?? 90
   const onSaveChats = (on: boolean) => {
     if (
       on ||
