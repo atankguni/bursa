@@ -553,7 +553,7 @@ class DisplaySettings(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
     default_indexes: list[_Name] = Field(default_factory=lambda: ["LQ45"], max_length=50)
-    chart_type: Literal["candle", "line"] = "candle"
+    chart_type: Literal["candle", "line"] = "line"
     chart_range: Literal["1d", "1m"] = "1d"
     auto_refresh: bool = True
     refresh_seconds: int = Field(60, ge=10, le=3600)

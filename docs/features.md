@@ -24,7 +24,7 @@
   (not your watchlist).
 - **Browse IDX**: the full IDX catalog (~960 listed stocks) with search, pagination and a
   Track toggle. Tracked stocks get intraday updates; clicking a row opens the detail modal.
-- **Charts**: candlestick or line, daily (1d) and intraday (1m), 1M–Max spans, an
+- **Charts**: line (default) or candlestick, daily (1d) and intraday (1m), 1M–Max spans, an
   optional **vs IHSG** overlay (% change) and stock-split markers, via Lightweight Charts.
 - **Chart indicators**: MA(20/50/200) in amber / pink / cyan, volume, and RSI overlays on the
   detail chart.

@@ -276,16 +276,16 @@ export default function StockDetailModal({
               )}
               <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
                 <button
-                  onClick={() => setChartType('candle')}
-                  className={`flex items-center gap-1 ${seg(chartType === 'candle')}`}
-                >
-                  <CandlestickChart size={13} /> Candle
-                </button>
-                <button
                   onClick={() => setChartType('line')}
                   className={`flex items-center gap-1 ${seg(chartType === 'line')}`}
                 >
                   <LineChart size={13} /> Line
+                </button>
+                <button
+                  onClick={() => setChartType('candle')}
+                  className={`flex items-center gap-1 ${seg(chartType === 'candle')}`}
+                >
+                  <CandlestickChart size={13} /> Candle
                 </button>
               </div>
               <div className="flex flex-wrap gap-1">

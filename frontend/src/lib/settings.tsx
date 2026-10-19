@@ -55,7 +55,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   highContrast: false,
   defaultIndexes: ['LQ45'],
-  chartType: 'candle',
+  chartType: 'line',
   chartRange: '1d',
   autoRefresh: true,
   refreshSeconds: 60,

@@ -376,8 +376,8 @@ function DisplaySettings() {
           value={settings.chartType}
           onChange={(v) => update({ chartType: v })}
           options={[
-            { value: 'candle', label: 'Candle' },
             { value: 'line', label: 'Line' },
+            { value: 'candle', label: 'Candle' },
           ]}
         />
       </ListRow>
