@@ -43,10 +43,23 @@ async def indices_map(
     return mapping
 
 
+# ~1 trading year. Signals/valuation are defined on this window; some stocks
+# store their full history (chart "5Y"/"Max"), which must not change them.
+TRADING_YEAR = 252
+
+
+def _since(bars: int) -> datetime:
+    """A lower time bound that surely holds the last `bars` daily bars (with room
+    for holidays and short suspensions). Keeps the "last N bars" queries fast
+    however much history is stored."""
+    return datetime.utcnow() - timedelta(days=bars * 2 + 30)
+
+
 async def latest_daily(
     session: AsyncSession, tickers: list[str]
 ) -> dict[str, LatestQuote]:
-    """Map each ticker to its latest daily close (+ prev close, volume, time)."""
+    """Map each ticker to its latest daily close (+ prev close, volume, time).
+    Looks back a year (`_since`), so a stock suspended for longer has none."""
     if not tickers:
         return {}
     rn = (
@@ -62,7 +75,11 @@ async def latest_daily(
             StockPrice.ticker, StockPrice.close, StockPrice.volume,
             StockPrice.timestamp, rn,
         )
-        .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
+        .where(
+            StockPrice.interval == "1d",
+            StockPrice.ticker.in_(tickers),
+            StockPrice.timestamp >= _since(TRADING_YEAR // 2 + 40),  # ~1 year
+        )
         .subquery()
     )
     recent = (
@@ -101,18 +118,6 @@ async def latest_fundamentals(
         if cur is None or f.fiscal_year > cur.fiscal_year:
             best[f.ticker] = f
     return best
-
-
-# ~1 trading year. Signals/valuation are defined on this window; some stocks
-# store their full history (chart "5Y"/"Max"), which must not change them.
-TRADING_YEAR = 252
-
-
-def _since(bars: int) -> datetime:
-    """A lower time bound that surely holds the last `bars` daily bars (with room
-    for holidays and short suspensions). Keeps the "last N bars" queries fast
-    however much history is stored."""
-    return datetime.utcnow() - timedelta(days=bars * 2 + 30)
 
 
 async def daily_closes(

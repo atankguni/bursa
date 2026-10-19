@@ -282,9 +282,11 @@ def report(
     ics = ic_series(lambda s: s["score"])
     if ics:
         spread = st.pstdev(ics) or 1e-9
+        # Per-date values only while they fit on a line; BY YEAR summarises long runs.
+        per_date = f"  per date={' '.join(f'{x:+.2f}' for x in ics)}" if len(ics) <= 24 else ""
         print(
             f"rank IC (score): mean={st.mean(ics):+.3f}  mean/sd={st.mean(ics) / spread:+.2f}  "
-            f"per date={' '.join(f'{x:+.2f}' for x in ics)}"
+            f"positive on {sum(x > 0 for x in ics)}/{len(ics)} dates{per_date}"
         )
     for cat in categories:
         cics = ic_series(lambda s, c=cat: s["categories"].get(c))
