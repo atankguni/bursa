@@ -198,3 +198,36 @@ async def test_sync_all_can_be_cancelled(client, monkeypatch):
     assert r["note"] == "Stopping…"
     await _wait_done()  # stops during the 30s pause, not after it
     assert len(calls) == 5
+
+
+async def test_history_backfill_marks_done_and_resumes(client, monkeypatch):
+    from sqlalchemy import func, select
+
+    import services.history as history
+    from config import settings
+    from database import AsyncSessionLocal
+    from models import Stock
+
+    monkeypatch.setattr(settings, "provider_chunk_size", 400)
+    calls = []
+    down = {"once": True}
+
+    async def fake_sync(tickers, period, interval):
+        calls.append((len(tickers), period, interval))
+        if len(calls) == 2 and down.pop("once", False):
+            return 0  # the second chunk of the first run: provider down
+        return len(tickers)
+
+    monkeypatch.setattr(history, "sync_batch", fake_sync)
+    async with AsyncSessionLocal() as s:
+        total = await s.scalar(select(func.count()).select_from(Stock))
+    assert total and total > 400
+
+    first = await history.backfill_history()
+    assert first == 400  # stopped at the empty chunk, nothing past it marked
+    assert calls[0] == (400, f"{settings.daily_history_years}y", "1d")
+
+    calls.clear()
+    second = await history.backfill_history()  # resumes with the rest only
+    assert second == total - 400 and sum(n for n, _, _ in calls) == total - 400
+    assert await history.backfill_history() == 0  # all done: no provider call

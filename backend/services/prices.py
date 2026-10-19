@@ -1,7 +1,7 @@
 """Read queries over price + fundamental data (shared by the routers)."""
 
 from collections import defaultdict
-from datetime import datetime
+from datetime import datetime, timedelta
 from statistics import median
 from typing import TypedDict
 
@@ -108,6 +108,13 @@ async def latest_fundamentals(
 TRADING_YEAR = 252
 
 
+def _since(bars: int) -> datetime:
+    """A lower time bound that surely holds the last `bars` daily bars (with room
+    for holidays and short suspensions). Keeps the "last N bars" queries fast
+    however much history is stored."""
+    return datetime.utcnow() - timedelta(days=bars * 2 + 30)
+
+
 async def daily_closes(
     session: AsyncSession, tickers: list[str], last: int | None = TRADING_YEAR
 ) -> dict[str, list[float]]:
@@ -123,7 +130,7 @@ async def daily_closes(
             .over(partition_by=StockPrice.ticker, order_by=StockPrice.timestamp.desc())
             .label("rn")
         )
-        ranked = base.add_columns(rn).subquery()
+        ranked = base.where(StockPrice.timestamp >= _since(last)).add_columns(rn).subquery()
         stmt = (
             select(ranked.c.ticker, ranked.c.close)
             .where(ranked.c.rn <= last)
@@ -178,7 +185,8 @@ async def profiles(
 async def median_traded_value(
     session: AsyncSession, tickers: list[str], days: int = 20
 ) -> dict[str, float]:
-    """Median daily traded value (close × volume, IDR) over each ticker's last `days` bars."""
+    """Median daily traded value (close × volume, IDR) over each ticker's last `days`
+    bars. A stock without bars in the recent past (long suspended) has none."""
     if not tickers:
         return {}
     rn = (
@@ -188,7 +196,11 @@ async def median_traded_value(
     )
     ranked = (
         select(StockPrice.ticker, StockPrice.close, StockPrice.volume, rn)
-        .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
+        .where(
+            StockPrice.interval == "1d",
+            StockPrice.ticker.in_(tickers),
+            StockPrice.timestamp >= _since(days),
+        )
         .subquery()
     )
     rows = (

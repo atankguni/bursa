@@ -206,6 +206,8 @@ class Stock(Base):
     # When the full daily history (since listing) was fetched on demand; the
     # regular sync only keeps ~1 year for the whole catalog.
     full_history_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # When DAILY_HISTORY_YEARS of daily bars were fetched (services/history.py).
+    history_backfilled_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     # From the IDX listing (services/idx_listing): board ("Main", "Development",
     # "Acceleration", "Watchlist" = special monitoring), listing date, official shares.
     listing_board: Mapped[str | None] = mapped_column(String(24), nullable=True)

@@ -11,6 +11,7 @@ Jobs:
   * compact_db                    -> VACUUM where the database needs it (weekly)
   * purge_auth                    -> delete expired sessions and invite/reset links (daily)
   * purge_chats                   -> delete assistant chats past their retention (hourly)
+  * backfill_history              -> years of daily bars for stocks without them (startup + daily)
 
 The heavy lifting lives in `market.sync` (batched downloads) and
 `services.fundamentals` (per-ticker statements).
@@ -77,6 +78,13 @@ async def active_tickers() -> list[str]:
 async def backfill_daily() -> None:
     """Fetch one year of daily candles for the ENTIRE IDX catalog."""
     await sync_batch(TICKERS, period="1y", interval=DAILY_INTERVAL)
+
+
+async def backfill_history() -> None:
+    """DAILY_HISTORY_YEARS of daily bars for stocks that don't have them yet."""
+    from services.history import backfill_history as run
+
+    await run()
 
 
 async def backfill_active() -> None:
@@ -306,6 +314,19 @@ def start_scheduler() -> None:
         refresh_index_quotes,
         trigger=CronTrigger(day_of_week="mon-fri", hour=16, minute=5),
         id="refresh_index_quotes_close",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Multi-year daily history for stocks without it: the whole catalog on the
+    # first run (a few minutes after startup, once the startup syncs are done),
+    # then new listings each evening.
+    scheduler.add_job(
+        backfill_history,
+        trigger=CronTrigger(hour=19, minute=30),
+        next_run_time=datetime.now(scheduler.timezone) + timedelta(minutes=5),
+        id="backfill_history",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

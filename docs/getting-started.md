@@ -13,6 +13,8 @@ docker compose up --build
 
 The SQLite database lives at `./backend/data/bursa.db` and survives container restarts.
 The first boot fetches ~1 year of daily candles, so initial charts fill in within a few seconds.
+A few minutes later a background job extends every stock to 5 years of daily history
+(`DAILY_HISTORY_YEARS`); it runs once per stock and takes a while on the first boot.
 
 ### First sign-in
 

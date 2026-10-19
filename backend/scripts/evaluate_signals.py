@@ -13,7 +13,12 @@ Look-ahead guards: prices are truncated at the as-of date; fundamentals are
 limited to fiscal years already published (annual reports land ~March/April);
 provider profile metrics (current trailing PE / growth) are not used, only the
 sector. Caveats: survivorship (current listings), overlapping 3m windows, and
-the history is only as long as the stored daily bars (~1y by default).
+the history is only as long as the stored daily bars (DAILY_HISTORY_YEARS) and
+yearly fundamentals (~4-5 fiscal years).
+
+Besides the overall tables, results are split by calendar year (different
+market conditions: a factor that only worked in one year is luck, not signal)
+and by sector, for the main horizon on liquid stocks.
 
 Usage (inside the backend environment):
     python scripts/evaluate_signals.py [--style investor|trader] [--db data/bursa.db | --url URL]
@@ -25,6 +30,7 @@ Rule of thumb for the IC: ~0 = noise, > 0.05 useful, > 0.10 good.
 
 import argparse
 import asyncio
+import bisect
 import collections
 import statistics as st
 import sys
@@ -70,6 +76,7 @@ class Bar(TypedDict):
 class Sample(TypedDict):
     asof: str
     ticker: str
+    sector: str
     score: float
     rating: str
     liquidity: float
@@ -186,6 +193,10 @@ def weekly_asofs(calendar: list[str]) -> list[str]:
     return calendar[63 : max(63, len(calendar) - HORIZONS["trader"]["1w"]) : 5]
 
 
+# Bars the factor functions look at (momentum uses one trading year).
+LOOKBACK = 260
+
+
 def backtest(
     prices: dict[str, list[Bar]],
     funds: dict[str, list[Any]],
@@ -195,16 +206,18 @@ def backtest(
     style: InvestingStyle = "investor",
 ) -> list[Sample]:
     samples: list[Sample] = []
+    days = {t: [b["day"] for b in bars] for t, bars in prices.items()}
+    all_closes = {t: [b["close"] for b in bars] for t, bars in prices.items()}
     for asof in asofs:
         stale_before = calendar[max(0, calendar.index(asof) - 5)]
         year, month = int(asof[:4]), int(asof[5:7])
         published = year - 1 if month >= 4 else year - 2
         raw, liquidity, forward = {}, {}, {}
         for ticker, bars in prices.items():
-            idx = next((i for i in range(len(bars) - 1, -1, -1) if bars[i]["day"] <= asof), None)
-            if idx is None or idx < 63 or bars[idx]["day"] < stale_before:
+            idx = bisect.bisect_right(days[ticker], asof) - 1
+            if idx < 63 or bars[idx]["day"] < stale_before:
                 continue  # too little history, or not trading around the as-of date
-            closes = [b["close"] for b in bars[: idx + 1]]
+            closes = all_closes[ticker][max(0, idx + 1 - LOOKBACK) : idx + 1]
             if style == "trader":
                 raw[ticker] = trader_factors(closes)
             else:
@@ -221,7 +234,8 @@ def backtest(
         for ticker, rec in score_universe(raw, liquidity, style).items():
             samples.append(
                 Sample(
-                    asof=asof, ticker=ticker, score=rec.score, rating=rec.rating,
+                    asof=asof, ticker=ticker, sector=sectors.get(ticker) or "Unknown",
+                    score=rec.score, rating=rec.rating,
                     liquidity=liquidity[ticker],
                     categories={c.name: c.score for c in rec.categories},
                     forward=forward[ticker],
@@ -278,6 +292,58 @@ def report(
             print(f"   IC {cat:9} mean={st.mean(cics):+.3f}")
 
 
+def _ic_mean(group: list[Sample], horizon: str) -> tuple[float | None, int]:
+    """Mean per-date rank IC of the score within `group`, and how many dates had one."""
+    by_date: dict[str, list[Sample]] = collections.defaultdict(list)
+    for s in group:
+        by_date[s["asof"]].append(s)
+    ics = [
+        ic for d in by_date.values()
+        if (ic := spearman([s["score"] for s in d],
+                           [s["forward"][horizon] or 0.0 for s in d])) is not None
+    ]
+    return (st.mean(ics) if ics else None), len(ics)
+
+
+def report_by(
+    samples: list[Sample], horizon: str, title: str, keep: Callable[[Sample], bool],
+    group_of: Callable[[Sample], str], min_n: int = 30,
+) -> None:
+    """One line per group (year, sector, ...): market move, rank IC and how often
+    top / bottom ratings beat that date's median stock."""
+    sel = [s for s in samples if s["forward"][horizon] is not None and keep(s)]
+    if not sel:
+        return
+    median_by_date = {
+        d: st.median([s["forward"][horizon] or 0.0 for s in sel if s["asof"] == d])
+        for d in {s["asof"] for s in sel}
+    }
+    groups: dict[str, list[Sample]] = collections.defaultdict(list)
+    for s in sel:
+        groups[group_of(s)].append(s)
+
+    def beat(group: list[Sample]) -> str:
+        if len(group) < 5:
+            return "     —"
+        wins = sum((s["forward"][horizon] or 0.0) > median_by_date[s["asof"]] for s in group)
+        return f"{wins / len(group) * 100:5.0f}%"
+
+    print(f"\n-- {title}, forward {horizon} --")
+    print(f"{'group':24} {'n':>6} {'market':>7} {'IC':>6} {'dates':>5} "
+          f"{'Buy+ beat':>9} {'Avoid beat':>10}")
+    for name in sorted(groups):
+        group = groups[name]
+        if len(group) < min_n:
+            continue
+        ic, n_dates = _ic_mean(group, horizon)
+        market = st.median(s["forward"][horizon] or 0.0 for s in group) * 100
+        top = [s for s in group if s["rating"] in ("Strong Buy", "Buy")]
+        bottom = [s for s in group if s["rating"] == "Avoid"]
+        print(f"{name[:24]:24} {len(group):6} {market:6.1f}% "
+              f"{'     —' if ic is None else f'{ic:+.3f}':>6} {n_dates:5} "
+              f"{beat(top):>9} {beat(bottom):>10}")
+
+
 def snapshot(
     prices: dict[str, list[Bar]],
     funds: dict[str, list[Any]],
@@ -329,13 +395,23 @@ def main() -> None:
     print(f"\n=== BACKTEST {asofs[0]} -> {asofs[-1]} ({len(samples)} rated stock-dates) ===")
 
     floor = settings.recommendation_min_traded_value
+
+    def liquid(s: Sample) -> bool:
+        return s["liquidity"] >= floor
+
     for horizon in HORIZONS[style]:
         report(samples, asofs, horizon, "ALL rated", lambda s: True, CATEGORIES[style])
         if style == "investor":  # trader only rates liquid stocks already
             report(
                 samples, asofs, horizon, f"LIQUID (>= Rp {floor / 1e9:g}bn/day)",
-                lambda s: s["liquidity"] >= floor, CATEGORIES[style],
+                liquid, CATEGORIES[style],
             )
+
+    # Robustness on the main horizon: does it hold in every year and sector?
+    main = list(HORIZONS[style])[-1]
+    report_by(samples, main, "BY YEAR (liquid)", liquid, lambda s: s["asof"][:4])
+    report_by(samples, main, "BY SECTOR (liquid; IC within the sector)", liquid,
+              lambda s: s["sector"])
 
 
 if __name__ == "__main__":

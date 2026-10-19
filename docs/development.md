@@ -59,7 +59,16 @@ python scripts/evaluate_signals.py --style trader  # trader style
 ```
 
 A point-in-time backtest of the recommendation engine. Run it before and after
-changing weights or thresholds in `config.py`.
+changing weights or thresholds in `config.py`; inside Docker:
+`docker compose exec backend python scripts/evaluate_signals.py`.
+
+It replays past dates using only the data available then and reports how each
+rating did afterwards, plus the rank IC (correlation of score and later return;
+~0 is noise, above 0.05 useful, above 0.10 good). Results are also split **by
+year** and **by sector**: a change is worth keeping only if it helps across
+years, not just in the months it was tuned on. The history comes from
+`DAILY_HISTORY_YEARS` (5) of daily prices, fetched once per stock by the
+`backfill_history` job, and the ~5 fiscal years of fundamentals.
 
 ## Frontend
 

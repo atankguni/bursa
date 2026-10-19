@@ -36,6 +36,11 @@ class Settings(BaseSettings):
 
     # Market / sync behaviour
     timezone: str = "Asia/Jakarta"
+    # Years of daily bars kept for every stock (fetched once per stock by the
+    # backfill_history job; the daily sync then extends them). Long history lets
+    # scripts/evaluate_signals.py test the signals across rising and falling
+    # markets. Signals themselves only read the last trading year.
+    daily_history_years: int = 5
     intraday_retention_days: int = 5
     fundamentals_stale_hours: int = 24
     fx_cache_hours: int = 6

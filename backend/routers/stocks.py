@@ -215,7 +215,7 @@ async def stock_history(
 
     if interval == "1d" and range_ is not None:
         if range_ in DEEP_RANGES:
-            await ensure_full_history(session, stock)
+            await ensure_full_history(session, stock, range_)
         stmt = select(StockPrice).where(
             StockPrice.ticker == ticker, StockPrice.interval == interval
         )
