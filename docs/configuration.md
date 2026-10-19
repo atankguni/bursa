@@ -3,6 +3,8 @@
 Backend settings live in `backend/config.py` (Pydantic settings). Any of them can be
 overridden with an environment variable or in `backend/.env`. That file is git-ignored
 and Docker-ignored, and is passed to the container via `env_file`.
+`backend/.env.example` is a commented template of the common settings: copy it to
+`backend/.env` to start.
 
 | What | Where |
 |---|---|

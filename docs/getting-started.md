@@ -30,7 +30,8 @@ to save your recovery codes before the app opens. Invite others from
 [Configuration → Accounts](configuration.md#accounts).
 
 Optional extras (AI assistant, email, Telegram alerts) are enabled through
-`backend/.env`; see [Configuration](configuration.md).
+`backend/.env`: start from the template (`cp backend/.env.example backend/.env`);
+see [Configuration](configuration.md).
 
 ## Reset all data
 

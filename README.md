@@ -49,8 +49,8 @@ Bursa is invite-only. Get the one-time link for the first (admin) account from t
 docker compose logs backend | grep "Create the admin"
 ```
 
-To enable the AI assistant or Telegram alerts, add keys to `backend/.env`. See
-[Configuration](docs/configuration.md).
+To enable the AI assistant, email or Telegram alerts, copy `backend/.env.example` to
+`backend/.env` and fill in the keys. See [Configuration](docs/configuration.md).
 
 ## Documentation
 
