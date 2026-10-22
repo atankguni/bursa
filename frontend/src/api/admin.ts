@@ -1,30 +1,7 @@
 import { api } from './client'
-import type { Role } from './auth'
+import type { AdminUser, OneTimeLink, PendingInvite, Role } from './types'
 
-export interface AdminUser {
-  id: number
-  email: string
-  name: string
-  role: Role
-  is_active: boolean
-  has_2fa: boolean
-  created_at: string
-  last_login_at: string | null
-}
-
-export interface PendingInvite {
-  id: number
-  email: string
-  role: Role
-  created_at: string
-  expires_at: string
-}
-
-/** A one-time link, shown once (the server keeps only its hash). */
-export interface OneTimeLink {
-  link: string
-  emailed: boolean
-}
+export type { AdminUser, PendingInvite, OneTimeLink }
 
 export async function fetchUsers(): Promise<AdminUser[]> {
   const { data } = await api.get<AdminUser[]>('/api/admin/users')

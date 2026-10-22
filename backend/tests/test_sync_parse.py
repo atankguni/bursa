@@ -1,8 +1,11 @@
 """Tests for the batched-download parsing (now in the Yahoo provider adapter)."""
 
+from typing import cast
+
 import numpy as np
 import pandas as pd
 
+from market.providers.base import MarketDataProvider, PriceBar
 from market.providers.yahoo import _frame_for_ticker, _to_rows
 
 
@@ -44,12 +47,12 @@ def test_to_rows_builds_ohlcv_rows():
 
 def test_to_rows_skips_nan_close():
     sub = _frame_for_ticker(_batched_df(), "BBCA.JK").copy()
-    sub.iloc[0, sub.columns.get_loc("Close")] = np.nan
+    sub.loc[sub.index[0], "Close"] = np.nan
     rows = _to_rows(sub, "BBCA.JK", "1d")
     assert len(rows) == 1
 
 
-def _bar(ticker, utc, open_, high, low, close, volume):
+def _bar(ticker, utc, open_, high, low, close, volume) -> PriceBar:
     from datetime import datetime
 
     return {
@@ -161,7 +164,10 @@ async def test_concurrent_price_requests_get_distinct_single_flight_keys(monkeyp
         return {}
 
     monkeypatch.setattr(sync.governor, "call", fake_call)
-    provider = type("P", (), {"name": "fake", "fetch_price_rows": None})()
+    # Only `name` and the method reference are read before the (faked) governor call.
+    provider = cast(
+        MarketDataProvider, type("P", (), {"name": "fake", "fetch_price_rows": None})()
+    )
     await sync._fetch_with_retry(provider, ["BBCA.JK"], "max", "1d")
     await sync._fetch_with_retry(provider, ["BBCA.JK", "TLKM.JK"], "1d", "1m")
     # Previously both used the key "prices", so one could receive the other's bars.

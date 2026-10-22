@@ -9,10 +9,11 @@ provider adapter; this service handles upserts and staleness.
 
 import asyncio
 import logging
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from sqlalchemy import delete
 
+from clock import utcnow
 from config import settings
 from database import AsyncSessionLocal
 from db.upsert import upsert
@@ -27,11 +28,9 @@ def is_stale(rows: list[Fundamental]) -> bool:
     """True if we have no cached rows or the newest one is older than the TTL."""
     if not rows:
         return True
-    times = [r.updated_at for r in rows if r.updated_at is not None]
-    if not times:
-        return True
+    times = [r.updated_at for r in rows]
     ttl = timedelta(hours=settings.fundamentals_stale_hours)
-    return datetime.utcnow() - max(times) > ttl
+    return utcnow() - max(times) > ttl
 
 
 async def sync_ticker(ticker: str, with_dividends: bool = True) -> int:
@@ -66,7 +65,7 @@ async def sync_ticker(ticker: str, with_dividends: bool = True) -> int:
             # Every provided field (and updated_at) overwrites the stored profile.
             await upsert(
                 session, StockProfile,
-                {"ticker": ticker, "updated_at": datetime.utcnow(), **profile},
+                {"ticker": ticker, "updated_at": utcnow(), **profile},
                 keys=["ticker"],
             )
 

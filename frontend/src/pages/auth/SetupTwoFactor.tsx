@@ -13,8 +13,8 @@ export default function SetupTwoFactor() {
           <h1 className="text-base font-semibold">Set up two-factor authentication</h1>
         </div>
         <p className="mb-5 text-sm text-muted">
-          Admin accounts can manage users and the server, so they need a second step after the
-          password. Set up an authenticator app (or email codes) to continue
+          Admin accounts can manage users and the server, so they need a second step after
+          the password. Set up an authenticator app (or email codes) to continue
           {user ? ` as ${user.email}` : ''}.
         </p>
         <TwoFactorSettings />

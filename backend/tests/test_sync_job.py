@@ -2,12 +2,13 @@
 
 import services.fundamentals as fundamentals
 import services.sync_job as sync_job
+from clock import utcnow
 
 
 def test_status_shape():
     st = sync_job.status()
-    assert set(st) >= {"running", "total", "done", "remaining", "last_error"}
-    assert st["remaining"] >= 0
+    assert set(st.model_dump()) >= {"running", "total", "done", "remaining", "last_error"}
+    assert st.remaining >= 0
 
 
 def test_start_rejects_while_running(monkeypatch):
@@ -53,7 +54,6 @@ async def test_status_endpoint_reports_missing(client):
 
 
 async def test_statements_supersede_summary_rows(client, monkeypatch):
-    from datetime import datetime
 
     from sqlalchemy import select
 
@@ -67,7 +67,7 @@ async def test_statements_supersede_summary_rows(client, monkeypatch):
         return {"ticker": "BBCA.JK", "fiscal_year": year, "financial_currency": "IDR",
                 "total_shares": 1.0, "revenue": 1.0, "net_income": 1.0, "total_assets": 2.0,
                 "total_liabilities": 1.0, "equity": 1.0, "source": source,
-                "updated_at": datetime.utcnow()}
+                "updated_at": utcnow()}
 
     class _P:
         name = "fake"
@@ -98,8 +98,8 @@ def test_missed_jobs_run_on_wake_not_dropped():
     import scheduler as sched
 
     # APScheduler's default grace is 1s: a job missed while the host slept was lost.
-    assert sched.scheduler._job_defaults["misfire_grace_time"] >= 3600
-    assert sched.scheduler._job_defaults["coalesce"] is True
+    assert sched.JOB_DEFAULTS["misfire_grace_time"] >= 3600
+    assert sched.JOB_DEFAULTS["coalesce"] is True
 
 
 async def test_catch_up_intraday_ignores_market_hours(monkeypatch):
@@ -144,7 +144,7 @@ async def _wait_done():
     import asyncio
 
     for _ in range(200):
-        if not sync_job.status()["running"]:
+        if not sync_job.status().running:
             return
         await asyncio.sleep(0.05)
     raise AssertionError("sync job did not finish")
@@ -177,7 +177,7 @@ async def test_sync_all_stops_when_batches_come_back_empty(client, monkeypatch):
     await sync_job.start_all()
     await _wait_done()
     assert len(calls) == 10  # two empty batches of 5, then it gives up
-    assert "rate-limiting" in sync_job.status()["last_error"]
+    assert "rate-limiting" in (sync_job.status().last_error or "")
 
 
 async def test_sync_all_can_be_cancelled(client, monkeypatch):

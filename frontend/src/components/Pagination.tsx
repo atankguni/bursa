@@ -6,7 +6,8 @@ function pageItems(page: number, pageCount: number): (number | 'gap')[] {
   const pages = [...wanted].filter((p) => p >= 0 && p < pageCount).sort((a, b) => a - b)
   const out: (number | 'gap')[] = []
   pages.forEach((p, i) => {
-    if (i > 0 && p - pages[i - 1] > 1) out.push('gap')
+    const prev = pages[i - 1]
+    if (prev !== undefined && p - prev > 1) out.push('gap')
     out.push(p)
   })
   return out

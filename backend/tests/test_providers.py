@@ -17,7 +17,7 @@ def test_yahoo_is_registered_and_default():
 
 def test_provider_is_abstract():
     with pytest.raises(TypeError):
-        MarketDataProvider()  # abstract methods not implemented
+        MarketDataProvider()  # pyright: ignore[reportAbstractUsage] - the point of the test
 
 
 def test_yahoo_capabilities():

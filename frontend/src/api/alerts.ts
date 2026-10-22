@@ -1,5 +1,8 @@
 import { api } from './client'
 import type { Alert, AlertEvent, AlertInput } from './types'
+import type { NotificationStatus } from './types'
+
+export type { NotificationStatus }
 
 export async function fetchAlerts(): Promise<Alert[]> {
   const { data } = await api.get<Alert[]>('/api/alerts')
@@ -25,11 +28,6 @@ export async function toggleAlert(id: number): Promise<Alert> {
 
 export async function deleteAlert(id: number): Promise<void> {
   await api.delete(`/api/alerts/${id}`)
-}
-
-export interface NotificationStatus {
-  telegram: boolean
-  delivered: boolean | null
 }
 
 export async function fetchNotificationStatus(): Promise<NotificationStatus> {

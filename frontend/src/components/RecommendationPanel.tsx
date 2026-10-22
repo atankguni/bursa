@@ -5,7 +5,7 @@ import { ratingLabel, ratingTone } from '../lib/ratings'
 import TrackRecord from './TrackRecord'
 
 interface Props {
-  data?: Recommendation
+  data?: Recommendation | undefined
   isLoading: boolean
   isError?: boolean
 }

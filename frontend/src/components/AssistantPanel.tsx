@@ -25,9 +25,10 @@ import {
 import { queryKeys, useAssistantChats, useAssistantStatus } from '../hooks'
 import { fmtShortDateTime, parseServerTime } from '../lib/format'
 import { renderMarkdown } from '../lib/markdown'
+import { errorDetail } from '../api/client'
 
 interface Message extends ChatTurn {
-  tools?: string[]
+  tools?: string[] | undefined
   error?: boolean
 }
 
@@ -67,7 +68,8 @@ const dayStart = (d: Date) =>
 /** Today / Yesterday / Earlier, by the chat's last message (local time). */
 function groupChats(chats: ChatSummary[]) {
   const today = dayStart(new Date())
-  const groups: { label: string; chats: ChatSummary[] }[] = [
+  type Group = { label: string; chats: ChatSummary[] }
+  const groups: [Group, Group, Group] = [
     { label: 'Today', chats: [] },
     { label: 'Yesterday', chats: [] },
     { label: 'Earlier', chats: [] },
@@ -81,7 +83,7 @@ function groupChats(chats: ChatSummary[]) {
 
 const errorText = (err: unknown) =>
   isAxiosError(err)
-    ? ((err.response?.data?.detail as string | undefined) ??
+    ? (errorDetail(err) ??
       (err.code === 'ECONNABORTED'
         ? 'The assistant took too long — try again.'
         : err.message))
@@ -118,7 +120,8 @@ export default function AssistantPanel() {
       qc.setQueryData(queryKeys.assistantStatus, (s: typeof status.data) =>
         s ? { ...s, remaining_today: r.remaining_today } : s,
       )
-      if (r.chat_id != null) qc.invalidateQueries({ queryKey: queryKeys.assistantChats })
+      if (r.chat_id != null)
+        void qc.invalidateQueries({ queryKey: queryKeys.assistantChats })
     },
     onError: (err) =>
       setMessages((m) => [
@@ -142,7 +145,7 @@ export default function AssistantPanel() {
     mutationFn: deleteChat,
     onSuccess: (_r, id) => {
       if (id === chatId) newChat()
-      qc.invalidateQueries({ queryKey: queryKeys.assistantChats })
+      void qc.invalidateQueries({ queryKey: queryKeys.assistantChats })
     },
   })
   const removeAll = useMutation({
@@ -165,9 +168,8 @@ export default function AssistantPanel() {
   useEffect(() => {
     if (resumed.current || !chats.data) return
     resumed.current = true
-    if (chats.data.length > 0 && messages.length === 0 && !ask.isPending) {
-      openChat.mutate(chats.data[0].id)
-    }
+    const latest = chats.data[0]
+    if (latest && messages.length === 0 && !ask.isPending) openChat.mutate(latest.id)
   }, [chats.data, messages.length, ask.isPending, openChat])
 
   const send = (text: string) => {
@@ -288,10 +290,10 @@ export default function AssistantPanel() {
                 </button>
                 {chats.isPending ? (
                   <p className="px-2 text-subtle">Loading…</p>
-                ) : (chats.data?.length ?? 0) === 0 ? (
+                ) : !chats.data?.length ? (
                   <p className="px-2 text-subtle">No saved chats yet.</p>
                 ) : (
-                  groupChats(chats.data!).map((g) => (
+                  groupChats(chats.data).map((g) => (
                     <div key={g.label} className="mb-3">
                       <h3 className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-subtle">
                         {g.label}

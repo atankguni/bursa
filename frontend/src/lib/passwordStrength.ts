@@ -44,7 +44,7 @@ function userWords(inputs: string[]) {
   for (const input of inputs) {
     const value = input.trim()
     if (!value) continue
-    words.push(value, value.split('@')[0], ...value.split(/\s+/))
+    words.push(value, ...value.split('@').slice(0, 1), ...value.split(/\s+/))
   }
   return words.filter(Boolean)
 }

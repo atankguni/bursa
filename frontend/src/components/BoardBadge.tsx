@@ -8,7 +8,7 @@ export default function BoardBadge({
   board,
   compact = false,
 }: {
-  board?: string | null
+  board?: string | null | undefined
   compact?: boolean
 }) {
   if (board !== 'Watchlist') return null

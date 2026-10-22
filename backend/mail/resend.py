@@ -15,7 +15,7 @@ import base64
 import json
 import urllib.error
 import urllib.request
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, cast
 
 from mail.base import Email, MailBusyError, MailError, MailProvider
 
@@ -90,4 +90,7 @@ class ResendProvider(MailProvider):
             raise error(f"Resend HTTP {exc.code}: {detail}".strip()) from exc
         except (urllib.error.URLError, TimeoutError) as exc:
             raise MailBusyError(f"Resend unreachable: {exc}") from exc
-        return data.get("id") if isinstance(data, dict) else None
+        if isinstance(data, dict):
+            message_id = cast(dict[str, object], data).get("id")
+            return message_id if isinstance(message_id, str) else None
+        return None

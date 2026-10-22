@@ -7,35 +7,23 @@ once, the first time their chart is opened).
 """
 
 import logging
-from datetime import date, datetime, timedelta
-from typing import TypedDict
+from datetime import date, timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import utcnow
 from database import AsyncSessionLocal
 from db.upsert import upsert
 from market.indices import BY_CODE, BY_SYMBOL, INDICES
 from market.providers.governor import governor
 from market.providers.registry import price_provider
 from models import IndexBar, IndexQuote
+from schemas import IndexOut
 from services.history import RANGE_DAYS
 from services.market_clock import last_trading_day
 
 log = logging.getLogger("bursa.indices")
-
-
-class IndexRow(TypedDict):
-    code: str
-    name: str
-    group: str
-    last: float | None
-    previous_close: float | None
-    change: float | None
-    change_percent: float | None
-    updated_at: datetime | None
-    has_history: bool  # provider has full history (else it builds up daily)
-    history_since: date | None  # first stored bar
 
 
 async def refresh_quotes() -> int:
@@ -52,7 +40,7 @@ async def refresh_quotes() -> int:
     if not quotes:
         return 0
 
-    now = datetime.utcnow()
+    now = utcnow()
     day = last_trading_day()
     async with AsyncSessionLocal() as session:
         for q in quotes:
@@ -102,7 +90,7 @@ async def ensure_full_history(session: AsyncSession, code: str) -> None:
         for b in bars
     ]
     await upsert(session, IndexBar, values, keys=["code", "day"])
-    now = datetime.utcnow()
+    now = utcnow()
     # A new quote row gets the history's last close; an existing (fresher) quote
     # only records that the full history is now stored.
     await upsert(
@@ -116,28 +104,28 @@ async def ensure_full_history(session: AsyncSession, code: str) -> None:
     log.info("Fetched full history for index %s (%d bars)", code, len(values))
 
 
-async def list_indices(session: AsyncSession) -> list[IndexRow]:
+async def list_indices(session: AsyncSession) -> list[IndexOut]:
     quotes = {q.code: q for q in (await session.execute(select(IndexQuote))).scalars()}
     since = dict(
         (await session.execute(
             select(IndexBar.code, func.min(IndexBar.day)).group_by(IndexBar.code)
         )).all()
     )
-    out: list[IndexRow] = []
+    out: list[IndexOut] = []
     for idx in INDICES:
         q = quotes.get(idx.code)
         last = q.last if q else None
         prev = q.previous_close if q else None
         change = round(last - prev, 2) if last is not None and prev else None
-        out.append({
-            "code": idx.code, "name": idx.name, "group": idx.group,
-            "last": last, "previous_close": prev, "change": change,
-            "change_percent": (
+        out.append(IndexOut(
+            code=idx.code, name=idx.name, group=idx.group,
+            last=last, previous_close=prev, change=change,
+            change_percent=(
                 round(change / prev * 100, 2) if change is not None and prev else None
             ),
-            "updated_at": q.updated_at if q else None,
-            "has_history": idx.history, "history_since": since.get(idx.code),
-        })
+            updated_at=q.updated_at if q else None,
+            has_history=idx.history, history_since=since.get(idx.code),
+        ))
     return out
 
 

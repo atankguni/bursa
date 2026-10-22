@@ -9,10 +9,11 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "lint": "tsc --noEmit",
+    "lint": "oxlint --type-aware --deny-warnings src",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "gen:favicons": "node scripts/gen-favicons.mjs"
+    "gen:favicons": "node scripts/gen-favicons.mjs",
+    "check": "tsc --noEmit && npm run lint && prettier --check ."
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.3",
@@ -31,6 +32,8 @@
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.7.0",
     "autoprefixer": "^10.6.1",
+    "oxlint": "1.87.0",
+    "oxlint-tsgolint": "7.0.2003",
     "postcss": "^8.5.30",
     "prettier": "^3.9.10",
     "tailwindcss": "^3.4.19",

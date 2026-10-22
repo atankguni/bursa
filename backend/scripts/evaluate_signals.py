@@ -43,8 +43,7 @@ import sys
 from collections.abc import Callable, Sequence
 from datetime import date
 from pathlib import Path
-from types import SimpleNamespace
-from typing import Any, TypedDict
+from typing import TypedDict
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -57,6 +56,7 @@ from schemas import InvestingStyle  # noqa: E402
 from services.recommendation import (  # noqa: E402
     CATEGORY_ORDER,
     TRADER_CATEGORY_ORDER,
+    RawFactors,
     raw_factors,
     score_universe,
     trader_factors,
@@ -95,13 +95,14 @@ class Sample(TypedDict):
 # --------------------------------------------------------------------------- #
 # Data loading
 # --------------------------------------------------------------------------- #
-def load(url: str) -> tuple[dict[str, list[Bar]], dict[str, list[Any]], dict[str, str | None]]:
+type Loaded = tuple[dict[str, list[Bar]], dict[str, list[Fundamental]], dict[str, str | None]]
+
+
+def load(url: str) -> Loaded:
     return asyncio.run(_load(url))
 
 
-async def _load(
-    url: str,
-) -> tuple[dict[str, list[Bar]], dict[str, list[Any]], dict[str, str | None]]:
+async def _load(url: str) -> Loaded:
     engine = create_async_engine(url)
     try:
         async with engine.connect() as con:
@@ -116,8 +117,8 @@ async def _load(
                     Bar(day=ts.date().isoformat(), close=close, volume=volume or 0)
                 )
 
-            # Duck-typed stand-ins for models.Fundamental (raw_factors only reads attributes).
-            funds: dict[str, list[Any]] = collections.defaultdict(list)
+            # Unsaved Fundamental objects carrying just what raw_factors reads.
+            funds: dict[str, list[Fundamental]] = collections.defaultdict(list)
             for row in await con.execute(
                 select(Fundamental.ticker, Fundamental.fiscal_year, Fundamental.total_shares,
                        Fundamental.revenue, Fundamental.net_income, Fundamental.total_assets,
@@ -125,10 +126,10 @@ async def _load(
                 .order_by(Fundamental.ticker, Fundamental.fiscal_year)
             ):
                 funds[row[0]].append(
-                    SimpleNamespace(
-                        fiscal_year=row[1], total_shares=row[2], revenue=row[3],
-                        net_income=row[4], total_assets=row[5], total_liabilities=row[6],
-                        equity=row[7],
+                    Fundamental(
+                        ticker=row[0], fiscal_year=row[1], total_shares=row[2],
+                        revenue=row[3], net_income=row[4], total_assets=row[5],
+                        total_liabilities=row[6], equity=row[7],
                     )
                 )
             sectors: dict[str, str | None] = dict(
@@ -139,11 +140,11 @@ async def _load(
     return prices, funds, sectors
 
 
-def sector_only_profile(sector: str | None) -> Any:
+def sector_only_profile(sector: str | None) -> StockProfile | None:
     """A profile carrying just the sector, so no current (look-ahead) metrics leak in."""
     if sector is None:
         return None
-    return SimpleNamespace(
+    return StockProfile(
         sector=sector, trailing_pe=None, profit_margin=None,
         revenue_growth=None, earnings_growth=None,
     )
@@ -207,7 +208,7 @@ LOOKBACK = 260
 
 def backtest(
     prices: dict[str, list[Bar]],
-    funds: dict[str, list[Any]],
+    funds: dict[str, list[Fundamental]],
     sectors: dict[str, str | None],
     asofs: list[str],
     calendar: list[str],
@@ -220,7 +221,9 @@ def backtest(
         stale_before = calendar[max(0, calendar.index(asof) - 5)]
         year, month = int(asof[:4]), int(asof[5:7])
         published = year - 1 if month >= 4 else year - 2
-        raw, liquidity, forward = {}, {}, {}
+        raw: dict[str, RawFactors] = {}
+        liquidity: dict[str, float] = {}
+        forward: dict[str, dict[str, float | None]] = {}
         for ticker, bars in prices.items():
             idx = bisect.bisect_right(days[ticker], asof) - 1
             if idx < 63 or bars[idx]["day"] < stale_before:
@@ -370,7 +373,10 @@ def write_summary(
     entry = {
         "start": dates[0], "end": dates[-1], "universe": universe,
         "ic": round(ic or 0.0, 3), "years": years,
-        "ratings": beat_rates((s["asof"], s["rating"], s["forward"][horizon] or 0.0) for s in sel),
+        "ratings": [
+            r.model_dump()
+            for r in beat_rates((s["asof"], s["rating"], s["forward"][horizon] or 0.0) for s in sel)
+        ],
         "generated": date.today().isoformat(),
     }
     try:
@@ -384,12 +390,13 @@ def write_summary(
 
 def snapshot(
     prices: dict[str, list[Bar]],
-    funds: dict[str, list[Any]],
+    funds: dict[str, list[Fundamental]],
     sectors: dict[str, str | None],
     style: InvestingStyle,
 ) -> None:
     """Ratings as of the latest bar (sector-only profile, like the backtest)."""
-    raw, liquidity = {}, {}
+    raw: dict[str, RawFactors] = {}
+    liquidity: dict[str, float] = {}
     for ticker, bars in prices.items():
         closes = [b["close"] for b in bars]
         raw[ticker] = (

@@ -1,12 +1,18 @@
 """Central application settings (environment-driven)."""
 
+import os
+
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+# BURSA_ENV_FILE="" reads no file (the tests use this so a local .env with real
+# keys or a mail provider never leaks into them).
+_ENV_FILE = os.environ.get("BURSA_ENV_FILE", ".env") or None
 
 
 class Settings(BaseSettings):
     """Runtime configuration. Env vars override the defaults (e.g. DATABASE_URL)."""
 
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=_ENV_FILE, extra="ignore")
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bursa.db"

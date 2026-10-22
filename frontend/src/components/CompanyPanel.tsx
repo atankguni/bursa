@@ -7,7 +7,7 @@ export default function CompanyPanel({
   isError,
   section = 'overview',
 }: {
-  data?: Company
+  data?: Company | undefined
   isLoading: boolean
   isError?: boolean
   section?: 'overview' | 'board'

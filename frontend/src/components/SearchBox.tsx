@@ -34,7 +34,8 @@ export default function SearchBox() {
   // Close the results on any click outside.
   useEffect(() => {
     function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && e.target instanceof Node && !ref.current.contains(e.target))
+        setOpen(false)
     }
     document.addEventListener('mousedown', onDoc)
     return () => document.removeEventListener('mousedown', onDoc)
@@ -61,7 +62,7 @@ export default function SearchBox() {
       }
       const stock = await fetchStock(r.symbol)
       setSelected(stock)
-      qc.invalidateQueries({ queryKey: ['stocks'] })
+      void qc.invalidateQueries({ queryKey: ['stocks'] })
       setQ('')
     } catch {
       setError(`Could not load ${r.symbol}`)
@@ -95,15 +96,15 @@ export default function SearchBox() {
       {open && debounced.length >= 2 && (
         <div className="absolute left-0 z-20 mt-1 w-80 animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong">
           {isAdmin && (
-          <label className="mb-1 flex cursor-pointer items-center justify-between border-b border-line px-2.5 py-1.5 text-[11px] text-muted">
-            <span>All exchanges</span>
-            <input
-              type="checkbox"
-              checked={showAll}
-              onChange={(e) => setShowAll(e.target.checked)}
-              className="h-3.5 w-3.5 accent-bull"
-            />
-          </label>
+            <label className="mb-1 flex cursor-pointer items-center justify-between border-b border-line px-2.5 py-1.5 text-[11px] text-muted">
+              <span>All exchanges</span>
+              <input
+                type="checkbox"
+                checked={showAll}
+                onChange={(e) => setShowAll(e.target.checked)}
+                className="h-3.5 w-3.5 accent-bull"
+              />
+            </label>
           )}
 
           {isFetching && results.length === 0 && (
@@ -115,7 +116,7 @@ export default function SearchBox() {
           {results.map((r) => (
             <button
               key={r.symbol}
-              onClick={() => openPreview(r)}
+              onClick={() => void openPreview(r)}
               disabled={preparing != null}
               className="flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5 text-left text-xs transition hover:bg-panelalt disabled:opacity-50"
             >

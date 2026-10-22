@@ -141,7 +141,8 @@ async def test_send_fills_defaults_and_builds_mime(smtp_settings, fake_smtp):
     assert server.calls == ["starttls", ("login", "me@example.com"), "send", "quit"]
     (sent,) = server.sent
     assert sent["From"] == "Bursa <bursa@example.com>" and sent["To"] == "me@example.com"
-    assert sent["Message-ID"] == msg_id and msg_id.endswith("@example.com>")
+    assert msg_id is not None and msg_id.endswith("@example.com>")
+    assert sent["Message-ID"] == msg_id
     parts = [p.get_content_type() for p in sent.walk()]
     assert {"text/plain", "text/html", "text/csv"} <= set(parts)
 
@@ -181,8 +182,8 @@ class FakeResponse(io.BytesIO):
     def __enter__(self):
         return self
 
-    def __exit__(self, *exc):
-        return False
+    def __exit__(self, *exc: object) -> None:
+        return None
 
 
 async def test_resend_request(monkeypatch):

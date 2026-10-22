@@ -8,13 +8,12 @@ score/rating); `filter_rows` is a pure predicate kept separate for testing.
 """
 
 import logging
-from typing import TypedDict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Stock
-from schemas import InvestingStyle
+from schemas import InvestingStyle, ScreenerRow
 from services.metrics import derive_metrics
 from services.prices import (
     indices_map,
@@ -27,27 +26,9 @@ from services.recommendation import compute_universe_cached
 log = logging.getLogger("bursa.screener")
 
 
-class ScreenerRowData(TypedDict):
-    """One screener row (mirrors `schemas.ScreenerRow`)."""
-
-    ticker: str
-    name: str
-    indices: list[str]
-    sector: str | None
-    price: float | None
-    change_percent: float | None
-    pbv: float | None
-    roe: float | None
-    score: float | None
-    rating: str | None
-    strength: str | None
-    has_fundamentals: bool  # False -> PBV/RoE are blank until "Sync missing" fetches them
-    board: str | None  # IDX listing board ("Watchlist" = special monitoring)
-
-
 async def build_rows(
     session: AsyncSession, style: InvestingStyle | None
-) -> list[ScreenerRowData]:
+) -> list[ScreenerRow]:
     """
     Assemble the screener dataset (one dict per tracked stock), rated with the
     given investing style. `style=None` skips scoring (callers that only need
@@ -64,7 +45,7 @@ async def build_rows(
     prof_map = await profiles(session, tickers)
     rec_map = await compute_universe_cached(session, style) if style else {}
 
-    rows: list[ScreenerRowData] = []
+    rows: list[ScreenerRow] = []
     for s in stocks:
         info = price_map.get(s.ticker, {})
         price = info.get("close")
@@ -78,27 +59,27 @@ async def build_rows(
         rec = rec_map.get(s.ticker)
         profile = prof_map.get(s.ticker)
         rows.append(
-            {
-                "ticker": s.ticker,
-                "name": s.name,
-                "indices": index_map.get(s.ticker, []),
-                "sector": profile.sector if profile else None,
-                "price": price,
-                "change_percent": chg,
-                "pbv": metrics.pbv,
-                "roe": metrics.roe,
-                "score": rec.score if rec else None,
-                "rating": rec.rating if rec else None,
-                "strength": rec.strength if rec else None,
-                "has_fundamentals": s.ticker in fund_map,
-                "board": s.listing_board,
-            }
+            ScreenerRow(
+                ticker=s.ticker,
+                name=s.name,
+                indices=index_map.get(s.ticker, []),
+                sector=profile.sector if profile else None,
+                price=price,
+                change_percent=chg,
+                pbv=metrics.pbv,
+                roe=metrics.roe,
+                score=rec.score if rec else None,
+                rating=rec.rating if rec else None,
+                strength=rec.strength if rec else None,
+                has_fundamentals=s.ticker in fund_map,
+                board=s.listing_board,
+            )
         )
     return rows
 
 
 def filter_rows(
-    rows: list[ScreenerRowData],
+    rows: list[ScreenerRow],
     *,
     min_score: float | None = None,
     max_pbv: float | None = None,
@@ -106,21 +87,21 @@ def filter_rows(
     rating: str | None = None,
     sector: str | None = None,
     buy_only: bool = False,
-) -> list[ScreenerRowData]:
+) -> list[ScreenerRow]:
     """Keep rows matching every provided criterion (missing data is excluded)."""
 
-    def keep(r: ScreenerRowData) -> bool:
-        if min_score is not None and (r["score"] is None or r["score"] < min_score):
+    def keep(r: ScreenerRow) -> bool:
+        if min_score is not None and (r.score is None or r.score < min_score):
             return False
-        if max_pbv is not None and (r["pbv"] is None or r["pbv"] > max_pbv):
+        if max_pbv is not None and (r.pbv is None or r.pbv > max_pbv):
             return False
-        if min_roe is not None and (r["roe"] is None or r["roe"] < min_roe):
+        if min_roe is not None and (r.roe is None or r.roe < min_roe):
             return False
-        if rating and r["rating"] != rating:
+        if rating and r.rating != rating:
             return False
-        if buy_only and r["rating"] not in ("Buy", "Strong Buy"):
+        if buy_only and r.rating not in ("Buy", "Strong Buy"):
             return False
-        if sector and (r["sector"] or "") != sector:
+        if sector and (r.sector or "") != sector:
             return False
         return True
 

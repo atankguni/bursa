@@ -26,7 +26,7 @@ export default function AlertsBell() {
       /* storage unavailable */
     }
     if (legacy && !alertsSeenAt) markAlertsSeen(legacy)
-  }, [loaded])
+  }, [loaded, alertsSeenAt, markAlertsSeen]) // the key is gone after the first run
 
   // Seen is per account, so reading alerts on one device clears the badge on all.
   const seen = time(alertsSeenAt)
@@ -35,7 +35,8 @@ export default function AlertsBell() {
   const toggle = () => {
     const next = !open
     setOpen(next)
-    if (next && unread > 0) markAlertsSeen(events[0].triggered_at) // newest first
+    const newest = events[0] // newest first
+    if (next && unread > 0 && newest) markAlertsSeen(newest.triggered_at)
   }
 
   return (

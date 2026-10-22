@@ -6,6 +6,7 @@ from sqlalchemy import insert
 
 from database import AsyncSessionLocal
 from models import RatingSnapshot, StockPrice
+from schemas import RatingRecordOut
 from services import track_record
 from services.recommendation import rating_code, rating_label
 
@@ -27,9 +28,9 @@ def test_beat_rates_compare_with_the_same_dates_median():
         # Day 2 median = -0.10: everyone fell, the Buy fell least.
         ("d2", "Buy", -0.05), ("d2", "Hold", -0.10), ("d2", "Avoid", -0.20),
     ]
-    rates = {r["rating"]: r for r in track_record.beat_rates(rows)}
-    assert rates["Buy"] == {"rating": "Buy", "n": 2, "beat": 1.0}
-    assert rates["Avoid"]["beat"] == 0.0
+    rates = {r.rating: r for r in track_record.beat_rates(rows)}
+    assert rates["Buy"] == RatingRecordOut(rating="Buy", n=2, beat=1.0)
+    assert rates["Avoid"].beat == 0.0
     assert "Strong Buy" not in rates  # no rows, no claim
 
 

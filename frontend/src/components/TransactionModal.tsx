@@ -3,6 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { addTransaction, type TransactionInput } from '../api'
 import { usePreferences, useStatus, useStocks } from '../hooks'
 import Modal from './Modal'
+import { errorMessage } from '../api/client'
 
 export default function TransactionModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient()
@@ -30,7 +31,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
   const add = useMutation({
     mutationFn: (input: TransactionInput) => addTransaction(input),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['portfolio'] })
+      void qc.invalidateQueries({ queryKey: ['portfolio'] })
       onClose()
     },
   })
@@ -195,8 +196,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
 
         {add.isError && (
           <p className="text-xs text-bear">
-            {(add.error as { response?: { data?: { detail?: string } } })?.response?.data
-              ?.detail ?? 'Failed to add transaction.'}
+            {errorMessage(add.error, 'Failed to add transaction.')}
           </p>
         )}
       </div>

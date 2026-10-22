@@ -22,9 +22,10 @@ from config import settings
 from mail.base import Email
 from mail.templates import layout
 from models import AlertEvent, RatingSnapshot, User, Watchlist
+from schemas import PortfolioTotals
 from services.dividend_calendar import UpcomingDividend, next_expected
 from services.market_clock import is_trading_day
-from services.portfolio import Totals, build_portfolio
+from services.portfolio import build_portfolio
 from services.preferences import get_investing_style, users_with_digest
 from services.prices import latest_daily
 from services.recommendation import rating_label
@@ -52,10 +53,12 @@ class SignalChange:
 @dataclass
 class Digest:
     day: date
-    totals: Totals | None  # None without holdings
-    movers: list[Mover] = field(default_factory=list)
-    signals: list[SignalChange] = field(default_factory=list)
-    dividends: list[tuple[str, UpcomingDividend]] = field(default_factory=list)
+    totals: PortfolioTotals | None  # None without holdings
+    movers: list[Mover] = field(default_factory=list[Mover])
+    signals: list[SignalChange] = field(default_factory=list[SignalChange])
+    dividends: list[tuple[str, UpcomingDividend]] = field(
+        default_factory=list[tuple[str, UpcomingDividend]]
+    )
     alerts: int = 0
 
 
@@ -66,7 +69,7 @@ def _short(ticker: str) -> str:
 async def build_digest(session: AsyncSession, user: User, day: date) -> Digest | None:
     """The summary for `day`, or None when the user follows no stocks."""
     totals, holdings = await build_portfolio(session, user.id)
-    held = {h["ticker"] for h in holdings}
+    held = {h.ticker for h in holdings}
     watched = set(
         (await session.execute(
             select(Watchlist.ticker).where(Watchlist.user_id == user.id)
@@ -149,8 +152,8 @@ def _signed_rp(v: float) -> str:
 
 def subject(d: Digest) -> str:
     parts = [f"Bursa · {d.day:%a %d %b}"]
-    if d.totals and d.totals["day_change_pct"] is not None:
-        parts.append(f"portfolio {d.totals['day_change_pct']:+.2f}%")
+    if d.totals and d.totals.day_change_pct is not None:
+        parts.append(f"portfolio {d.totals.day_change_pct:+.2f}%")
     if d.signals:
         parts.append(f"{len(d.signals)} signal change{'s' * (len(d.signals) != 1)}")
     if d.dividends:
@@ -163,10 +166,10 @@ def sections(d: Digest) -> list[tuple[str, list[str]]]:
     out: list[tuple[str, list[str]]] = []
     if d.totals:
         t = d.totals
-        pct = f" ({t['day_change_pct']:+.2f}%)" if t["day_change_pct"] is not None else ""
+        pct = f" ({t.day_change_pct:+.2f}%)" if t.day_change_pct is not None else ""
         out.append(("Portfolio", [
-            f"Value {_rp(t['market_value'])}, today {_signed_rp(t['day_change'])}{pct}",
-            f"Total return so far {_signed_rp(t['total_return'])} "
+            f"Value {_rp(t.market_value)}, today {_signed_rp(t.day_change)}{pct}",
+            f"Total return so far {_signed_rp(t.total_return)} "
             "(after selling costs, with dividends)",
         ]))
     if d.movers:

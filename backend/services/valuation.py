@@ -8,49 +8,28 @@ RoE history comes from the yearly fundamentals.
 """
 
 import logging
-from typing import TypedDict
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from schemas import ValuationOut
 from services.prices import daily_closes, fundamental_series, latest_daily
 from services.recommendation import percentile
 
 log = logging.getLogger("bursa.valuation")
 
 
-
-class ValuationData(TypedDict):
-    """Mirrors `schemas.ValuationOut`."""
-
-    ticker: str
-    pbv: float | None
-    pbv_min: float | None
-    pbv_max: float | None
-    pbv_percentile: float | None
-    roe: float | None
-    roe_percentile: float | None
-    years: list[int]
-    window_days: int
+def _empty(ticker: str) -> ValuationOut:
+    return ValuationOut(
+        ticker=ticker, pbv=None, pbv_min=None, pbv_max=None, pbv_percentile=None,
+        roe=None, roe_percentile=None, years=[], window_days=0,
+    )
 
 
-_EMPTY: ValuationData = {
-    "ticker": "",
-    "pbv": None,
-    "pbv_min": None,
-    "pbv_max": None,
-    "pbv_percentile": None,
-    "roe": None,
-    "roe_percentile": None,
-    "years": [],
-    "window_days": 0,
-}
-
-
-async def valuation(session: AsyncSession, ticker: str) -> ValuationData:
+async def valuation(session: AsyncSession, ticker: str) -> ValuationOut:
     """PBV/RoE plus their percentile within the stock's own history."""
     funds = (await fundamental_series(session, [ticker])).get(ticker, [])
     if not funds:
-        return {**_EMPTY, "ticker": ticker, "years": []}
+        return _empty(ticker)
 
     latest = funds[-1]
     price = (await latest_daily(session, [ticker])).get(ticker, {}).get("close")
@@ -80,14 +59,14 @@ async def valuation(session: AsyncSession, ticker: str) -> ValuationData:
     roe = round(roes[-1], 4) if roes else None
     roe_percentile = percentile(roes, roes[-1]) if roes else None
 
-    return {
-        "ticker": ticker,
-        "pbv": pbv,
-        "pbv_min": round(min(pbv_series), 3) if pbv_series else None,
-        "pbv_max": round(max(pbv_series), 3) if pbv_series else None,
-        "pbv_percentile": round(pbv_percentile, 1) if pbv_percentile is not None else None,
-        "roe": roe,
-        "roe_percentile": round(roe_percentile, 1) if roe_percentile is not None else None,
-        "years": [f.fiscal_year for f in funds],
-        "window_days": len(closes),
-    }
+    return ValuationOut(
+        ticker=ticker,
+        pbv=pbv,
+        pbv_min=round(min(pbv_series), 3) if pbv_series else None,
+        pbv_max=round(max(pbv_series), 3) if pbv_series else None,
+        pbv_percentile=round(pbv_percentile, 1) if pbv_percentile is not None else None,
+        roe=roe,
+        roe_percentile=round(roe_percentile, 1) if roe_percentile is not None else None,
+        years=[f.fiscal_year for f in funds],
+        window_days=len(closes),
+    )

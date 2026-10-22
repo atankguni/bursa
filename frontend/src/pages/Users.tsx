@@ -61,13 +61,15 @@ function LinkNotice({
         <code className="min-w-0 flex-1 select-all truncate rounded bg-panel px-2 py-1.5 font-mono text-[11px] text-ink ring-1 ring-line">
           {result.link}
         </code>
-        <button onClick={copy} className={smallBtn}>
+        <button onClick={() => void copy()} className={smallBtn}>
           {copied ? <Check size={12} /> : <Copy size={12} />} {copied ? 'Copied' : 'Copy'}
         </button>
       </div>
     </div>
   )
 }
+
+const asRole = (value: string): Role => (value === 'admin' ? 'admin' : 'user')
 
 export default function Users() {
   const qc = useQueryClient()
@@ -82,8 +84,8 @@ export default function Users() {
   const [error, setError] = useState<string | null>(null)
 
   const refresh = () => {
-    qc.invalidateQueries({ queryKey: USERS_KEY })
-    qc.invalidateQueries({ queryKey: INVITES_KEY })
+    void qc.invalidateQueries({ queryKey: USERS_KEY })
+    void qc.invalidateQueries({ queryKey: INVITES_KEY })
   }
   const onError = (fallback: string) => (e: unknown) =>
     setError(errorMessage(e, fallback))
@@ -184,7 +186,7 @@ export default function Users() {
           </span>
           <select
             value={role}
-            onChange={(e) => setRole(e.target.value as Role)}
+            onChange={(e) => setRole(asRole(e.target.value))}
             className={inputCls}
           >
             <option value="user">User</option>
@@ -217,14 +219,14 @@ export default function Users() {
         </p>
       )}
 
-      {(invites.data?.length ?? 0) > 0 && (
+      {invites.data?.length ? (
         <div className="surface overflow-hidden">
           <div className="border-b border-line px-4 py-2 text-xs font-medium">
             Pending invites
           </div>
           <table className="w-full text-xs">
             <tbody>
-              {invites.data!.map((i) => {
+              {invites.data.map((i) => {
                 const expired = new Date(`${i.expires_at}Z`).getTime() < Date.now()
                 return (
                   <tr key={i.id} className="border-b border-line last:border-0">
@@ -252,7 +254,7 @@ export default function Users() {
             </tbody>
           </table>
         </div>
-      )}
+      ) : null}
 
       <div className="surface overflow-x-auto">
         <table className="w-full text-xs">
@@ -293,7 +295,7 @@ export default function Users() {
                       onChange={(e) =>
                         update.mutate({
                           id: u.id,
-                          patch: { role: e.target.value as Role },
+                          patch: { role: asRole(e.target.value) },
                         })
                       }
                       className={`${inputCls} py-1`}

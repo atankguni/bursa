@@ -7,13 +7,14 @@ SameSite=Lax keeps other sites from sending it with their requests, and
 """
 
 import html
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import mail
+from clock import utcnow
 from config import settings
 from deps import get_session, session_token, signed_in_user
 from mail.templates import layout
@@ -222,7 +223,7 @@ async def request_reset(
     recent = (await session.execute(
         select(PasswordReset.id).where(
             PasswordReset.user_id == user.id,
-            PasswordReset.created_at > datetime.utcnow() - _RESET_EMAIL_INTERVAL,
+            PasswordReset.created_at > utcnow() - _RESET_EMAIL_INTERVAL,
         )
     )).first()
     if recent is None:

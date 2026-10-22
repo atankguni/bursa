@@ -1,9 +1,9 @@
 """Data-health report: sections, share-count mismatches, job outcome tracking."""
 
-from datetime import datetime
 
 from sqlalchemy import select
 
+from clock import utcnow
 from database import AsyncSessionLocal
 from models import Fundamental, Stock
 
@@ -15,7 +15,7 @@ async def test_report_sections_and_share_mismatch(client):
         s.add(Fundamental(  # Yahoo's broken sharesOutstanding (BBNI case)
             ticker="BBNI.JK", fiscal_year=2025, financial_currency="IDR",
             total_shares=0.58e9, equity=1.7e14, source="statements",
-            updated_at=datetime.utcnow(),
+            updated_at=utcnow(),
         ))
         await s.commit()
 
@@ -40,7 +40,7 @@ def test_job_outcomes_are_recorded():
 
     sched._record_job(_Event())  # type: ignore[arg-type]
     assert sched.job_runs["backfill_daily"]["ok"] is False
-    assert "Yahoo said no" in sched.job_runs["backfill_daily"]["error"]
+    assert "Yahoo said no" in (sched.job_runs["backfill_daily"]["error"] or "")
 
 
 async def test_reconcile_shares_uses_idx_register(client):
@@ -52,7 +52,7 @@ async def test_reconcile_shares_uses_idx_register(client):
             stock.idx_shares = idx
             for fy in (2024, 2025):
                 s.add(Fundamental(ticker=t, fiscal_year=fy, financial_currency="IDR",
-                                  total_shares=yahoo, updated_at=datetime.utcnow()))
+                                  total_shares=yahoo, updated_at=utcnow()))
         await s.commit()
 
     assert await reconcile_shares() == 1  # only AISA is off by more than 20%

@@ -9,11 +9,12 @@ histories fetched before a split (the provider re-adjusts old prices).
 import logging
 from collections.abc import Sequence
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import utcnow
 from database import AsyncSessionLocal
 from db.upsert import upsert
 from market.providers.governor import governor
@@ -126,7 +127,7 @@ async def sync_splits(tickers: Sequence[str]) -> int:
                     stock.full_history_at = None
                     log.info("New split for %s on %s: full history will be re-fetched",
                              ticker, r["ex_date"])
-            stock.splits_checked_at = datetime.utcnow()
+            stock.splits_checked_at = utcnow()
             await session.commit()
             found += len(rows)
     return found
@@ -135,7 +136,7 @@ async def sync_splits(tickers: Sequence[str]) -> int:
 async def sync_due(tickers: Sequence[str]) -> int:
     """Check splits for the given tickers whose last check is over a week old."""
     async with AsyncSessionLocal() as session:
-        cutoff = datetime.utcnow() - CHECK_EVERY
+        cutoff = utcnow() - CHECK_EVERY
         due = (
             await session.execute(
                 select(Stock.ticker).where(

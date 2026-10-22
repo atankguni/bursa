@@ -18,14 +18,15 @@ import logging
 import secrets
 import time
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
-from typing import Literal
+from datetime import timedelta
+from typing import Any, Literal, cast
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from sqlalchemy import delete, func, select, update
+from sqlalchemy import CursorResult, delete, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import utcnow
 from config import settings
 from mail.base import is_valid_address
 from models import (
@@ -163,7 +164,7 @@ async def create_session(
     session: AsyncSession, user: User, user_agent: str | None, ip: str | None
 ) -> str:
     raw, digest = new_token()
-    now = datetime.utcnow()
+    now = utcnow()
     session.add(UserSession(
         token_hash=digest, user_id=user.id, created_at=now, last_seen_at=now,
         expires_at=now + timedelta(days=settings.session_days),
@@ -186,7 +187,7 @@ async def user_for_token(session: AsyncSession, raw: str) -> User | None:
     if row is None:
         return None
     sess, user = row.tuple()
-    now = datetime.utcnow()
+    now = utcnow()
     if sess.expires_at <= now or not user.is_active:
         return None
     if now - sess.last_seen_at > _TOUCH_INTERVAL:
@@ -245,7 +246,7 @@ async def create_invite(
         delete(Invite).where(Invite.email == email, Invite.accepted_at.is_(None))
     )
     raw, digest = new_token()
-    now = datetime.utcnow()
+    now = utcnow()
     session.add(Invite(
         email=email, role=role, token_hash=digest, invited_by=invited_by,
         created_at=now, expires_at=now + timedelta(days=settings.invite_days),
@@ -260,7 +261,7 @@ async def open_invite(session: AsyncSession, raw: str) -> Invite:
     ).scalar_one_or_none()
     if invite is None or invite.accepted_at is not None:
         raise AuthError("This invite link is invalid or was already used")
-    if invite.expires_at <= datetime.utcnow():
+    if invite.expires_at <= utcnow():
         raise AuthError("This invite link has expired; ask for a new one")
     return invite
 
@@ -284,7 +285,7 @@ async def accept_invite(
     user = User(email=address, name=name, password_hash=hash_password(password),
                 role="admin" if first else invite.role, is_active=True)
     session.add(user)
-    invite.accepted_at = datetime.utcnow()
+    invite.accepted_at = utcnow()
     await session.flush()
     if first:
         claimed = await claim_orphans(session, user.id)
@@ -307,7 +308,7 @@ async def ensure_setup_invite() -> None:
             return
         await session.execute(delete(Invite).where(Invite.email == ""))
         raw, digest = new_token()
-        now = datetime.utcnow()
+        now = utcnow()
         session.add(Invite(
             email="", role="admin", token_hash=digest, invited_by=None, created_at=now,
             expires_at=now + timedelta(days=settings.invite_days),
@@ -320,10 +321,10 @@ async def claim_orphans(session: AsyncSession, user_id: int) -> int:
     """Give rows from before accounts existed (user_id NULL) to `user_id`."""
     total = 0
     for model in (Watchlist, Transaction, Alert, AlertEvent, UserPreference):
-        result = await session.execute(
+        result = cast(CursorResult[Any], await session.execute(
             update(model).where(model.user_id.is_(None)).values(user_id=user_id)
-        )
-        total += result.rowcount or 0  # type: ignore[attr-defined]
+        ))
+        total += result.rowcount or 0
     return total
 
 
@@ -337,7 +338,7 @@ async def create_reset(session: AsyncSession, user: User) -> str:
         )
     )
     raw, digest = new_token()
-    now = datetime.utcnow()
+    now = utcnow()
     session.add(PasswordReset(
         user_id=user.id, token_hash=digest, created_at=now,
         expires_at=now + timedelta(hours=settings.password_reset_hours),
@@ -356,7 +357,7 @@ async def open_reset(session: AsyncSession, raw: str) -> tuple[PasswordReset, Us
     ).one_or_none()
     if row is None or row[0].used_at is not None or not row[1].is_active:
         raise AuthError("This reset link is invalid or was already used")
-    if row[0].expires_at <= datetime.utcnow():
+    if row[0].expires_at <= utcnow():
         raise AuthError("This reset link has expired; request a new one")
     return row.tuple()
 
@@ -365,7 +366,7 @@ async def reset_password(session: AsyncSession, raw: str, password: str) -> User
     reset, user = await open_reset(session, raw)
     await check_password_policy(password, user.email, user.name)
     _set_password(user, password)
-    reset.used_at = datetime.utcnow()
+    reset.used_at = utcnow()
     await revoke_sessions(session, user.id)  # sign out everywhere
     # Remembered devices must pass 2FA again. 2FA itself stays on: a reset link
     # only proves access to the inbox.
@@ -380,7 +381,7 @@ async def purge_expired() -> int:
     remembered devices (daily job)."""
     from database import AsyncSessionLocal
 
-    now = datetime.utcnow()
+    now = utcnow()
     removed = 0
     async with AsyncSessionLocal() as session:
         for stmt in (
@@ -390,6 +391,6 @@ async def purge_expired() -> int:
             delete(MfaChallenge).where(MfaChallenge.expires_at <= now),
             delete(TrustedDevice).where(TrustedDevice.expires_at <= now),
         ):
-            removed += (await session.execute(stmt)).rowcount or 0  # type: ignore[attr-defined]
+            removed += cast(CursorResult[Any], await session.execute(stmt)).rowcount or 0
         await session.commit()
     return removed

@@ -53,6 +53,10 @@ type Tab = 'chart' | 'fundamentals' | 'recommendation' | 'company'
 type FinTab = 'financials' | 'valuation' | 'dividends'
 type CompanyTab = 'overview' | 'board'
 
+/** Classes for one button of a segmented control. */
+const seg = (active: boolean) =>
+  `px-2.5 py-1 text-xs transition ${active ? 'bg-active text-ink' : 'text-muted hover:text-ink'}`
+
 export default function StockDetailModal({
   stock,
   onClose,
@@ -139,10 +143,6 @@ export default function StockDetailModal({
 
   const up = (stock.change ?? stock.change_percent ?? 0) >= 0
   const tone = !settings.colorizeChanges ? 'text-muted' : up ? 'text-bull' : 'text-bear'
-  const seg = (active: boolean) =>
-    `px-2.5 py-1 text-xs transition ${
-      active ? 'bg-active text-ink' : 'text-muted hover:text-ink'
-    }`
 
   return (
     <Modal

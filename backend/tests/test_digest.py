@@ -12,7 +12,7 @@ from database import AsyncSessionLocal
 from models import AlertEvent, Dividend, RatingSnapshot, StockPrice, User, Watchlist
 from services import digest
 from services.alerts import dividend_due, evaluate_alerts
-from services.dividend_calendar import cum_date
+from services.dividend_calendar import UpcomingDividend, cum_date
 from services.market_clock import is_trading_day
 
 
@@ -22,8 +22,8 @@ def test_cum_date_is_the_trading_day_before_the_ex_date():
 
 
 def test_dividend_due_window():
-    up = {"cum_date": date(2026, 3, 6), "expected_ex_date": date(2026, 3, 9),
-          "amount_per_share": 100.0, "regular": True}
+    up = UpcomingDividend(cum_date=date(2026, 3, 6), expected_ex_date=date(2026, 3, 9),
+                          amount_per_share=100.0, regular=True)
     assert dividend_due(up, date(2026, 3, 3), None) == 3      # default: 3 days ahead
     assert dividend_due(up, date(2026, 3, 2), None) is None   # too early
     assert dividend_due(up, date(2026, 3, 2), 7) == 4

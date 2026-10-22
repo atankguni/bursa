@@ -31,7 +31,7 @@ export default function AcceptInvite() {
       acceptInvite(token, { name, password, ...(invite.data?.email ? {} : { email }) }),
     onSuccess: (user) => {
       signedIn(user)
-      navigate('/', { replace: true })
+      void navigate('/', { replace: true })
     },
   })
 

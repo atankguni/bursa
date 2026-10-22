@@ -13,13 +13,12 @@ next one, so no provider ever receives another model's internal state (e.g.
 Gemini thought signatures). Re-running is cheap: tools only read the local DB.
 """
 
-import json
 import logging
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
 from zoneinfo import ZoneInfo
 
+from pydantic_core import to_jsonable_python
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant.providers import (
@@ -80,7 +79,7 @@ class Answer:
     reply: str
     provider: str
     model: str
-    tools_used: list[str] = field(default_factory=list)
+    tools_used: list[str] = field(default_factory=list[str])
     remaining_today: int = 0
 
 
@@ -102,9 +101,9 @@ def configured() -> bool:
     return bool(resolve_chain())
 
 
-def _jsonable(value: Any) -> Any:
-    """Tool output as plain JSON (dates -> ISO strings), as providers require."""
-    return json.loads(json.dumps(value, default=str))
+def _jsonable(value: object) -> object:
+    """Tool output as plain JSON (models -> dicts, dates -> ISO strings), as providers require."""
+    return to_jsonable_python(value, fallback=str)
 
 
 async def _run_tools(ctx: ToolContext, tools: dict[str, Tool],

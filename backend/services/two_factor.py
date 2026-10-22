@@ -26,7 +26,7 @@ import logging
 import secrets
 import struct
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Literal
 from urllib.parse import quote
 
@@ -35,6 +35,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import mail
+from clock import utcnow
 from config import settings
 from mail.templates import layout
 from models import MfaChallenge, RecoveryCode, TrustedDevice, User
@@ -124,8 +125,8 @@ def _email_code_hash(challenge_id: int, code: str) -> str:
 async def replace_recovery_codes(session: AsyncSession, user: User) -> list[str]:
     """New set of recovery codes (old ones stop working). Shown to the user once."""
     await session.execute(delete(RecoveryCode).where(RecoveryCode.user_id == user.id))
-    now = datetime.utcnow()
-    codes = []
+    now = utcnow()
+    codes: list[str] = []
     for _ in range(_RECOVERY_COUNT):
         raw = "".join(secrets.choice(_RECOVERY_ALPHABET) for _ in range(10))  # ~50 bits
         codes.append(f"{raw[:5]}-{raw[5:]}")
@@ -152,7 +153,7 @@ async def _use_recovery_code(session: AsyncSession, user: User, code: str) -> bo
     )).scalar_one_or_none()
     if row is None:
         return False
-    row.used_at = datetime.utcnow()
+    row.used_at = utcnow()
     return True
 
 
@@ -193,7 +194,7 @@ async def _send_email_code(
 ) -> None:
     if not mail.configured():
         raise AuthError("Email isn't set up on this server")
-    now = datetime.utcnow()
+    now = utcnow()
     if challenge.email_sent_at and now - challenge.email_sent_at < _RESEND_INTERVAL:
         raise AuthError("A code was just sent. Wait a minute before asking for another.")
     code = f"{secrets.randbelow(10**_DIGITS):0{_DIGITS}d}"
@@ -220,7 +221,7 @@ async def _send_email_code(
 def _email_code_ok(challenge: MfaChallenge, code: str) -> bool:
     if challenge.email_code_hash is None or challenge.email_sent_at is None:
         return False
-    if datetime.utcnow() - challenge.email_sent_at > timedelta(minutes=settings.mfa_code_minutes):
+    if utcnow() - challenge.email_sent_at > timedelta(minutes=settings.mfa_code_minutes):
         return False
     return hmac.compare_digest(challenge.email_code_hash, _email_code_hash(challenge.id, code))
 
@@ -246,7 +247,7 @@ async def start_login(session: AsyncSession, user: User) -> tuple[str, MfaChalle
         MfaChallenge.user_id == user.id, MfaChallenge.purpose == "login"
     ))
     raw, digest = new_token()
-    now = datetime.utcnow()
+    now = utcnow()
     challenge = MfaChallenge(
         token_hash=digest, user_id=user.id, purpose="login", created_at=now,
         expires_at=now + timedelta(minutes=settings.mfa_code_minutes), attempts=0,
@@ -267,7 +268,7 @@ async def _open_login(session: AsyncSession, raw: str) -> tuple[MfaChallenge, Us
         .join(User, User.id == MfaChallenge.user_id)
         .where(MfaChallenge.token_hash == hash_token(raw), MfaChallenge.purpose == "login")
     )).one_or_none()
-    if row is None or row[0].expires_at <= datetime.utcnow() or not row[1].is_active:
+    if row is None or row[0].expires_at <= utcnow() or not row[1].is_active:
         raise AuthError("This sign-in has expired. Sign in again.")
     return row.tuple()
 
@@ -321,7 +322,7 @@ async def verify_login(session: AsyncSession, raw: str, method: Method, code: st
 # --------------------------------------------------------------------------- #
 async def trust_device(session: AsyncSession, user: User, user_agent: str | None) -> str:
     raw, digest = new_token()
-    now = datetime.utcnow()
+    now = utcnow()
     session.add(TrustedDevice(
         token_hash=digest, user_id=user.id, created_at=now,
         expires_at=now + timedelta(days=settings.trusted_device_days),
@@ -338,7 +339,7 @@ async def is_trusted(session: AsyncSession, user: User, raw: str | None) -> bool
         select(TrustedDevice.id).where(
             TrustedDevice.token_hash == hash_token(raw),
             TrustedDevice.user_id == user.id,
-            TrustedDevice.expires_at > datetime.utcnow(),
+            TrustedDevice.expires_at > utcnow(),
         )
     )).first()
     return found is not None
@@ -352,7 +353,7 @@ async def forget_devices(session: AsyncSession, user_id: int) -> int:
 async def trusted_device_count(session: AsyncSession, user_id: int) -> int:
     return (await session.execute(
         select(func.count()).select_from(TrustedDevice).where(
-            TrustedDevice.user_id == user_id, TrustedDevice.expires_at > datetime.utcnow()
+            TrustedDevice.user_id == user_id, TrustedDevice.expires_at > utcnow()
         )
     )).scalar_one()
 
@@ -396,7 +397,7 @@ async def begin_email(session: AsyncSession, user: User) -> None:
     await session.execute(delete(MfaChallenge).where(
         MfaChallenge.user_id == user.id, MfaChallenge.purpose == "enroll_email"
     ))
-    now = datetime.utcnow()
+    now = utcnow()
     challenge = MfaChallenge(
         token_hash=None, user_id=user.id, purpose="enroll_email", created_at=now,
         expires_at=now + timedelta(minutes=settings.mfa_code_minutes), attempts=0,
@@ -410,7 +411,7 @@ async def confirm_email(session: AsyncSession, user: User, code: str) -> list[st
     challenge = (await session.execute(
         select(MfaChallenge).where(
             MfaChallenge.user_id == user.id, MfaChallenge.purpose == "enroll_email",
-            MfaChallenge.expires_at > datetime.utcnow(),
+            MfaChallenge.expires_at > utcnow(),
         )
     )).scalar_one_or_none()
     if challenge is None:

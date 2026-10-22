@@ -6,6 +6,7 @@ import App from './App'
 import { AuthProvider } from './lib/auth'
 import { SettingsProvider } from './lib/settings'
 import './index.css'
+import { errorStatus } from './api/client'
 
 // Single shared React Query client. Polling is opt-in per query (see the
 // Home/Watchlist pages) so unfocused or static queries don't hit the API.
@@ -16,7 +17,7 @@ const queryClient = new QueryClient({
       // Retry once on network/server errors; never on 401/403/404, which won't
       // change by asking again (401 sends the app back to sign-in).
       retry: (failureCount, error) => {
-        const status = (error as { response?: { status?: number } })?.response?.status
+        const status = errorStatus(error)
         return failureCount < 1 && !(status && status >= 400 && status < 500)
       },
       refetchOnWindowFocus: false,
@@ -24,7 +25,9 @@ const queryClient = new QueryClient({
   },
 })
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const root = document.getElementById('root')
+if (!root) throw new Error('index.html has no #root element')
+ReactDOM.createRoot(root).render(
   <React.StrictMode>
     <QueryClientProvider client={queryClient}>
       <AuthProvider>

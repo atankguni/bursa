@@ -17,6 +17,7 @@ from typing import Any, cast
 import pandas as pd
 import yfinance as yf
 
+from clock import utcnow
 from config import settings
 from market.providers.base import (
     DIVIDENDS,
@@ -135,9 +136,10 @@ def _pick(
     """First non-null value among `labels` at column `col`."""
     if df is None or df.empty or col is None or col not in df.columns:
         return None
+    column = cast("pd.Series[float]", df[col])
     for label in labels:
         if label in df.index:
-            val = df.loc[label, col]
+            val = column[label]
             if pd.notna(val):
                 return float(val)
     return None
@@ -209,15 +211,16 @@ def _summary_row(
         "total_liabilities": None,
         "equity": float(book_per_share) * shares * rate,
         "source": "summary",
-        "updated_at": datetime.utcnow(),
+        "updated_at": utcnow(),
     }
 
 
 def _profile_from_info(info: Mapping[str, Any]) -> ProfileData | None:
     """Extract optional info-derived metrics + company profile (may all be None)."""
+    raw_officers: list[dict[str, Any]] = info.get("companyOfficers") or []
     officers: list[Officer] = [
-        {"name": o.get("name"), "title": o.get("title")}
-        for o in (info.get("companyOfficers") or [])
+        Officer(name=str(o["name"]), title=o.get("title"))
+        for o in raw_officers
         if o.get("name")
     ]
     keys: ProfileData = {
@@ -277,7 +280,7 @@ class YahooProvider(MarketDataProvider):
         if currency == base:
             return 1.0
 
-        now = datetime.utcnow()
+        now = utcnow()
         ttl = timedelta(hours=settings.fx_cache_hours)
         cached = self._fx_cache.get(currency)
         if cached and now - cached[1] < ttl:
@@ -332,7 +335,7 @@ class YahooProvider(MarketDataProvider):
         years: set[int] = set()
         for df in (income, balance):
             if df is not None and not df.empty:
-                years |= {c.year for c in df.columns if getattr(c, "year", None)}
+                years |= {c.year for c in df.columns if isinstance(c, pd.Timestamp)}
 
         rows: list[FundamentalRow] = []
         for year in sorted(years):
@@ -350,7 +353,7 @@ class YahooProvider(MarketDataProvider):
                     "total_liabilities": money(_pick(balance, _BS_LIABILITIES, bcol)),
                     "equity": money(_pick(balance, _BS_EQUITY, bcol)),
                     "source": "statements",
-                    "updated_at": datetime.utcnow(),
+                    "updated_at": utcnow(),
                 }
             )
         if not rows:
@@ -424,7 +427,7 @@ class YahooProvider(MarketDataProvider):
         if splits is not None:
             for ts, ratio in splits.items():
                 stamp = pd.Timestamp(cast(Any, ts))
-                if isinstance(stamp, pd.Timestamp) and float(ratio) > 0:
+                if not pd.isna(stamp) and float(ratio) > 0:  # NaT: unusable date
                     out.append({"ex_date": stamp.date(), "ratio": float(ratio)})
         return out
 
@@ -442,7 +445,7 @@ class YahooProvider(MarketDataProvider):
             for ts, amount in divs.items():
                 try:
                     stamp = pd.Timestamp(cast(Any, ts))
-                    if not isinstance(stamp, pd.Timestamp):  # NaT: unusable date
+                    if pd.isna(stamp):  # NaT: unusable date
                         continue
                     out.append({"ex_date": stamp.date(), "amount": float(amount)})
                 except (TypeError, ValueError):

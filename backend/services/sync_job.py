@@ -20,9 +20,11 @@ from typing import TypedDict
 
 from sqlalchemy import ColumnElement, func, select, update
 
+from clock import utcnow
 from config import settings
 from database import AsyncSessionLocal
 from models import Fundamental, Stock, StockProfile
+from schemas import SyncMode, SyncStatusOut
 from services.fundamentals import sync_ticker
 from services.recommendation import invalidate_cache
 
@@ -32,7 +34,7 @@ log = logging.getLogger("bursa.sync_job")
 
 class _State(TypedDict):
     running: bool
-    mode: str  # "batch" (one capped run) | "all" (batches until done)
+    mode: SyncMode
     total: int
     done: int
     last_error: str | None
@@ -40,16 +42,6 @@ class _State(TypedDict):
     cancel: bool
     started_at: datetime | None
     finished_at: datetime | None
-
-
-class SyncStatus(TypedDict):
-    running: bool
-    mode: str
-    total: int
-    done: int
-    remaining: int
-    last_error: str | None
-    note: str | None
 
 
 _state: _State = {
@@ -64,7 +56,7 @@ _state: _State = {
     "finished_at": None,
 }
 # Strong reference to the running task (the event loop only keeps a weak one).
-_task: asyncio.Task | None = None
+_task: asyncio.Task[None] | None = None
 
 
 def _missing_clause() -> ColumnElement[bool]:
@@ -102,7 +94,7 @@ async def _mark_checked(ticker: str) -> None:
         await session.execute(
             update(Stock)
             .where(Stock.ticker == ticker)
-            .values(fundamentals_checked_at=datetime.utcnow())
+            .values(fundamentals_checked_at=utcnow())
         )
         await session.commit()
 
@@ -135,16 +127,16 @@ async def _with_data(tickers: list[str]) -> int:
     return len(have)
 
 
-def status() -> SyncStatus:
-    return {
-        "running": _state["running"],
-        "mode": _state["mode"],
-        "total": _state["total"],
-        "done": _state["done"],
-        "remaining": max(0, _state["total"] - _state["done"]),
-        "last_error": _state["last_error"],
-        "note": _state["note"],
-    }
+def status() -> SyncStatusOut:
+    return SyncStatusOut(
+        running=_state["running"],
+        mode=_state["mode"],
+        total=_state["total"],
+        done=_state["done"],
+        remaining=max(0, _state["total"] - _state["done"]),
+        last_error=_state["last_error"],
+        note=_state["note"],
+    )
 
 
 def cancel() -> bool:
@@ -216,7 +208,7 @@ async def _run_all() -> None:
                 await _sleep(settings.screener_sync_batch_pause)
     finally:
         invalidate_cache()
-        _state.update({"running": False, "finished_at": datetime.utcnow(), "cancel": False,
+        _state.update({"running": False, "finished_at": utcnow(), "cancel": False,
                        "note": None})
     log.info("Screener 'sync all' finished (%d processed)", _state["done"])
 
@@ -230,7 +222,7 @@ async def _run(tickers: list[str]) -> None:
         invalidate_cache()
     finally:
         # Always release the lock, or the button stays stuck on "Syncing".
-        _state.update({"running": False, "finished_at": datetime.utcnow(), "cancel": False,
+        _state.update({"running": False, "finished_at": utcnow(), "cancel": False,
                        "note": None})
     log.info("Screener sync finished (%d tickers)", len(tickers))
 
@@ -249,7 +241,7 @@ def start(tickers: list[str]) -> bool:
             "last_error": None,
             "note": None,
             "cancel": False,
-            "started_at": datetime.utcnow(),
+            "started_at": utcnow(),
             "finished_at": None,
         }
     )
@@ -271,7 +263,7 @@ async def start_all() -> bool:
             "last_error": None,
             "note": "Starting…",
             "cancel": False,
-            "started_at": datetime.utcnow(),
+            "started_at": utcnow(),
             "finished_at": None,
         }
     )

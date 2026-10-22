@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
@@ -25,9 +25,12 @@ const NEXT_SORT: Record<SignalSort, SignalSort> = { off: 'desc', desc: 'asc', as
 
 export default function Home() {
   const { settings } = useSettings()
-  const [selectedIndexes, setSelectedIndexes] = useState<string[]>(
-    settings.defaultIndexes,
-  )
+  // The user's pick, until the default indexes (Settings) change.
+  const defaultsKey = settings.defaultIndexes.join(',')
+  const [picked, setPicked] = useState({ defaultsKey, indexes: settings.defaultIndexes })
+  const selectedIndexes =
+    picked.defaultsKey === defaultsKey ? picked.indexes : settings.defaultIndexes
+  const setSelectedIndexes = (indexes: string[]) => setPicked({ defaultsKey, indexes })
   const [selected, setSelected] = useState<Stock | null>(null)
   const [detailTab, setDetailTab] = useState<DetailTab>('chart')
   const [buyOnly, setBuyOnly] = useState(false)
@@ -36,10 +39,6 @@ export default function Home() {
 
   const hidden = settings.hiddenColumns.home
   const rec = (key: string) => !hidden.includes(key)
-
-  useEffect(() => {
-    setSelectedIndexes(settings.defaultIndexes)
-  }, [settings.defaultIndexes])
 
   const openDetail = (stock: Stock, tab: DetailTab) => {
     setSelected(stock)
@@ -164,8 +163,8 @@ export default function Home() {
           </button>
           <button
             onClick={() => {
-              refetch()
-              refetchStatus()
+              void refetch()
+              void refetchStatus()
             }}
             className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
           >

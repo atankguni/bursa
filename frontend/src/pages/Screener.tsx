@@ -38,7 +38,9 @@ export default function Screener() {
   const [sector, setSector] = useState('')
   const [buyOnly, setBuyOnly] = useState(false)
   const [selected, setSelected] = useState<ScreenerRow | null>(null)
-  const [page, setPage] = useState(0) // 0-based
+  // 0-based page, for the filters it was chosen with: any filter change starts
+  // again from the first page.
+  const [paging, setPaging] = useState({ filterKey: '', page: 0 })
   const [pageSize, setPageSize] = useState(100)
 
   const filters = {
@@ -48,16 +50,15 @@ export default function Screener() {
     sector: sector || undefined,
     buyOnly,
   }
+  const filterKey = JSON.stringify(filters)
+  const page = paging.filterKey === filterKey ? paging.page : 0
+  const setPage = (p: number) => setPaging({ filterKey, page: p })
   const { data, isLoading, isFetching } = useScreener(filters, page, pageSize)
   const rows = data?.items ?? []
   const total = data?.total ?? 0
   const pageCount = Math.ceil(total / pageSize)
   const from = total === 0 ? 0 : page * pageSize + 1
   const to = Math.min(total, (page + 1) * pageSize)
-
-  // Any filter change starts again from the first page.
-  const filterKey = JSON.stringify(filters)
-  useEffect(() => setPage(0), [filterKey])
 
   const goTo = (p: number) => {
     setPage(p)
@@ -85,10 +86,10 @@ export default function Screener() {
       wasRunning.current = true
     } else if (wasRunning.current) {
       wasRunning.current = false
-      qc.invalidateQueries({ queryKey: ['screener'] })
-      qc.invalidateQueries({ queryKey: ['recommendation'] })
-      qc.invalidateQueries({ queryKey: ['stocks'] })
-      qc.invalidateQueries({ queryKey: ['market', 'overview'] })
+      void qc.invalidateQueries({ queryKey: ['screener'] })
+      void qc.invalidateQueries({ queryKey: ['recommendation'] })
+      void qc.invalidateQueries({ queryKey: ['stocks'] })
+      void qc.invalidateQueries({ queryKey: ['market', 'overview'] })
     }
   }, [sync?.running, qc])
 

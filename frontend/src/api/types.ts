@@ -1,533 +1,103 @@
-// Shared API types (mirror the backend Pydantic schemas).
+// API types, generated from the backend's OpenAPI document (schema.gen.ts;
+// regenerate with `make api-types`). These are friendlier names for the
+// backend's Pydantic models: change a shape there, never here.
 
-export interface Stock {
-  id: number
-  ticker: string
-  name: string
-  /** IDX listing board; 'Watchlist' = special monitoring (Papan Pemantauan Khusus). */
-  board?: string | null
-  indices: string[]
-  last_price: number | null
-  previous_close: number | null
-  change: number | null
-  change_percent: number | null
-  volume: number | null
-  updated_at: string | null
-  recommendation: RecommendationSummary | null
-}
+import type { components } from './schema.gen'
 
-export interface PricePoint {
-  timestamp: string
-  open: number
-  high: number
-  low: number
-  close: number
-  volume: number
-}
+type Schemas = components['schemas']
 
-export interface StockHistory {
-  ticker: string
-  name: string
-  indices: string[]
-  interval: string
-  points: PricePoint[]
-  /** Stock splits (ratio = new shares per old share), for chart markers. */
-  splits?: { ex_date: string; ratio: number }[]
-}
+// --- Stocks ----------------------------------------------------------------
+export type Stock = Schemas['StockOut']
+export type PricePoint = Schemas['PricePoint']
+export type StockHistory = Schemas['StockHistory']
+export type MarketIndex = Schemas['IndexOut']
+export type IndexHistory = Schemas['IndexHistoryOut']
+export type Fundamental = Schemas['FundamentalOut']
+export type DerivedMetrics = Schemas['DerivedMetrics']
+export type WatchlistItem = Schemas['WatchlistItemOut']
+export type FundamentalsResponse = Schemas['FundamentalsResponse']
+export type Valuation = Schemas['ValuationOut']
+export type Dividend = Schemas['DividendOut']
+export type DividendSummary = Schemas['DividendSummary']
+export type Officer = Schemas['OfficerOut']
+export type Company = Schemas['CompanyOut']
 
 /** Chart span for daily bars; 5y/max load the stock's full history on first use. */
 export type ChartSpan = '1m' | '3m' | '6m' | '1y' | '5y' | 'max'
 
-/** An IDX stock index (indeks saham) with its latest value. */
-export interface MarketIndex {
-  code: string
-  name: string
-  group: string
-  last: number | null
-  previous_close: number | null
-  change: number | null
-  change_percent: number | null
-  updated_at: string | null
-  /** Provider has full history; otherwise it builds up daily from `history_since`. */
-  has_history: boolean
-  history_since: string | null
-}
-
-export interface IndexHistory {
-  code: string
-  name: string
-  has_history: boolean
-  points: PricePoint[]
-}
-
-export interface Fundamental {
-  fiscal_year: number
-  financial_currency: string | null
-  total_shares: number | null
-  revenue: number | null
-  net_income: number | null
-  total_assets: number | null
-  total_liabilities: number | null
-  equity: number | null
-  /** 'statements' (yearly tables) or 'summary' (Yahoo summary; latest only, TTM). */
-  source?: string | null
-}
-
-export interface DerivedMetrics {
-  market_cap: number | null
-  book_value: number | null
-  pbv: number | null
-  roe: number | null
-}
-
-export interface WatchlistItem {
-  id: number
-  ticker: string
-  name: string
-  /** IDX listing board; 'Watchlist' = special monitoring (Papan Pemantauan Khusus). */
-  board?: string | null
-  indices: string[]
-  added_at: string | null
-  last_price: number | null
-  change_percent: number | null
-  fundamental: Fundamental | null
-  metrics: DerivedMetrics
-  recommendation: RecommendationSummary | null
-}
-
-export interface FundamentalsResponse {
-  ticker: string
-  name: string
-  yearly: Fundamental[]
-  latest: Fundamental | null
-  metrics: DerivedMetrics
-}
-
 // --- Recommendation --------------------------------------------------------
-
-export interface Category {
-  name: string
-  weight: number
-  score: number | null
-}
-
-export interface RecommendationSummary {
-  score: number
-  rating: string
-  strength: string
-}
-
+export type Category = Schemas['CategoryOut']
+export type RecommendationSummary = Schemas['RecommendationSummary']
+export type Recommendation = Schemas['RecommendationOut']
+export type RatingRecord = Schemas['RatingRecordOut']
+export type TrackRecord = Schemas['TrackRecordOut']
 /** Long-term fundamentals vs short-term (swing, 1-4 weeks) price action. */
-export type InvestingStyle = 'investor' | 'trader'
+export type InvestingStyle = Schemas['PreferencesOut']['investing_style']
 
 // --- AI assistant ------------------------------------------------------------
+export type ChatTurn = Schemas['ChatTurn']
+export type AssistantReply = Schemas['AssistantChatOut']
+export type AssistantStatus = Schemas['AssistantStatusOut']
+export type ChatSummary = Schemas['ChatSummaryOut']
+export type SavedChatMessage = Schemas['ChatMessageOut']
+export type ChatDetail = Schemas['ChatDetailOut']
 
-export interface ChatTurn {
-  role: 'user' | 'assistant'
-  content: string
-}
-
-export interface AssistantReply {
-  reply: string
-  provider: string
-  model: string
-  tools_used: string[]
-  remaining_today: number
-  /** The saved chat this answer went into; null when the user doesn't save chats. */
-  chat_id: number | null
-}
-
-export interface AssistantStatus {
-  configured: boolean
-  models: string[]
-  setup_hint: string
-  personal_data: boolean
-  remaining_today: number
-  daily_limit: number
-  save_chats: boolean
-  /** Saved chats are deleted this many days after their last message. */
-  chat_days: number
-}
-
-export interface ChatSummary {
-  id: number
-  /** The first question. */
-  title: string
-  created_at: string
-  /** Time of the last message. */
-  updated_at: string
-}
-
-export interface SavedChatMessage extends ChatTurn {
-  tools_used: string[] | null
-  created_at: string
-}
-
-export interface ChatDetail extends ChatSummary {
-  messages: SavedChatMessage[]
-}
-
+// --- Preferences / status ------------------------------------------------------
 /** The Settings-menu options saved per user (they follow you across devices). */
-export interface DisplaySettings {
-  defaultIndexes: string[]
-  chartType: 'candle' | 'line'
-  chartRange: '1d' | '1m'
-  autoRefresh: boolean
-  refreshSeconds: number
-  numberFormat: 'compact' | 'full'
-  colorizeChanges: boolean
-  hiddenColumns: { home: string[]; watchlist: string[] }
-}
-
-export interface Preferences {
-  investing_style: InvestingStyle
-  /** Opt-in: the AI assistant may read the watchlist and portfolio. */
-  assistant_personal_data: boolean
-  /** Keep assistant chats so they can be continued (deleted after a few days). */
-  assistant_save_chats: boolean
-  /** null until first saved: the browser then uploads what it had. */
-  display: DisplaySettings | null
-  /** Alert events up to this (server) time were seen: the bell's unread count. */
-  alerts_seen_at: string | null
-  trading_costs: TradingCosts
-  /** Opt-in: the summary email after the close. */
-  daily_digest: boolean
-}
-
+export type DisplaySettings = Schemas['DisplaySettings-Output']
+export type Preferences = Schemas['PreferencesOut']
+export type PreferencesInput = Schemas['PreferencesIn']
 /** Broker costs in percent (defaults: typical Indonesian online broker). */
-export interface TradingCosts {
-  buy_fee_pct: number
-  /** Includes the 0.1% final tax on share sales. */
-  sell_fee_pct: number
-  dividend_tax_pct: number
-}
-
-export interface Recommendation {
-  ticker: string
-  score: number
-  rating: string
-  strength: string
-  coverage: number
-  categories: Category[]
-  reasons: string[]
-  disclaimer: string
-  style: InvestingStyle
-}
-
-export interface RatingRecord {
-  rating: string
-  n: number
-  /** Share that beat that date's median stock (0.5 = coin flip). */
-  beat: number
-}
-
-export interface TrackRecord {
-  style: InvestingStyle
-  horizon: string
-  backtest: {
-    start: string
-    end: string
-    universe: string
-    ic: number
-    years: Record<string, number>
-    ratings: RatingRecord[]
-    generated: string
-  } | null
-  live: {
-    since: string | null
-    days: number
-    matured_days: number
-    ready_on: string | null
-    ratings: RatingRecord[]
-  }
-}
-
-export interface MarketStatus {
-  is_open: boolean
-  session: 'pre_open' | 'open' | 'break' | 'closed'
-  timezone: string
-  server_time: string
-  next_change_at: string | null
-  next_change_label: string
-}
-
-export interface Status {
-  server_time: string
-  timezone: string
-  session: 'pre_open' | 'open' | 'break' | 'closed'
-  last_sync: string | null
-  stocks_tracked: number
-  providers: Record<string, string>
-  calls_today: Record<string, number>
-  lot_size: number
-}
+export type TradingCosts = Schemas['TradingCosts-Output']
+export type MarketStatus = Schemas['MarketStatusOut']
+export type Status = Schemas['StatusOut']
 
 // --- Portfolio -------------------------------------------------------------
-
-export interface Transaction {
-  id: number
-  ticker: string
-  side: 'buy' | 'sell'
-  quantity: number
-  price: number
-  fees: number
-  trade_date: string
-  note: string | null
-}
-
-export interface TransactionInput {
-  ticker: string
-  side: 'buy' | 'sell'
-  quantity: number
-  price: number
-  fees?: number
-  trade_date: string
-  note?: string | null
-}
-
-export interface Holding {
-  ticker: string
-  name: string
-  board?: string | null
-  /** Some trades were re-expressed in post-split shares. */
-  split_adjusted?: boolean
-  quantity: number
-  avg_cost: number
-  price: number | null
-  market_value: number | null
-  invested: number
-  unrealized_pl: number | null
-  unrealized_pl_pct: number | null
-  day_change: number | null
-  day_change_pct: number | null
-  weight: number | null
-  projected_income: number | null
-  /** Since the first trade, after tax. */
-  dividends_received: number
-}
-
-export interface PortfolioTotals {
-  invested: number
-  market_value: number
-  unrealized_pl: number
-  unrealized_pl_pct: number | null
-  day_change: number
-  day_change_pct: number | null
-  realized_pl: number
-  /** After dividend tax. */
-  projected_income: number
-  /** Selling everything now would cost about this. */
-  exit_costs: number
-  /** Dividends the trades were entitled to, after tax. */
-  dividends_received: number
-  /** Unrealized P/L after exit costs + realized P/L + dividends. */
-  total_return: number
-}
-
-export interface Portfolio {
-  totals: PortfolioTotals
-  holdings: Holding[]
-}
-
+export type Transaction = Schemas['TransactionOut']
+export type TransactionInput = Schemas['TransactionIn']
+export type Holding = Schemas['HoldingOut']
+export type PortfolioTotals = Schemas['PortfolioTotals']
+export type Portfolio = Schemas['PortfolioOut']
 /** A projected (not announced) dividend, from last year's ex-date. */
-export interface ExpectedDividend {
-  ticker: string
-  name: string
-  expected_ex_date: string
-  based_on: string
-  amount_per_share: number
-  regular: boolean
-  shares_held: number | null
-  expected_income: number | null
-  in_portfolio: boolean
-  in_watchlist: boolean
-}
-
-export interface PortfolioRisk {
-  holdings: { ticker: string; weight: number; sector: string; beta: number | null }[]
-  sectors: { sector: string; weight: number }[]
-  effective_holdings: number | null
-  top_weight: number | null
-  top3_weight: number | null
-  beta: number | null
-  stress_ihsg_pct: number
-  stress_portfolio_pct: number | null
-  last_day_portfolio_pct: number | null
-  last_day_ihsg_pct: number | null
-  max_drawdown_pct: number | null
-  warnings: string[]
-}
-
-export interface EquityPoint {
-  date: string
-  value: number
-  /** Cumulative time-weighted return (%), with deposits/withdrawals taken out. */
-  return_pct: number | null
-  /** IHSG's cumulative change (%) over the same days. */
-  benchmark_pct: number | null
-}
+export type ExpectedDividend = Schemas['ExpectedDividendOut']
+export type PortfolioRisk = Schemas['PortfolioRiskOut']
+export type EquityPoint = Schemas['EquityPoint']
 
 // --- Screener / search / market overview -----------------------------------
-
-export interface ScreenerRow {
-  ticker: string
-  name: string
-  board?: string | null
-  indices: string[]
-  sector: string | null
-  price: number | null
-  change_percent: number | null
-  pbv: number | null
-  roe: number | null
-  score: number | null
-  rating: string | null
-  strength: string | null
-  has_fundamentals: boolean
-}
-
-export interface ScreenerPage {
-  items: ScreenerRow[]
-  total: number
-  limit: number
-  offset: number
-}
-
-export interface SyncStatus {
-  running: boolean
-  /** 'batch' = one capped run; 'all' = paced batches until every stock is tried. */
-  mode: 'batch' | 'all'
-  /** What the job is doing now, e.g. "Pausing 60s between batches". */
-  note: string | null
-  total: number
-  done: number
-  remaining: number
-  last_error: string | null
-  missing: number
-}
-
-export interface CatalogRow {
-  ticker: string
-  name: string
-  board?: string | null
-  tracked: boolean
-  indices: string[]
-  last_price: number | null
-  change_percent: number | null
-}
-
-export interface CatalogPage {
-  items: CatalogRow[]
-  total: number
-  limit: number
-  offset: number
-}
-
-export interface SearchResult {
-  symbol: string
-  name: string
-  exchange: string
-  type: string
-}
-
-export interface Mover {
-  ticker: string
-  name: string
-  price: number | null
-  change_percent: number | null
-}
-
-export interface Sector {
-  sector: string
-  count: number
-  avg_change_percent: number
-}
-
-export interface MarketOverview {
-  up: number
-  down: number
-  flat: number
-  top_gainers: Mover[]
-  top_losers: Mover[]
-  sectors: Sector[]
-}
+export type ScreenerRow = Schemas['ScreenerRow']
+export type ScreenerPage = Schemas['ScreenerPage']
+export type SyncStatus = Schemas['SyncStatusOut']
+export type SyncStart = Schemas['SyncStartOut']
+export type CatalogRow = Schemas['CatalogRow']
+export type CatalogPage = Schemas['CatalogPage']
+export type SearchResult = Schemas['SearchResultOut']
+export type Mover = Schemas['MoverOut']
+export type Sector = Schemas['SectorOut']
+export type MarketOverview = Schemas['MarketOverviewOut']
 
 // --- Alerts ----------------------------------------------------------------
+export type AlertType = Schemas['AlertOut']['type']
+export type Alert = Schemas['AlertOut']
+export type AlertInput = Schemas['AlertIn']
+export type AlertEvent = Schemas['AlertEventOut']
+export type NotificationStatus = Schemas['NotificationStatusOut']
 
-export type AlertType =
-  | 'price_above'
-  | 'price_below'
-  | 'pct_change'
-  | 'rating_change'
-  /** Threshold = days ahead of the estimated cum date (default 3). */
-  | 'dividend_soon'
+// --- Accounts ----------------------------------------------------------------
+export type Me = Schemas['MeOut']
+export type Role = Me['role']
+export type TwoFactorChallenge = Schemas['TwoFactorChallengeOut']
+export type TwoFactorMethod = TwoFactorChallenge['methods'][number]
+export type LoginResult = Schemas['LoginOut']
+export type TwoFactorStatus = Schemas['TwoFactorStatusOut']
+export type TotpSetup = Schemas['TotpSetupOut']
+export type AuthOptions = Schemas['AuthOptionsOut']
+export type InviteInfo = Schemas['InviteInfoOut']
+export type AdminUser = Schemas['UserOut']
+export type PendingInvite = Schemas['PendingInviteOut']
+/** A one-time link, shown once (the server keeps only its hash). */
+export type OneTimeLink = Schemas['LinkOut']
 
-export interface Alert {
-  id: number
-  ticker: string
-  type: AlertType
-  threshold: number | null
-  active: boolean
-  last_triggered_at: string | null
-  created_at: string
-}
-
-export interface AlertInput {
-  ticker: string
-  type: AlertType
-  threshold?: number | null
-}
-
-export interface AlertEvent {
-  id: number
-  alert_id: number
-  ticker: string
-  triggered_at: string
-  value: number | null
-  message: string
-}
-
-// --- Valuation & dividends -------------------------------------------------
-
-export interface Valuation {
-  ticker: string
-  pbv: number | null
-  pbv_min: number | null
-  pbv_max: number | null
-  pbv_percentile: number | null
-  roe: number | null
-  roe_percentile: number | null
-  years: number[]
-  window_days: number
-}
-
-export interface Dividend {
-  ex_date: string
-  amount: number
-}
-
-export interface DividendSummary {
-  ticker: string
-  trailing_dps: number
-  yield_percent: number | null
-  history: Dividend[]
-}
-
-export interface Officer {
-  name: string
-  title: string | null
-}
-
-export interface Company {
-  ticker: string
-  name: string
-  sector: string | null
-  industry: string | null
-  description: string | null
-  employees: number | null
-  website: string | null
-  country: string | null
-  city: string | null
-  address: string | null
-  phone: string | null
-  officers: Officer[]
-}
+// --- Data health -------------------------------------------------------------
+export type DataHealth = Schemas['DataHealthOut']
+export type JobHealth = Schemas['JobHealth']
+export type HealthStatus = Schemas['JobsHealth']['status']

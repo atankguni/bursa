@@ -13,6 +13,8 @@ an empty, disposable database (its tables are dropped after every test):
 import os
 import pathlib
 
+# Ignore any local .env (real API keys, a mail provider): tests are hermetic.
+os.environ["BURSA_ENV_FILE"] = ""
 # Point the app at a temp DB *before* any app module imports config/database.
 _TEST_DB = pathlib.Path(__file__).parent / "test_bursa.db"
 os.environ["DATABASE_URL"] = os.environ.get(

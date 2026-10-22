@@ -46,8 +46,8 @@ export default function Browse() {
     mutationFn: ({ ticker, tracked }: { ticker: string; tracked: boolean }) =>
       setTracked(ticker, tracked),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['catalog'] })
-      qc.invalidateQueries({ queryKey: ['indexes'] })
+      void qc.invalidateQueries({ queryKey: ['catalog'] })
+      void qc.invalidateQueries({ queryKey: ['indexes'] })
     },
   })
 

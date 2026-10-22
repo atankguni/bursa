@@ -27,7 +27,7 @@ POST   /api/watchlist/refresh
 
 import asyncio
 import logging
-from collections.abc import AsyncIterator, Awaitable, Callable, Coroutine
+from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
 from contextlib import asynccontextmanager
 from datetime import datetime
 from urllib.parse import urlsplit
@@ -114,7 +114,7 @@ async def _catalog_coverage() -> float:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     """Startup: init DB -> seed -> purge stale -> backfill -> start scheduler."""
     ensure_secret()  # load / create the 2FA server secret before anything uses it
     await init_db()

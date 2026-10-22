@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
@@ -60,11 +60,14 @@ export default function Modal({
   const panel = useRef<HTMLDivElement>(null)
   // Latest onClose without re-running the effects below on every render.
   const close = useRef(onClose)
-  close.current = onClose
+  useLayoutEffect(() => {
+    close.current = onClose
+  })
 
   useEffect(() => {
     stack.push(id)
-    const opener = document.activeElement as HTMLElement | null
+    const opener =
+      document.activeElement instanceof HTMLElement ? document.activeElement : null
     // Focus the dialog unless a field inside already took it (autoFocus).
     if (!panel.current?.contains(document.activeElement)) panel.current?.focus()
 
@@ -81,9 +84,9 @@ export default function Modal({
         const items = [...panel.current.querySelectorAll<HTMLElement>(FOCUSABLE)].filter(
           (el) => el.offsetParent !== null,
         )
-        if (items.length === 0) return e.preventDefault()
         const first = items[0]
         const last = items[items.length - 1]
+        if (!first || !last) return e.preventDefault()
         const active = document.activeElement
         if (e.shiftKey && (active === first || active === panel.current)) {
           e.preventDefault()

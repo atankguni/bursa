@@ -1,0 +1,56 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "react-perf", "unicorn", "oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "env": { "browser": true, "es2022": true },
+  "ignorePatterns": ["dist", "src/api/schema.gen.ts"],
+  "rules": {
+    "react/react-in-jsx-scope": "off",
+    "react-hooks/rules-of-hooks": "error",
+    "react-hooks/exhaustive-deps": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/no-non-null-assertion": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/await-thenable": "error",
+    "typescript/no-unsafe-argument": "error",
+    "typescript/no-unsafe-assignment": "error",
+    "typescript/no-unsafe-call": "error",
+    "typescript/no-unsafe-member-access": "error",
+    "typescript/no-unsafe-return": "error",
+    "typescript/no-unnecessary-type-assertion": "error",
+    "typescript/switch-exhaustiveness-check": "error",
+    "typescript/restrict-template-expressions": "error",
+    "typescript/no-base-to-string": "error",
+    "eqeqeq": ["error", "always", { "null": "ignore" }],
+
+    // Off on purpose:
+    // toSorted()/toReversed() aren't in the browsers Vite targets (no polyfills);
+    // sorting a fresh copy in place is fine.
+    "unicorn/no-array-sort": "off",
+    "unicorn/no-array-reverse": "off",
+    // useEffect returns a cleanup only on some paths by design.
+    "typescript/consistent-return": "off",
+    // `axios.create` is axios's documented API.
+    "import/no-named-as-default-member": "off",
+    // React Compiler rules (this app doesn't use the compiler): reading the clock
+    // in render is how time labels work here, and dependency checks are covered
+    // by react-hooks/exhaustive-deps (which allows deliberate re-run triggers).
+    "react/purity": "off",
+    "react/exhaustive-effect-dependencies": "off",
+    "react/memo-dependencies": "off",
+    // `const { [key]: _, ...rest } = obj` is the way to omit a key.
+    "eslint/no-unused-vars": ["error", { "ignoreRestSiblings": true }]
+  },
+  "overrides": [
+    {
+      // Side-effect imports of stylesheets are how Vite loads CSS.
+      "files": ["src/main.tsx"],
+      "rules": { "import/no-unassigned-import": "off" }
+    }
+  ]
+}

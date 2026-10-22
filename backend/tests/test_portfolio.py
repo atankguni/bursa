@@ -1,13 +1,15 @@
 """Unit tests for portfolio average-cost math (no DB)."""
 
-from types import SimpleNamespace
+from datetime import date
 
+from services.corporate_actions import AdjustedTx
 from services.portfolio import apply_transactions
 
 
-def T(side, qty, price, fees=0.0, ticker="X"):
-    return SimpleNamespace(
-        ticker=ticker, side=side, quantity=qty, price=price, fees=fees
+def T(side, qty, price, fees=0.0, ticker="X", day=date(2026, 1, 5)):
+    return AdjustedTx(
+        id=0, ticker=ticker, side=side, quantity=qty, price=price, fees=fees,
+        trade_date=day, split_factor=1.0,
     )
 
 
@@ -91,12 +93,12 @@ async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
         await s.commit()
         curve = await equity_curve(s, client.user_id)
 
-    by_day = {p["date"].day: p for p in curve}
-    assert by_day[2]["return_pct"] == 10.0   # 1000 -> 1100
-    assert by_day[3]["value"] == 220_000.0   # value doubled by the deposit...
-    assert by_day[3]["return_pct"] == 10.0   # ...but the return didn't
-    assert by_day[4]["return_pct"] == 21.0   # then +10% on everything: 1.1 * 1.1
-    assert by_day[4]["benchmark_pct"] == 2.0  # IHSG 7000 -> 7140
+    by_day = {p.date.day: p for p in curve}
+    assert by_day[2].return_pct == 10.0   # 1000 -> 1100
+    assert by_day[3].value == 220_000.0   # value doubled by the deposit...
+    assert by_day[3].return_pct == 10.0   # ...but the return didn't
+    assert by_day[4].return_pct == 21.0   # then +10% on everything: 1.1 * 1.1
+    assert by_day[4].benchmark_pct == 2.0  # IHSG 7000 -> 7140
 
     r = await client.get("/api/portfolio/history")
     assert r.status_code == 200 and r.json()[-1]["benchmark_pct"] == 2.0
@@ -118,8 +120,9 @@ def test_beta_and_drawdown_math():
         market.append((d, m))
         stock.append((d, s))
         calm.append((d, c))
-    assert round(beta(stock, market), 2) == 2.0
-    assert round(beta(calm, market), 2) == 0.5
+    b_stock, b_calm = beta(stock, market), beta(calm, market)
+    assert b_stock is not None and round(b_stock, 2) == 2.0
+    assert b_calm is not None and round(b_calm, 2) == 0.5
     assert beta(stock[:10], market[:10]) is None  # too little history
 
     assert max_drawdown([0, 10, -1, 5]) == round((0.99 / 1.10 - 1) * 100, 2)
@@ -206,13 +209,10 @@ def test_dividends_need_the_shares_before_the_ex_date():
 
     from services.portfolio import dividend_income
 
-    def tx(side, qty, day):
-        return SimpleNamespace(ticker="X", side=side, quantity=qty, trade_date=day)
-
     txs = [
-        tx("buy", 100, date(2026, 1, 5)),
-        tx("buy", 100, date(2026, 3, 10)),  # bought ON the ex-date: not entitled
-        tx("sell", 200, date(2026, 6, 1)),
+        T("buy", 100, 0.0, day=date(2026, 1, 5)),
+        T("buy", 100, 0.0, day=date(2026, 3, 10)),  # bought ON the ex-date: not entitled
+        T("sell", 200, 0.0, day=date(2026, 6, 1)),
     ]
     divs = {"X": [(date(2026, 3, 10), 50.0), (date(2026, 4, 1), 10.0), (date(2026, 7, 1), 99.0)]}
     # 100 x 50 (March) + 200 x 10 (April); nothing after selling out.

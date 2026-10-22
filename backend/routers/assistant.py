@@ -28,7 +28,7 @@ router = APIRouter(prefix="/api/assistant", tags=["assistant"])
 async def assistant_status(
     session: AsyncSession = Depends(get_session), user: User = Depends(current_user)
 ) -> AssistantStatusOut:
-    models = []
+    models: list[str] = []
     for entry in settings.assistant_chain:
         try:
             models.append(parse_entry(entry)[1])

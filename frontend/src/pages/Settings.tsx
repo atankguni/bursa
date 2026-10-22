@@ -31,6 +31,7 @@ import {
 } from '../lib/settings'
 import Security from './Security'
 import Users from './Users'
+import { errorDetail } from '../api/client'
 
 const STYLE_HINT: Record<InvestingStyle, string> = {
   investor: 'Long term · quality & value from yearly fundamentals',
@@ -343,8 +344,7 @@ function DigestSettings() {
   })
   const emailReady = options?.password_reset_by_email ?? false // email is set up
   const preview = useMutation({ mutationFn: sendDigestPreview })
-  const detail = (preview.error as { response?: { data?: { detail?: string } } } | null)
-    ?.response?.data?.detail
+  const detail = errorDetail(preview.error)
   return (
     <Rows>
       <ListRow

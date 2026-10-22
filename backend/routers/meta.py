@@ -11,7 +11,7 @@ from market.providers.registry import available as available_providers
 from market.sync import last_synced_at
 from market.tickers import INDEX_ORDER
 from models import Stock, StockIndex
-from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, ProviderStat, StatusOut
+from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, StatusOut
 from services.market_clock import status as market_status
 
 router = APIRouter(prefix="/api", tags=["meta"])
@@ -31,11 +31,11 @@ async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
     tracked = (
         await session.execute(select(func.count()).select_from(Stock))
     ).scalar_one()
-    calls = {name: s["calls_today"] for name, s in governor.stats().items()}
+    calls = {name: s.calls_today for name, s in governor.stats().items()}
     return StatusOut(
-        server_time=st["server_time"],
-        timezone=st["timezone"],
-        session=st["session"],
+        server_time=st.server_time,
+        timezone=st.timezone,
+        session=st.session,
         last_sync=last_synced_at(),
         stocks_tracked=int(tracked),
         providers={
@@ -50,7 +50,7 @@ async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
 @router.get("/market-status", response_model=MarketStatusOut)
 async def get_market_status() -> MarketStatusOut:
     """Current IDX trading state (drives the navbar indicator)."""
-    return MarketStatusOut(**market_status())
+    return market_status()
 
 
 @router.get("/providers", response_model=ProvidersOut)
@@ -60,7 +60,7 @@ async def get_providers() -> ProvidersOut:
         price=settings.price_provider,
         fundamentals=settings.fundamentals_provider,
         available=[ProviderInfo(**p) for p in available_providers()],
-        metrics={name: ProviderStat(**s) for name, s in governor.stats().items()},
+        metrics=governor.stats(),
     )
 
 

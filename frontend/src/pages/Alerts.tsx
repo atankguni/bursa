@@ -6,6 +6,7 @@ import { useAlertEvents, useAlerts, useStocks } from '../hooks'
 import { useAuth } from '../lib/auth'
 import { fmtShortDateTime } from '../lib/format'
 import NotificationsCard from '../components/NotificationsCard'
+import { errorMessage } from '../api/client'
 
 const TYPES: { value: AlertType; label: string }[] = [
   { value: 'price_above', label: 'Price above' },
@@ -43,7 +44,7 @@ export default function Alerts() {
           needsThreshold || (isDividend && threshold !== '') ? Number(threshold) : null,
       }),
     onSuccess: () => {
-      invalidate()
+      void invalidate()
       setTicker('')
       setThreshold('')
     },
@@ -92,7 +93,10 @@ export default function Alerts() {
             </label>
             <select
               value={type}
-              onChange={(e) => setType(e.target.value as AlertType)}
+              onChange={(e) => {
+                const picked = TYPES.find((t) => t.value === e.target.value)
+                if (picked) setType(picked.value)
+              }}
               className={inputCls}
             >
               {TYPES.map((t) => (
@@ -126,10 +130,7 @@ export default function Alerts() {
             {add.isPending ? 'Adding…' : 'Add alert'}
           </button>
           {add.isError && (
-            <span className="text-xs text-bear">
-              {(add.error as { response?: { data?: { detail?: string } } })?.response
-                ?.data?.detail ?? 'Failed'}
-            </span>
+            <span className="text-xs text-bear">{errorMessage(add.error, 'Failed')}</span>
           )}
         </div>
         {isDividend && (

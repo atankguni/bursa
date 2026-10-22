@@ -25,46 +25,44 @@ export interface Indicators {
 }
 
 const toTime = (iso: string): UTCTimestamp =>
+  // UTCTimestamp is a branded number: a cast is the only way to make one.
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   Math.floor((parseServerTime(iso)?.getTime() ?? 0) / 1000) as UTCTimestamp
 
 function sma(points: PricePoint[], period: number): LineData[] {
   const out: LineData[] = []
   let sum = 0
-  for (let i = 0; i < points.length; i++) {
-    sum += points[i].close
-    if (i >= period) sum -= points[i - period].close
-    if (i >= period - 1) {
-      out.push({ time: toTime(points[i].timestamp), value: sum / period })
-    }
-  }
+  points.forEach((p, i) => {
+    sum += p.close
+    const dropped = points[i - period]
+    if (dropped) sum -= dropped.close
+    if (i >= period - 1) out.push({ time: toTime(p.timestamp), value: sum / period })
+  })
   return out
 }
 
+/** Wilder's RSI: the first `period` changes are averaged, later ones smoothed. */
 function rsi(points: PricePoint[], period = 14): LineData[] {
   const out: LineData[] = []
-  if (points.length <= period) return out
-  let gain = 0
-  let loss = 0
-  for (let i = 1; i <= period; i++) {
-    const d = points[i].close - points[i - 1].close
-    if (d >= 0) gain += d
-    else loss -= d
-  }
-  let avgGain = gain / period
-  let avgLoss = loss / period
-  const push = (i: number) => {
-    const rs = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
-    out.push({ time: toTime(points[i].timestamp), value: rs })
-  }
-  push(period)
-  for (let i = period + 1; i < points.length; i++) {
-    const d = points[i].close - points[i - 1].close
-    const g = d > 0 ? d : 0
-    const l = d < 0 ? -d : 0
-    avgGain = (avgGain * (period - 1) + g) / period
-    avgLoss = (avgLoss * (period - 1) + l) / period
-    push(i)
-  }
+  let avgGain = 0
+  let avgLoss = 0
+  points.forEach((p, i) => {
+    const prev = points[i - 1]
+    if (!prev) return
+    const d = p.close - prev.close
+    const gain = Math.max(d, 0)
+    const loss = Math.max(-d, 0)
+    if (i <= period) {
+      avgGain += gain / period
+      avgLoss += loss / period
+      if (i < period) return
+    } else {
+      avgGain = (avgGain * (period - 1) + gain) / period
+      avgLoss = (avgLoss * (period - 1) + loss) / period
+    }
+    const value = avgLoss === 0 ? 100 : 100 - 100 / (1 + avgGain / avgLoss)
+    out.push({ time: toTime(p.timestamp), value })
+  })
   return out
 }
 
@@ -126,14 +124,14 @@ export default function StockChart({
   height?: number
   indicators?: Indicators
   /** ISO date: start the view here (older data stays scrollable). Omit to fit all. */
-  visibleFrom?: string
+  visibleFrom?: string | undefined
   /**
    * Overlay a benchmark (e.g. IHSG). The price scale switches to % change from
    * the first visible bar, so both lines start at 0% and rebase as you scroll.
    */
-  compare?: { label: string; points: PricePoint[] }
+  compare?: { label: string; points: PricePoint[] } | undefined
   /** Event markers (e.g. stock splits), snapped to the first bar on/after `date`. */
-  markers?: { date: string; text: string }[]
+  markers?: { date: string; text: string }[] | undefined
 }) {
   const mainRef = useRef<HTMLDivElement>(null)
   const rsiRef = useRef<HTMLDivElement>(null)
@@ -255,13 +253,13 @@ export default function StockChart({
     // Show the requested span; the rest of the series stays loaded so moving
     // averages are correct from the first visible bar and the user can scroll back.
     const fromTs = visibleFrom ? toTime(visibleFrom) : null
-    const showSpan = (c: IChartApi) =>
-      fromTs != null && data.length > 0 && fromTs > toTime(data[0].timestamp)
-        ? c.timeScale().setVisibleRange({
-            from: fromTs,
-            to: toTime(data[data.length - 1].timestamp),
-          })
-        : c.timeScale().fitContent()
+    const [first, newest] = [data[0], data[data.length - 1]]
+    const showSpan = (target: IChartApi) =>
+      fromTs != null && first && newest && fromTs > toTime(first.timestamp)
+        ? target
+            .timeScale()
+            .setVisibleRange({ from: fromTs, to: toTime(newest.timestamp) })
+        : target.timeScale().fitContent()
     showSpan(chart)
 
     const observer = new ResizeObserver((entries) => {
@@ -330,7 +328,7 @@ export default function StockChart({
     markers,
   ])
 
-  const last = data.length > 0 ? data[data.length - 1].close : null
+  const last = data[data.length - 1]?.close ?? null
   const label =
     (last != null
       ? `Price chart with ${data.length} points; latest close ${last}`

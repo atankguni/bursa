@@ -70,7 +70,8 @@ export function renderMarkdown(source: string): ReactNode {
     const bullet = raw.match(/^(\s*)[-*]\s+(.*)$/)
     if (bullet) {
       flushPara()
-      items.push({ depth: Math.floor(bullet[1].length / 2), text: bullet[2].trim() })
+      const [, indent = '', text = ''] = bullet
+      items.push({ depth: Math.floor(indent.length / 2), text: text.trim() })
     } else if (raw.trim() === '') {
       flushPara()
       flushList()

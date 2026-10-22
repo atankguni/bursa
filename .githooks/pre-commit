@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+# Fast checks before each commit (types, lint, format); the full suite runs in CI
+# and with `make check`. Skip once with `git commit --no-verify`.
+set -euo pipefail
+cd "$(git rev-parse --show-toplevel)"
+
+# Git GUIs and editors run hooks with a minimal PATH: add the usual install
+# locations of Docker and Node (Homebrew, Docker Desktop, fnm, nvm).
+PATH="$PATH:/usr/local/bin:/opt/homebrew/bin:$HOME/.docker/bin"
+PATH="$PATH:/Applications/Docker.app/Contents/Resources/bin"
+if ! command -v npm >/dev/null 2>&1; then
+  if command -v fnm >/dev/null 2>&1; then
+    eval "$(fnm env)" && fnm use --silent-if-unchanged >/dev/null 2>&1 || true
+  elif [ -s "$HOME/.nvm/nvm.sh" ]; then
+    # shellcheck disable=SC1091
+    . "$HOME/.nvm/nvm.sh" >/dev/null
+  fi
+fi
+export PATH
+
+# Check what can run here; skip (with a warning) what can't, since CI runs it all.
+targets=()
+if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
+  targets+=(backend-check-fast)
+else
+  echo "pre-commit: Docker isn't available or running; skipping backend checks." >&2
+fi
+if command -v npm >/dev/null 2>&1; then
+  targets+=(frontend-check)
+else
+  echo "pre-commit: Node/npm not found; skipping frontend checks." >&2
+fi
+
+if [ ${#targets[@]} -gt 0 ]; then
+  make --no-print-directory "${targets[@]}"
+fi

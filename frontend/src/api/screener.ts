@@ -1,12 +1,15 @@
 import { api } from './client'
 import type { ScreenerPage, SyncStatus } from './types'
+import type { SyncStart } from './types'
+
+export type { SyncStart }
 
 export interface ScreenerFilters {
-  minScore?: number
-  maxPbv?: number
-  minRoe?: number
-  rating?: string
-  sector?: string
+  minScore?: number | undefined
+  maxPbv?: number | undefined
+  minRoe?: number | undefined
+  rating?: string | undefined
+  sector?: string | undefined
   buyOnly?: boolean
 }
 
@@ -28,13 +31,6 @@ export async function fetchScreener(
   return data
 }
 
-export interface SyncStart {
-  running: boolean
-  queued: number
-  total: number
-  remaining: number
-}
-
 export async function fetchSyncStatus(): Promise<SyncStatus> {
   const { data } = await api.get<SyncStatus>('/api/screener/sync/status')
   return data
@@ -43,7 +39,7 @@ export async function fetchSyncStatus(): Promise<SyncStatus> {
 export async function startScreenerSync(
   opts: { limit?: number; all?: boolean } = {},
 ): Promise<SyncStart> {
-  const params: Record<string, string | number> = {}
+  const params: { limit?: number; all?: 'true' } = {}
   if (opts.limit) params.limit = opts.limit
   if (opts.all) params.all = 'true'
   const { data } = await api.post<SyncStart>('/api/screener/sync', null, { params })

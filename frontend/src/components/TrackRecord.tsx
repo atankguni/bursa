@@ -54,7 +54,7 @@ function BeatRow({ row, current }: { row: RatingRecord; current: boolean }) {
   )
 }
 
-function Rows({ rows, current }: { rows: RatingRecord[]; current?: string }) {
+function Rows({ rows, current }: { rows: RatingRecord[]; current?: string | undefined }) {
   const sorted = [...rows].sort(
     (a, b) => RATING_ORDER.indexOf(a.rating) - RATING_ORDER.indexOf(b.rating),
   )
@@ -67,13 +67,19 @@ function Rows({ rows, current }: { rows: RatingRecord[]; current?: string }) {
   )
 }
 
-function Live({ live, current }: { live: TrackRecordData['live']; current?: string }) {
-  if (live.ratings.length > 0) {
+function Live({
+  live,
+  current,
+}: {
+  live: TrackRecordData['live']
+  current?: string | undefined
+}) {
+  if (live.ratings.length > 0 && live.since) {
     return (
       <div className="space-y-1.5">
         <p className="text-[11px] text-muted">
           <span className="font-medium text-ink">Live record</span> since{' '}
-          {fmtDay(live.since!)} ({live.matured_days} days with a result so far):
+          {fmtDay(live.since)} ({live.matured_days} days with a result so far):
         </p>
         <Rows rows={live.ratings} current={current} />
       </div>
@@ -82,15 +88,15 @@ function Live({ live, current }: { live: TrackRecordData['live']; current?: stri
   return (
     <p className="text-[11px] text-subtle">
       <span className="font-medium text-muted">Live record:</span>{' '}
-      {live.since
-        ? `ratings are saved every trading day since ${fmtDay(live.since)}; the first results arrive around ${fmtDay(live.ready_on!)}.`
+      {live.since && live.ready_on
+        ? `ratings are saved every trading day since ${fmtDay(live.since)}; the first results arrive around ${fmtDay(live.ready_on)}.`
         : 'ratings are saved at each day’s close; results appear once enough time has passed.'}
     </p>
   )
 }
 
 /** How often each rating beat the typical stock: backtest, then the live record. */
-export default function TrackRecord({ current }: { current?: string }) {
+export default function TrackRecord({ current }: { current?: string | undefined }) {
   const { data } = useTrackRecord()
   if (!data) return null
   const { backtest, live } = data

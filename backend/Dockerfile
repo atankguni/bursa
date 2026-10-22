@@ -60,8 +60,11 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-
 #   docker run --rm bursa-backend-test
 FROM runtime AS test
 # nodejs: pyright's runtime (the pip package uses the system node when present).
+# Dev tools come from requirements-dev.txt (its `-r requirements.txt` line is
+# already satisfied by the runtime layer); the server DB drivers are extra.
+COPY requirements.txt requirements-dev.txt /tmp/reqs/
 RUN apk add --no-cache nodejs npm \
  && python -m ensurepip \
- && python -m pip install --no-cache-dir pytest pytest-asyncio httpx ruff pyright \
+ && python -m pip install --no-cache-dir -r /tmp/reqs/requirements-dev.txt \
     asyncpg aiomysql cryptography
 CMD ["sh", "-c", "ruff check . && pyright && python -m pytest -q"]

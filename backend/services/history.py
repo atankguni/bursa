@@ -13,6 +13,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import utcnow
 from config import settings
 from market.sync import DAILY_INTERVAL, sync_batch
 from models import Stock
@@ -28,7 +29,7 @@ DEEP_RANGES = {"5y", "max"}  # may be beyond what's stored yet
 
 def range_start(range_: str, now: datetime | None = None) -> datetime | None:
     days = RANGE_DAYS[range_]
-    return None if days is None else (now or datetime.utcnow()) - timedelta(days=days)
+    return None if days is None else (now or utcnow()) - timedelta(days=days)
 
 
 async def ensure_full_history(session: AsyncSession, stock: Stock, range_: str = "max") -> bool:
@@ -52,7 +53,7 @@ async def ensure_full_history(session: AsyncSession, stock: Stock, range_: str =
     if written == 0:
         log.warning("Full history fetch returned nothing for %s", stock.ticker)
         return False
-    stock.full_history_at = datetime.utcnow()
+    stock.full_history_at = utcnow()
     await session.commit()
     log.info("Fetched full daily history for %s (%d bars)", stock.ticker, written)
     return True
@@ -96,7 +97,7 @@ async def backfill_history() -> int:
             await session.execute(
                 update(Stock)
                 .where(Stock.ticker.in_(chunk))
-                .values(history_backfilled_at=datetime.utcnow())
+                .values(history_backfilled_at=utcnow())
             )
             await session.commit()
         done += len(chunk)

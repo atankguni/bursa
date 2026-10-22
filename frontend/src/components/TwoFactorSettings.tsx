@@ -1,6 +1,14 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Check, Copy, Download, KeyRound, Mail, MonitorSmartphone, Smartphone } from 'lucide-react'
+import {
+  Check,
+  Copy,
+  Download,
+  KeyRound,
+  Mail,
+  MonitorSmartphone,
+  Smartphone,
+} from 'lucide-react'
 import {
   confirmEmail,
   confirmTotp,
@@ -151,7 +159,13 @@ function CodeForm({
 }
 
 /** Shown once after they are created: copy, download, then confirm. */
-export function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () => void }) {
+export function RecoveryCodes({
+  codes,
+  onDone,
+}: {
+  codes: string[]
+  onDone: () => void
+}) {
   const [copied, setCopied] = useState(false)
   const text = `Bursa recovery codes (each works once)\n\n${codes.join('\n')}\n`
   const copy = async () => {
@@ -174,8 +188,8 @@ export function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () =
     <div className="rounded-md bg-accent/10 p-4 text-xs ring-1 ring-accent/25">
       <p className="mb-1 text-sm font-semibold text-ink">Save your recovery codes</p>
       <p className="mb-3 text-muted">
-        If you lose your phone or can&apos;t get email, each code signs you in once. Keep them
-        somewhere safe, like a password manager. They won&apos;t be shown again.
+        If you lose your phone or can&apos;t get email, each code signs you in once. Keep
+        them somewhere safe, like a password manager. They won&apos;t be shown again.
       </p>
       <ul className="mb-3 grid select-all grid-cols-2 gap-x-6 gap-y-1 font-mono text-sm text-ink">
         {codes.map((c) => (
@@ -183,10 +197,16 @@ export function RecoveryCodes({ codes, onDone }: { codes: string[]; onDone: () =
         ))}
       </ul>
       <div className="flex flex-wrap gap-2">
-        <button onClick={copy} className={`${secondaryBtn} inline-flex items-center gap-1.5`}>
+        <button
+          onClick={() => void copy()}
+          className={`${secondaryBtn} inline-flex items-center gap-1.5`}
+        >
           {copied ? <Check size={13} /> : <Copy size={13} />} {copied ? 'Copied' : 'Copy'}
         </button>
-        <button onClick={download} className={`${secondaryBtn} inline-flex items-center gap-1.5`}>
+        <button
+          onClick={download}
+          className={`${secondaryBtn} inline-flex items-center gap-1.5`}
+        >
           <Download size={13} /> Download
         </button>
         <button onClick={onDone} className={primaryBtn}>
@@ -214,9 +234,9 @@ export default function TwoFactorSettings() {
   // recovery codes it waits until they're saved, so they don't vanish with it.
   const refreshMe = () => qc.invalidateQueries({ queryKey: ME_KEY })
   const enabled = (newCodes: string[] | null) => {
-    refreshStatus()
+    void refreshStatus()
     if (newCodes) setCodes(newCodes)
-    else refreshMe()
+    else void refreshMe()
   }
 
   const beginTotp = useMutation({ mutationFn: startTotpSetup, onSuccess: setTotpSetup })
@@ -243,8 +263,8 @@ export default function TwoFactorSettings() {
       disableTwoFactor(method, password),
     onSuccess: () => {
       setConfirming(null)
-      refreshStatus()
-      refreshMe()
+      void refreshStatus()
+      void refreshMe()
     },
   })
   const regenerate = useMutation({
@@ -252,10 +272,13 @@ export default function TwoFactorSettings() {
     onSuccess: (newCodes) => {
       setConfirming(null)
       setCodes(newCodes)
-      refreshStatus()
+      void refreshStatus()
     },
   })
-  const forget = useMutation({ mutationFn: forgetTrustedDevices, onSuccess: refreshStatus })
+  const forget = useMutation({
+    mutationFn: forgetTrustedDevices,
+    onSuccess: refreshStatus,
+  })
 
   if (isPending || !status) return <p className="text-xs text-subtle">Loading…</p>
 
@@ -265,7 +288,7 @@ export default function TwoFactorSettings() {
         codes={codes}
         onDone={() => {
           setCodes(null)
-          refreshMe()
+          void refreshMe()
         }}
       />
     )
@@ -283,8 +306,8 @@ export default function TwoFactorSettings() {
         status={status.totp ? <On /> : <Off />}
       >
         <p>
-          Codes from an app such as Google Authenticator, Microsoft Authenticator, 1Password or
-          Bitwarden. Works offline and doesn&apos;t depend on email.
+          Codes from an app such as Google Authenticator, Microsoft Authenticator,
+          1Password or Bitwarden. Works offline and doesn&apos;t depend on email.
           {!status.email && !status.totp && ' Recommended.'}
         </p>
         {status.totp ? (
@@ -323,7 +346,10 @@ export default function TwoFactorSettings() {
                 <code className="block select-all break-all rounded bg-panel px-2 py-1 font-mono text-[11px] text-ink ring-1 ring-line">
                   {totpSetup.secret.match(/.{1,4}/g)?.join(' ')}
                 </code>
-                <a href={totpSetup.uri} className="inline-block text-accent hover:underline">
+                <a
+                  href={totpSetup.uri}
+                  className="inline-block text-accent hover:underline"
+                >
                   Open in authenticator app (on this phone)
                 </a>
               </div>
@@ -349,7 +375,11 @@ export default function TwoFactorSettings() {
         )}
       </Card>
 
-      <Card icon={<Mail size={16} />} title="Email code" status={status.email ? <On /> : <Off />}>
+      <Card
+        icon={<Mail size={16} />}
+        title="Email code"
+        status={status.email ? <On /> : <Off />}
+      >
         <p>A 6-digit code sent to your account email at each sign-in.</p>
         {status.email ? (
           confirming === 'email' ? (
@@ -370,7 +400,8 @@ export default function TwoFactorSettings() {
           )
         ) : !status.email_available ? (
           <p className="text-subtle">
-            Not available: email isn&apos;t set up on this server. Use an authenticator app.
+            Not available: email isn&apos;t set up on this server. Use an authenticator
+            app.
           </p>
         ) : emailCodeSent ? (
           <>
@@ -401,7 +432,9 @@ export default function TwoFactorSettings() {
           icon={<KeyRound size={16} />}
           title="Recovery codes"
           status={
-            <span className={status.recovery_codes_left <= 2 ? 'text-bear' : 'text-muted'}>
+            <span
+              className={status.recovery_codes_left <= 2 ? 'text-bear' : 'text-muted'}
+            >
               {status.recovery_codes_left} left
             </span>
           }

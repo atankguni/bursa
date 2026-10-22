@@ -10,11 +10,25 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 from pydantic.alias_generators import to_camel
 
+
+class Schema(BaseModel):
+    """Base of every API model. In the OpenAPI document, fields with a default are
+    still *required* in responses (the server always sends them), so the
+    generated frontend types don't mark them optional."""
+
+    model_config = ConfigDict(json_schema_serialization_defaults_required=True)
+
+
 # How the user invests: long-term fundamentals vs short-term (swing) price action.
 InvestingStyle = Literal["investor", "trader"]
+# IDX trading state (services/market_clock).
+MarketSession = Literal["pre_open", "open", "break", "closed"]
+TradeSide = Literal["buy", "sell"]
+# "batch" = one capped run; "all" = paced batches until every stock is tried.
+SyncMode = Literal["batch", "all"]
 
 
-class StockBase(BaseModel):
+class StockBase(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     ticker: str
@@ -23,7 +37,7 @@ class StockBase(BaseModel):
     board: str | None = None
 
 
-class RecommendationSummary(BaseModel):
+class RecommendationSummary(Schema):
     """Compact recommendation, attached to stock + watchlist rows."""
 
     score: float
@@ -31,25 +45,25 @@ class RecommendationSummary(BaseModel):
     strength: str
 
 
-class MarketStatusOut(BaseModel):
+class MarketStatusOut(Schema):
     """Current IDX trading state for the navbar indicator."""
 
     is_open: bool
-    session: str
+    session: MarketSession
     timezone: str
     server_time: datetime
     next_change_at: datetime | None = None
     next_change_label: str = ""
 
 
-class ProviderInfo(BaseModel):
+class ProviderInfo(Schema):
     """A registered market-data provider and what it supports."""
 
     name: str
     capabilities: list[str]
 
 
-class ProviderStat(BaseModel):
+class ProviderStat(Schema):
     """Lightweight outbound-call metrics per provider."""
 
     calls: int = 0
@@ -59,7 +73,7 @@ class ProviderStat(BaseModel):
     last_call_at: float | None = None
 
 
-class ProvidersOut(BaseModel):
+class ProvidersOut(Schema):
     """Active data providers (price + fundamentals are selected separately)."""
 
     price: str
@@ -68,12 +82,12 @@ class ProvidersOut(BaseModel):
     metrics: dict[str, ProviderStat] = {}
 
 
-class StatusOut(BaseModel):
+class StatusOut(Schema):
     """Global status for the app footer."""
 
     server_time: datetime
     timezone: str
-    session: str
+    session: MarketSession
     last_sync: datetime | None = None
     stocks_tracked: int = 0
     providers: dict[str, str] = {}
@@ -86,11 +100,11 @@ class StatusOut(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
-class TransactionIn(BaseModel):
+class TransactionIn(Schema):
     """Payload for recording a buy/sell."""
 
     ticker: str
-    side: Literal["buy", "sell"]
+    side: TradeSide
     quantity: float = Field(gt=0)
     price: float = Field(gt=0)
     fees: float = Field(default=0.0, ge=0)
@@ -98,12 +112,12 @@ class TransactionIn(BaseModel):
     note: str | None = None
 
 
-class TransactionOut(BaseModel):
+class TransactionOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     ticker: str
-    side: str
+    side: TradeSide
     quantity: float
     price: float
     fees: float
@@ -111,28 +125,28 @@ class TransactionOut(BaseModel):
     note: str | None = None
 
 
-class HoldingOut(BaseModel):
-    board: str | None = None
-    split_adjusted: bool = False
+class HoldingOut(Schema):
     """A current position with average-cost P/L."""
 
     ticker: str
     name: str
+    board: str | None = None
+    split_adjusted: bool = False  # some trades were re-expressed in post-split shares
     quantity: float
     avg_cost: float
-    price: float | None = None
-    market_value: float | None = None
+    price: float | None = None  # None: no price yet (values use the average cost)
+    market_value: float
     invested: float
-    unrealized_pl: float | None = None
+    unrealized_pl: float
     unrealized_pl_pct: float | None = None
     day_change: float | None = None
     day_change_pct: float | None = None
-    weight: float | None = None
-    projected_income: float | None = None  # after dividend tax
+    weight: float | None = None  # % of the portfolio's market value
+    projected_income: float = 0.0  # a year of dividends at the trailing rate, after tax
     dividends_received: float = 0.0  # since the first trade, after tax
 
 
-class PortfolioTotals(BaseModel):
+class PortfolioTotals(Schema):
     invested: float
     market_value: float
     unrealized_pl: float
@@ -149,15 +163,18 @@ class PortfolioTotals(BaseModel):
     total_return: float = 0.0
 
 
-class PortfolioOut(BaseModel):
+class PortfolioOut(Schema):
     totals: PortfolioTotals
     holdings: list[HoldingOut]
 
 
-class EquityPoint(BaseModel):
+class EquityPoint(Schema):
     date: date
     value: float
-    return_pct: float | None = None  # cumulative time-weighted return, %
+    # Cumulative time-weighted return (%): performance with deposits/withdrawals
+    # (buys/sells) taken out, so adding money doesn't count as profit. Dividends
+    # (after tax) count as income on their ex-date.
+    return_pct: float | None = None
     benchmark_pct: float | None = None  # IHSG cumulative change over the same days, %
 
 
@@ -166,19 +183,19 @@ class EquityPoint(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
-class SearchResultOut(BaseModel):
+class SearchResultOut(Schema):
     symbol: str
     name: str
     exchange: str = ""
     type: str = ""
 
 
-class TrackStockIn(BaseModel):
+class TrackStockIn(Schema):
     ticker: str
     name: str | None = None
 
 
-class ScreenerRow(BaseModel):
+class ScreenerRow(Schema):
     ticker: str
     name: str
     indices: list[str] = []
@@ -194,7 +211,7 @@ class ScreenerRow(BaseModel):
     board: str | None = None
 
 
-class ScreenerPage(BaseModel):
+class ScreenerPage(Schema):
     """One page of screener results plus the total match count (for pagination)."""
 
     items: list[ScreenerRow]
@@ -203,11 +220,11 @@ class ScreenerPage(BaseModel):
     offset: int
 
 
-class SyncStatusOut(BaseModel):
+class SyncStatusOut(Schema):
     """Progress of the background 'sync missing data' job."""
 
     running: bool
-    mode: str = "batch"  # "batch" | "all"
+    mode: SyncMode = "batch"
     note: str | None = None
     total: int = 0
     done: int = 0
@@ -217,7 +234,7 @@ class SyncStatusOut(BaseModel):
     missing: int = 0
 
 
-class SyncStartOut(BaseModel):
+class SyncStartOut(Schema):
     """Response of starting a screener sync."""
 
     running: bool
@@ -226,20 +243,20 @@ class SyncStartOut(BaseModel):
     remaining: int = 0
 
 
-class MoverOut(BaseModel):
+class MoverOut(Schema):
     ticker: str
     name: str
     price: float | None = None
     change_percent: float | None = None
 
 
-class SectorOut(BaseModel):
+class SectorOut(Schema):
     sector: str
     count: int
     avg_change_percent: float
 
 
-class MarketOverviewOut(BaseModel):
+class MarketOverviewOut(Schema):
     up: int
     down: int
     flat: int
@@ -259,25 +276,25 @@ AlertType = Literal[
 ]
 
 
-class AlertIn(BaseModel):
+class AlertIn(Schema):
     ticker: str
     type: AlertType
     threshold: float | None = None
 
 
-class AlertOut(BaseModel):
+class AlertOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
     ticker: str
-    type: str
+    type: AlertType
     threshold: float | None = None
     active: bool
     last_triggered_at: datetime | None = None
     created_at: datetime
 
 
-class AlertEventOut(BaseModel):
+class AlertEventOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -293,7 +310,7 @@ class AlertEventOut(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
-class ValuationOut(BaseModel):
+class ValuationOut(Schema):
     ticker: str
     pbv: float | None = None
     pbv_min: float | None = None
@@ -305,26 +322,26 @@ class ValuationOut(BaseModel):
     window_days: int = 0
 
 
-class DividendOut(BaseModel):
+class DividendOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     ex_date: date
     amount: float
 
 
-class DividendSummary(BaseModel):
+class DividendSummary(Schema):
     ticker: str
     trailing_dps: float = 0.0
     yield_percent: float | None = None
     history: list[DividendOut] = []
 
 
-class OfficerOut(BaseModel):
+class OfficerOut(Schema):
     name: str
     title: str | None = None
 
 
-class CompanyOut(BaseModel):
+class CompanyOut(Schema):
     """Company profile / board information for the detail modal."""
 
     ticker: str
@@ -355,7 +372,7 @@ class StockOut(StockBase):
     recommendation: RecommendationSummary | None = None
 
 
-class CatalogRow(BaseModel):
+class CatalogRow(Schema):
     """A row in the full IDX catalog browse list."""
 
     ticker: str
@@ -367,7 +384,7 @@ class CatalogRow(BaseModel):
     change_percent: float | None = None
 
 
-class CatalogPage(BaseModel):
+class CatalogPage(Schema):
     """One page of the catalog plus the total match count (for pagination)."""
 
     items: list[CatalogRow]
@@ -376,7 +393,7 @@ class CatalogPage(BaseModel):
     offset: int
 
 
-class PricePoint(BaseModel):
+class PricePoint(Schema):
     """A single OHLCV bar for charting."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -389,12 +406,12 @@ class PricePoint(BaseModel):
     volume: int
 
 
-class SplitOut(BaseModel):
+class SplitOut(Schema):
     ex_date: date
     ratio: float
 
 
-class StockHistory(BaseModel):
+class StockHistory(Schema):
     """Full history payload for one ticker."""
 
     ticker: str
@@ -405,7 +422,7 @@ class StockHistory(BaseModel):
     splits: list[SplitOut] = []  # for chart markers
 
 
-class FundamentalOut(BaseModel):
+class FundamentalOut(Schema):
     """One fiscal year of financial figures, converted to IDR (raw units)."""
 
     model_config = ConfigDict(from_attributes=True)
@@ -421,7 +438,7 @@ class FundamentalOut(BaseModel):
     source: str | None = None  # "statements" | "summary" (None = statements)
 
 
-class DerivedMetrics(BaseModel):
+class DerivedMetrics(Schema):
     """Valuation ratios computed against the latest price."""
 
     market_cap: float | None = None
@@ -435,7 +452,7 @@ class DerivedMetrics(BaseModel):
 # --------------------------------------------------------------------------- #
 
 
-class FactorOut(BaseModel):
+class FactorOut(Schema):
     """One scored factor: raw value + cross-sectional percentile score."""
 
     name: str
@@ -444,7 +461,7 @@ class FactorOut(BaseModel):
     label: str = ""              # human-readable value
 
 
-class CategoryOut(BaseModel):
+class CategoryOut(Schema):
     """A weighted group of factors."""
 
     name: str
@@ -452,7 +469,7 @@ class CategoryOut(BaseModel):
     score: float | None = None
 
 
-class RecommendationOut(BaseModel):
+class RecommendationOut(Schema):
     """Full buy-signal breakdown for one ticker."""
 
     ticker: str
@@ -466,13 +483,13 @@ class RecommendationOut(BaseModel):
     style: InvestingStyle = "investor"  # which model produced this score
 
 
-class RatingRecordOut(BaseModel):
+class RatingRecordOut(Schema):
     rating: str      # internal code (Strong Buy ... Avoid)
     n: int           # stock-dates with this rating
     beat: float      # share that beat that date's median stock (0.5 = coin flip)
 
 
-class BacktestRecordOut(BaseModel):
+class BacktestRecordOut(Schema):
     start: str                   # first / last as-of date (YYYY-MM-DD)
     end: str
     universe: str                # which stocks were judged, in words
@@ -482,7 +499,7 @@ class BacktestRecordOut(BaseModel):
     generated: str = ""
 
 
-class LiveRecordOut(BaseModel):
+class LiveRecordOut(Schema):
     since: date | None = None    # first recorded day
     days: int = 0                # days recorded
     matured_days: int = 0        # of which the horizon has passed
@@ -490,7 +507,7 @@ class LiveRecordOut(BaseModel):
     ratings: list[RatingRecordOut] = []
 
 
-class TrackRecordOut(BaseModel):
+class TrackRecordOut(Schema):
     """How past ratings of this style did over its main horizon."""
 
     style: InvestingStyle
@@ -512,7 +529,7 @@ class WatchlistItemOut(StockBase):
     recommendation: RecommendationSummary | None = None
 
 
-class FundamentalsResponse(BaseModel):
+class FundamentalsResponse(Schema):
     """Yearly fundamentals series + derived metrics for one ticker."""
 
     ticker: str
@@ -522,12 +539,12 @@ class FundamentalsResponse(BaseModel):
     metrics: DerivedMetrics = DerivedMetrics()
 
 
-class ChatTurn(BaseModel):
+class ChatTurn(Schema):
     role: Literal["user", "assistant"]
     content: str = Field(min_length=1, max_length=4000)
 
 
-class AssistantChatIn(BaseModel):
+class AssistantChatIn(Schema):
     """The visible conversation (oldest first); the last turn is the new question."""
 
     messages: list[ChatTurn] = Field(min_length=1, max_length=40)
@@ -536,7 +553,7 @@ class AssistantChatIn(BaseModel):
     context: str | None = Field(None, max_length=200)  # e.g. "the BBCA.JK detail view"
 
 
-class AssistantChatOut(BaseModel):
+class AssistantChatOut(Schema):
     reply: str
     provider: str = ""
     model: str
@@ -545,7 +562,7 @@ class AssistantChatOut(BaseModel):
     chat_id: int | None = None  # None when the user doesn't save chats
 
 
-class AssistantStatusOut(BaseModel):
+class AssistantStatusOut(Schema):
     configured: bool
     models: list[str]
     setup_hint: str = ""  # what to set when not configured (e.g. GEMINI_API_KEY)
@@ -556,7 +573,7 @@ class AssistantStatusOut(BaseModel):
     chat_days: int = 90  # saved chats are deleted this long after their last message
 
 
-class ChatSummaryOut(BaseModel):
+class ChatSummaryOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -565,7 +582,7 @@ class ChatSummaryOut(BaseModel):
     updated_at: datetime
 
 
-class ChatMessageOut(BaseModel):
+class ChatMessageOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     role: Literal["user", "assistant"]
@@ -581,12 +598,12 @@ class ChatDetailOut(ChatSummaryOut):
 _Name = Annotated[str, StringConstraints(max_length=32)]
 
 
-class HiddenColumns(BaseModel):
+class HiddenColumns(Schema):
     home: list[_Name] = Field(default_factory=list, max_length=30)
     watchlist: list[_Name] = Field(default_factory=list, max_length=30)
 
 
-class DisplaySettings(BaseModel):
+class DisplaySettings(Schema):
     """
     The data/display part of the Settings menu, saved per user so it follows
     them across devices. Field names are camelCase on the wire, as the frontend
@@ -606,7 +623,7 @@ class DisplaySettings(BaseModel):
     hidden_columns: HiddenColumns = Field(default_factory=HiddenColumns)
 
 
-class TradingCosts(BaseModel):
+class TradingCosts(Schema):
     """
     The user's broker costs, in percent. Defaults are typical for Indonesian
     online brokers: 0.15% to buy, 0.25% to sell (including the 0.1% final tax on
@@ -618,7 +635,7 @@ class TradingCosts(BaseModel):
     dividend_tax_pct: float = Field(default=10.0, ge=0, le=50)
 
 
-class PreferencesOut(BaseModel):
+class PreferencesOut(Schema):
     """Server-side preferences of the signed-in user."""
 
     investing_style: InvestingStyle = "investor"
@@ -634,7 +651,7 @@ class PreferencesOut(BaseModel):
     daily_digest: bool = False  # the summary email after the close (opt-in)
 
 
-class PreferencesIn(BaseModel):
+class PreferencesIn(Schema):
     """Partial update: only the fields that are sent change."""
 
     investing_style: InvestingStyle | None = None
@@ -647,7 +664,7 @@ class PreferencesIn(BaseModel):
     daily_digest: bool | None = None
 
 
-class IndexOut(BaseModel):
+class IndexOut(Schema):
     """One IDX stock index (indeks saham) with its latest value."""
 
     code: str
@@ -662,7 +679,7 @@ class IndexOut(BaseModel):
     history_since: date | None = None
 
 
-class IndexBarOut(BaseModel):
+class IndexBarOut(Schema):
     """Daily index bar, shaped like PricePoint so the stock chart can draw it."""
 
     timestamp: date
@@ -673,26 +690,26 @@ class IndexBarOut(BaseModel):
     volume: int = 0
 
 
-class IndexHistoryOut(BaseModel):
+class IndexHistoryOut(Schema):
     code: str
     name: str
     has_history: bool
     points: list[IndexBarOut]
 
 
-class HoldingRiskOut(BaseModel):
+class HoldingRiskOut(Schema):
     ticker: str
     weight: float
     sector: str
     beta: float | None = None
 
 
-class SectorWeightOut(BaseModel):
+class SectorWeightOut(Schema):
     sector: str
     weight: float
 
 
-class PortfolioRiskOut(BaseModel):
+class PortfolioRiskOut(Schema):
     """Concentration, sector exposure, beta vs IHSG, stress test, drawdown (all in %)."""
 
     holdings: list[HoldingRiskOut]
@@ -709,14 +726,14 @@ class PortfolioRiskOut(BaseModel):
     warnings: list[str] = []
 
 
-class NotificationStatusOut(BaseModel):
+class NotificationStatusOut(Schema):
     """Which out-of-app channels are configured (and whether a test was delivered)."""
 
     telegram: bool
     delivered: bool | None = None
 
 
-class ExpectedDividendOut(BaseModel):
+class ExpectedDividendOut(Schema):
     """A projected (not announced) dividend, from last year's ex-date."""
 
     ticker: str
@@ -731,7 +748,7 @@ class ExpectedDividendOut(BaseModel):
     in_watchlist: bool
 
 
-class MailStatusOut(BaseModel):
+class MailStatusOut(Schema):
     """Email delivery setup (no secrets: provider name and sender only)."""
 
     configured: bool
@@ -741,7 +758,7 @@ class MailStatusOut(BaseModel):
     setup_hint: str = ""  # what to set when not (fully) configured
 
 
-class MailTestOut(BaseModel):
+class MailTestOut(Schema):
     delivered: bool
     message_id: str | None = None
 
@@ -753,7 +770,7 @@ class MailTestOut(BaseModel):
 Role = Literal["user", "admin"]
 
 
-class MeOut(BaseModel):
+class MeOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -772,7 +789,7 @@ class MeOut(BaseModel):
 TwoFactorMethod = Literal["totp", "email", "recovery"]
 
 
-class TwoFactorChallengeOut(BaseModel):
+class TwoFactorChallengeOut(Schema):
     """The password was right; a second step is needed."""
 
     token: str  # identifies this sign-in attempt for /api/auth/2fa/verify
@@ -781,25 +798,25 @@ class TwoFactorChallengeOut(BaseModel):
     email_sent: bool  # a code was emailed already
 
 
-class LoginOut(BaseModel):
+class LoginOut(Schema):
     """Either signed in (`user`) or a second step is needed (`two_factor`)."""
 
     user: MeOut | None = None
     two_factor: TwoFactorChallengeOut | None = None
 
 
-class TwoFactorVerifyIn(BaseModel):
+class TwoFactorVerifyIn(Schema):
     token: str = Field(max_length=64)
     method: TwoFactorMethod
     code: str = Field(max_length=32)
     remember_device: bool = False
 
 
-class TwoFactorTokenIn(BaseModel):
+class TwoFactorTokenIn(Schema):
     token: str = Field(max_length=64)
 
 
-class TwoFactorStatusOut(BaseModel):
+class TwoFactorStatusOut(Schema):
     totp: bool
     email: bool
     email_available: bool  # email is set up on the server
@@ -808,37 +825,37 @@ class TwoFactorStatusOut(BaseModel):
     required: bool  # admins must keep 2FA on
 
 
-class TotpSetupOut(BaseModel):
+class TotpSetupOut(Schema):
     secret: str  # for typing into the app when the QR can't be scanned
     uri: str  # otpauth:// link (opens the app on a phone)
     qr_svg: str
 
 
-class CodeIn(BaseModel):
+class CodeIn(Schema):
     code: str = Field(max_length=32)
 
 
-class PasswordConfirmIn(BaseModel):
+class PasswordConfirmIn(Schema):
     password: str = Field(max_length=256)
 
 
-class RecoveryCodesOut(BaseModel):
+class RecoveryCodesOut(Schema):
     """Shown once: only keyed hashes are stored."""
 
     recovery_codes: list[str] | None = None
 
 
-class LoginIn(BaseModel):
+class LoginIn(Schema):
     email: str = Field(max_length=254)
     password: str = Field(max_length=256)
 
 
-class PasswordChangeIn(BaseModel):
+class PasswordChangeIn(Schema):
     current_password: str = Field(max_length=256)
     new_password: str = Field(max_length=256)
 
 
-class AuthOptionsOut(BaseModel):
+class AuthOptionsOut(Schema):
     """What the sign-in screens can offer (public)."""
 
     password_reset_by_email: bool  # "Forgot password?" needs email to be set up
@@ -846,26 +863,26 @@ class AuthOptionsOut(BaseModel):
     password_min_score: int  # zxcvbn score 0-4
 
 
-class InviteInfoOut(BaseModel):
+class InviteInfoOut(Schema):
     email: str | None  # None = setup invite: the first admin chooses the email
     role: Role
 
 
-class AcceptInviteIn(BaseModel):
+class AcceptInviteIn(Schema):
     name: str = Field(max_length=80)
     password: str = Field(max_length=256)
     email: str | None = Field(None, max_length=254)  # setup invite only
 
 
-class ResetRequestIn(BaseModel):
+class ResetRequestIn(Schema):
     email: str = Field(max_length=254)
 
 
-class ResetPasswordIn(BaseModel):
+class ResetPasswordIn(Schema):
     password: str = Field(max_length=256)
 
 
-class UserOut(BaseModel):
+class UserOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -878,17 +895,17 @@ class UserOut(BaseModel):
     last_login_at: datetime | None
 
 
-class UserUpdateIn(BaseModel):
+class UserUpdateIn(Schema):
     role: Role | None = None
     is_active: bool | None = None
 
 
-class InviteIn(BaseModel):
+class InviteIn(Schema):
     email: str = Field(max_length=254)
     role: Role = "user"
 
 
-class PendingInviteOut(BaseModel):
+class PendingInviteOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
@@ -898,8 +915,100 @@ class PendingInviteOut(BaseModel):
     expires_at: datetime
 
 
-class LinkOut(BaseModel):
+class LinkOut(Schema):
     """A one-time invite / reset link, shown once to the admin who made it."""
 
     link: str
     emailed: bool  # also sent by email (when email is set up)
+
+
+# --------------------------------------------------------------------------- #
+# Data health
+# --------------------------------------------------------------------------- #
+HealthStatus = Literal["ok", "warn", "error"]
+
+
+class JobHealth(Schema):
+    id: str
+    description: str
+    next_run: datetime | None = None
+    last_run: datetime | None = None
+    ok: bool | None = None  # None: hasn't run since the server started
+    error: str | None = None
+
+
+class TickerIssue(Schema):
+    ticker: str
+    issue: str
+
+
+class ProviderHealth(ProviderStat):
+    name: str
+
+
+class JobsHealth(Schema):
+    status: HealthStatus
+    items: list[JobHealth]
+
+
+class ProvidersHealth(Schema):
+    status: HealthStatus
+    items: list[ProviderHealth]
+
+
+class PricesHealth(Schema):
+    status: HealthStatus
+    trading_day: date
+    stocks: int
+    current: int  # with a bar for the last closed trading day
+    coverage_pct: float
+    no_prices: int
+    stale: int  # no bar in STALE_DAYS (likely suspended or delisted)
+    stale_sample: list[str]
+    intraday_tickers: int
+    intraday_last: datetime | None = None
+
+
+class FundamentalsHealth(Schema):
+    status: HealthStatus
+    statements: int
+    summary: int
+    missing: int
+    never_tried: int
+
+
+class IndicesHealth(Schema):
+    status: HealthStatus
+    count: int
+    oldest_update: datetime | None = None
+    newest_update: datetime | None = None
+
+
+class ListingHealth(Schema):
+    status: HealthStatus
+    synced_at: datetime | None = None
+    boards: dict[str, int]
+
+
+class SuspiciousHealth(Schema):
+    status: HealthStatus
+    extreme_values: list[TickerIssue]
+    share_mismatches: list[TickerIssue]
+
+
+class HealthSections(Schema):
+    jobs: JobsHealth
+    providers: ProvidersHealth
+    prices: PricesHealth
+    fundamentals: FundamentalsHealth
+    indices: IndicesHealth
+    listing: ListingHealth
+    suspicious: SuspiciousHealth
+
+
+class DataHealthOut(Schema):
+    """Can the app's data be trusted right now? One status per area."""
+
+    generated_at: datetime
+    sections: HealthSections
+    timezone_now: datetime

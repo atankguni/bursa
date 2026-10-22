@@ -81,8 +81,16 @@ export const ACCOUNT_KEYS = [
   'hiddenColumns',
 ] as const satisfies readonly (keyof Settings & keyof DisplaySettings)[]
 
-const accountPart = (s: Settings): DisplaySettings =>
-  Object.fromEntries(ACCOUNT_KEYS.map((k) => [k, s[k]])) as unknown as DisplaySettings
+const accountPart = (s: Settings): DisplaySettings => ({
+  defaultIndexes: s.defaultIndexes,
+  chartType: s.chartType,
+  chartRange: s.chartRange,
+  autoRefresh: s.autoRefresh,
+  refreshSeconds: s.refreshSeconds,
+  numberFormat: s.numberFormat,
+  colorizeChanges: s.colorizeChanges,
+  hiddenColumns: s.hiddenColumns,
+})
 
 // A local copy of everything, so the page renders with the right settings at once.
 const STORAGE_KEY = 'bursa-settings'
@@ -115,6 +123,54 @@ const prefersReducedMotion = () =>
   typeof window !== 'undefined' &&
   window.matchMedia('(prefers-reduced-motion: reduce)').matches
 
+const isBool = (v: unknown): v is boolean => typeof v === 'boolean'
+const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v)
+const isStrings = (v: unknown): v is string[] =>
+  Array.isArray(v) && v.every((x) => typeof x === 'string')
+const oneOf =
+  <T extends string>(...options: T[]) =>
+  (v: unknown): v is T =>
+    options.some((o) => o === v)
+const isTheme = oneOf<Theme>('system', 'light', 'dark')
+
+/** A stored object's fields, or none (storage may be stale or hand-edited). */
+const fields = (v: unknown) =>
+  new Map<string, unknown>(typeof v === 'object' && v !== null ? Object.entries(v) : [])
+
+/** `base` overlaid with each stored value that still has the expected kind. */
+function fromStorage(base: Settings, stored: unknown): Settings {
+  const s = fields(stored)
+  const pick = <T,>(key: keyof Settings, ok: (v: unknown) => v is T, fallback: T): T => {
+    const v = s.get(key)
+    return ok(v) ? v : fallback
+  }
+  const hidden = fields(s.get('hiddenColumns'))
+  const [home, watchlist] = [hidden.get('home'), hidden.get('watchlist')]
+  return {
+    theme: pick('theme', isTheme, base.theme),
+    accent: pick('accent', oneOf(...ACCENTS.map((a) => a.value)), base.accent),
+    density: pick('density', oneOf<Density>('compact', 'medium', 'large'), base.density),
+    reduceMotion: pick('reduceMotion', isBool, base.reduceMotion),
+    highContrast: pick('highContrast', isBool, base.highContrast),
+    defaultIndexes: pick('defaultIndexes', isStrings, base.defaultIndexes),
+    chartType: pick('chartType', oneOf('candle', 'line'), base.chartType),
+    chartRange: pick('chartRange', oneOf('1d', '1m'), base.chartRange),
+    autoRefresh: pick('autoRefresh', isBool, base.autoRefresh),
+    refreshSeconds: pick('refreshSeconds', isNumber, base.refreshSeconds),
+    numberFormat: pick(
+      'numberFormat',
+      oneOf<NumberFormat>('compact', 'full'),
+      base.numberFormat,
+    ),
+    colorizeChanges: pick('colorizeChanges', isBool, base.colorizeChanges),
+    hiddenColumns: {
+      home: isStrings(home) ? home : base.hiddenColumns.home,
+      watchlist: isStrings(watchlist) ? watchlist : base.hiddenColumns.watchlist,
+    },
+    hidePortfolioValues: pick('hidePortfolioValues', isBool, base.hidePortfolioValues),
+  }
+}
+
 /** Load settings, migrating the legacy single theme key if present. */
 function load(): Settings {
   if (typeof window === 'undefined') return DEFAULT_SETTINGS
@@ -122,19 +178,9 @@ function load(): Settings {
   const base: Settings = { ...DEFAULT_SETTINGS, reduceMotion: prefersReducedMotion() }
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    if (raw) {
-      const parsed = JSON.parse(raw) as Partial<Settings>
-      return {
-        ...base,
-        ...parsed,
-        hiddenColumns: {
-          ...base.hiddenColumns,
-          ...(parsed.hiddenColumns ?? {}),
-        },
-      }
-    }
-    const legacy = window.localStorage.getItem(LEGACY_THEME_KEY) as Theme | null
-    if (legacy) return { ...base, theme: legacy }
+    if (raw) return fromStorage(base, JSON.parse(raw))
+    const legacy = window.localStorage.getItem(LEGACY_THEME_KEY)
+    if (isTheme(legacy)) return { ...base, theme: legacy }
   } catch {
     /* ignore malformed storage */
   }
@@ -242,7 +288,9 @@ function useAccountSync(
   const syncedFor = useRef<number | null>(null)
   const changed = useRef(false)
   const latest = useRef(settings)
-  latest.current = settings
+  useLayoutEffect(() => {
+    latest.current = settings
+  })
 
   const save = useMemo(
     () => (display: DisplaySettings) =>

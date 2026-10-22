@@ -71,9 +71,9 @@ export default function PortfolioChart({
         priceFormat: pct,
       })
       mine.setData(
-        data
-          .filter((p) => p.return_pct != null)
-          .map((p) => ({ time: p.date, value: p.return_pct as number }) as LineData),
+        data.flatMap((p): LineData[] =>
+          p.return_pct == null ? [] : [{ time: p.date, value: p.return_pct }],
+        ),
       )
       const bench = chart.addLineSeries({
         color: resolvedTheme === 'dark' ? '#cbd5e1' : '#475569',
@@ -84,9 +84,9 @@ export default function PortfolioChart({
         priceLineVisible: false,
       })
       bench.setData(
-        data
-          .filter((p) => p.benchmark_pct != null)
-          .map((p) => ({ time: p.date, value: p.benchmark_pct as number }) as LineData),
+        data.flatMap((p): LineData[] =>
+          p.benchmark_pct == null ? [] : [{ time: p.date, value: p.benchmark_pct }],
+        ),
       )
     } else {
       const series = chart.addAreaSeries({
@@ -97,7 +97,7 @@ export default function PortfolioChart({
         lastValueVisible: !hideValues,
         priceLineVisible: !hideValues,
       })
-      series.setData(data.map((p) => ({ time: p.date, value: p.value }) as AreaData))
+      series.setData(data.map((p): AreaData => ({ time: p.date, value: p.value })))
     }
     chart.timeScale().fitContent()
 
@@ -120,7 +120,7 @@ export default function PortfolioChart({
     settings.accent,
   ])
 
-  const last = data.length > 0 ? data[data.length - 1].value : null
+  const last = data[data.length - 1]?.value ?? null
   return (
     <div
       ref={ref}

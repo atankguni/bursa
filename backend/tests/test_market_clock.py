@@ -48,7 +48,7 @@ def test_holiday_closed():
 def test_status_shape_and_next_change():
     now = at(2026, 1, 5, 10, 0)
     s = status(now)
-    assert s["is_open"] is True
-    assert s["session"] == "open"
-    assert s["next_change_at"] > now
-    assert s["next_change_label"]  # e.g. "closes in 2h 0m"
+    assert s.is_open is True
+    assert s.session == "open"
+    assert s.next_change_at is not None and s.next_change_at > now
+    assert s.next_change_label  # e.g. "closes in 2h 0m"

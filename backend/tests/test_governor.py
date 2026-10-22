@@ -74,7 +74,7 @@ async def test_metrics_record_calls_and_errors(monkeypatch):
         await g.call("p", "err", boom)
 
     stat = g.stats()["p"]
-    assert stat["calls"] == 1
-    assert stat["calls_today"] == 1
-    assert stat["errors"] == 1
-    assert stat["last_error"] == "boom"
+    assert stat.calls == 1
+    assert stat.calls_today == 1
+    assert stat.errors == 1
+    assert stat.last_error == "boom"

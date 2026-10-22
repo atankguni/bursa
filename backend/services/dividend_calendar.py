@@ -17,22 +17,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Dividend, Stock, Watchlist
+from schemas import ExpectedDividendOut
 from services.dividends import sync_dividends
 from services.market_clock import is_trading_day
 from services.portfolio import build_portfolio
-
-
-class ExpectedDividend(TypedDict):
-    ticker: str
-    name: str
-    expected_ex_date: date
-    based_on: date  # last year's ex-date it's projected from
-    amount_per_share: float
-    regular: bool  # also paid in that month the year before
-    shares_held: float | None
-    expected_income: float | None
-    in_portfolio: bool
-    in_watchlist: bool
 
 
 def _plus_year(d: date) -> date:
@@ -50,7 +38,7 @@ def project(
     months_year_before = {
         (d.year, d.month) for d, _ in history if d < window_start
     }
-    out = []
+    out: list[tuple[date, date, float, bool]] = []
     for ex_date, amount in history:
         if not (window_start <= ex_date <= today):
             continue
@@ -110,9 +98,9 @@ async def next_expected(
 
 async def dividend_calendar(
     session: AsyncSession, user_id: int, days: int = 180
-) -> list[ExpectedDividend]:
+) -> list[ExpectedDividendOut]:
     _, holdings = await build_portfolio(session, user_id)
-    held = {h["ticker"]: h["quantity"] for h in holdings}
+    held = {h.ticker: h.quantity for h in holdings}
     watched = set(
         (await session.execute(
             select(Watchlist.ticker).where(Watchlist.user_id == user_id)
@@ -145,15 +133,15 @@ async def dividend_calendar(
     )).all())
 
     today = date.today()
-    out: list[ExpectedDividend] = []
+    out: list[ExpectedDividendOut] = []
     for t in tickers:
         for expected, based_on, amount, regular in project(history[t], today, days):
             shares = held.get(t)
-            out.append({
-                "ticker": t, "name": names.get(t, t), "expected_ex_date": expected,
-                "based_on": based_on, "amount_per_share": round(amount, 4),
-                "regular": regular, "shares_held": shares,
-                "expected_income": round(amount * shares, 2) if shares else None,
-                "in_portfolio": t in held, "in_watchlist": t in watched,
-            })
-    return sorted(out, key=lambda x: x["expected_ex_date"])
+            out.append(ExpectedDividendOut(
+                ticker=t, name=names.get(t, t), expected_ex_date=expected,
+                based_on=based_on, amount_per_share=round(amount, 4),
+                regular=regular, shares_held=shares,
+                expected_income=round(amount * shares, 2) if shares else None,
+                in_portfolio=t in held, in_watchlist=t in watched,
+            ))
+    return sorted(out, key=lambda x: x.expected_ex_date)

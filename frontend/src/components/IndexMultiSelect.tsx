@@ -18,7 +18,8 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
   // Close the popover on any click outside of it.
   useEffect(() => {
     function onDocClick(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && e.target instanceof Node && !ref.current.contains(e.target))
+        setOpen(false)
     }
     document.addEventListener('mousedown', onDocClick)
     return () => document.removeEventListener('mousedown', onDocClick)

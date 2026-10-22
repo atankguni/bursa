@@ -2,6 +2,49 @@
 
 For running the dev servers with hot reload, see [Getting started](getting-started.md#development-hot-reload).
 
+## Checks
+
+Everything is statically typed, and one command checks it all (the backend
+runs in its Docker test image, so no local Python is needed):
+
+```bash
+make check        # what CI runs: types, lint, format, tests, API types in sync
+make check-fast   # the pre-commit subset (~10 s): no test suite
+make hooks        # once per clone: run check-fast before every commit
+make api-types    # after changing a response/request model in backend/schemas.py
+```
+
+`.github/workflows/check.yml` runs `make check` and a production build on every
+push and pull request.
+
+### Typing rules
+
+- **Backend:** pyright **strict** for all app code (every value has a known
+  type); tests and migrations use the standard level. `Any` is allowed only at
+  the boundaries where outside data arrives untyped (`market/providers/yahoo.py`,
+  `assistant/providers/`, `db/maintenance.py`, migrations), and is turned into
+  typed values there. Untyped libraries get small local stubs in
+  `backend/typings/` (only what Bursa uses).
+- **One definition per shape:** API shapes are the Pydantic models in
+  `schemas.py`, and services return them directly (no TypedDict copies).
+  Value sets are `Literal` aliases there too (`TradeSide`, `MarketSession`,
+  `AlertType`, ...), shared with the database models.
+- **Frontend types come from the backend:** `make api-types` exports the
+  OpenAPI document and generates `frontend/src/api/schema.gen.ts` (never edit
+  it); `src/api/types.ts` gives its models short names. CI fails when the file
+  is out of date. Response fields with defaults are still *required* in the
+  generated types (the `Schema` base class), since the server always sends them.
+- **TypeScript:** `strict` plus `noUncheckedIndexedAccess` (`arr[i]` may be
+  `undefined`), `exactOptionalPropertyTypes`, `noImplicitOverride` and
+  `noPropertyAccessFromIndexSignature`.
+- **Lint:** oxlint with type-aware rules (`--type-aware`, via tsgolint, which
+  works with the TypeScript 7 compiler; typescript-eslint doesn't yet): no
+  `any`, no non-null `!`, no unchecked `as` casts, no unhandled promises,
+  exhaustive switches, React hooks rules. Rules turned off are listed with the
+  reason in `frontend/.oxlintrc.json`. Data from outside (API errors,
+  `localStorage`) is checked at runtime, not cast (`errorDetail`/`errorStatus`
+  in `api/client.ts`, `fromStorage` in `lib/settings.tsx`).
+
 ## Backend
 
 ```bash
@@ -19,6 +62,8 @@ docker build --target test -t bursa-backend-test ./backend && docker run --rm bu
 ```
 
 Tests never call Yahoo: an autouse fixture blocks `yf.download`, `yf.Ticker` and `yf.Search`.
+They also ignore `backend/.env` (`BURSA_ENV_FILE=""`, set in `tests/conftest.py`), so
+real API keys or a configured mail provider never leak into a test run.
 
 ### Testing on PostgreSQL / MySQL
 
@@ -99,10 +144,10 @@ them with what prices did once the horizon (3 months / 4 weeks) has passed.
 ```bash
 cd frontend
 npm run dev             # Vite HMR
-npm run typecheck       # tsc --noEmit
+npm run check           # tsc + oxlint (type-aware) + prettier --check
 npm run build           # production build
 npm run format          # prettier --write .
 ```
 
-> ESLint is intentionally not used: the TypeScript 7 native compiler is not
-> yet supported by `typescript-eslint`, so type checking is done by `tsc`.
+`openapi-typescript` needs the TypeScript 5 API, so `make api-types` runs it via
+`npx` with its own pinned TypeScript instead of adding it to `package.json`.

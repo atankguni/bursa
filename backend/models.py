@@ -40,6 +40,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
+from schemas import AlertType, TradeSide
 
 
 class User(Base):
@@ -365,7 +366,7 @@ class StockProfile(Base):
     address: Mapped[str | None] = mapped_column(String(200), nullable=True)
     phone: Mapped[str | None] = mapped_column(String(48), nullable=True)
     # Board / management: [{name, title}, ...] from the provider profile.
-    officers: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    officers: Mapped[list[dict[str, str | None]] | None] = mapped_column(JSON, nullable=True)
     trailing_pe: Mapped[float | None] = mapped_column(Double, nullable=True)
     profit_margin: Mapped[float | None] = mapped_column(Double, nullable=True)
     revenue_growth: Mapped[float | None] = mapped_column(Double, nullable=True)
@@ -395,7 +396,7 @@ class Transaction(Base):
         String(20), ForeignKey("stocks.ticker", ondelete="CASCADE"), index=True,
         nullable=False,
     )
-    side: Mapped[str] = mapped_column(String(4), nullable=False)  # "buy" | "sell"
+    side: Mapped[TradeSide] = mapped_column(String(4), nullable=False)
     quantity: Mapped[float] = mapped_column(Double, nullable=False)
     price: Mapped[float] = mapped_column(Double, nullable=False)
     fees: Mapped[float] = mapped_column(Double, default=0.0, nullable=False)
@@ -425,7 +426,7 @@ class Alert(Base):
         nullable=False,
     )
     # price_above | price_below | pct_change | rating_change
-    type: Mapped[str] = mapped_column(String(16), nullable=False)
+    type: Mapped[AlertType] = mapped_column(String(16), nullable=False)
     threshold: Mapped[float | None] = mapped_column(Double, nullable=True)
     active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     last_triggered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)

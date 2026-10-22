@@ -93,17 +93,17 @@ export default function Watchlist() {
           </p>
         </div>
         {isAdmin && (
-        <button
-          onClick={() => refresh.mutate()}
-          disabled={refresh.isPending || items.length === 0}
-          className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
-        >
-          <RefreshCw
-            size={13}
-            className={refresh.isPending || isFetching ? 'animate-spin' : ''}
-          />
-          {refresh.isPending ? 'Refreshing…' : 'Refresh fundamentals'}
-        </button>
+          <button
+            onClick={() => refresh.mutate()}
+            disabled={refresh.isPending || items.length === 0}
+            className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+          >
+            <RefreshCw
+              size={13}
+              className={refresh.isPending || isFetching ? 'animate-spin' : ''}
+            />
+            {refresh.isPending ? 'Refreshing…' : 'Refresh fundamentals'}
+          </button>
         )}
       </div>
 

@@ -14,6 +14,8 @@ import uuid
 from collections.abc import Sequence
 from typing import TYPE_CHECKING, Any, Self
 
+from pydantic import BaseModel, ConfigDict, Field
+
 from assistant.providers.base import (
     AssistantMessage,
     ChatProvider,
@@ -21,7 +23,6 @@ from assistant.providers.base import (
     ProviderBusyError,
     ProviderError,
     ToolCall,
-    ToolResultsMessage,
     ToolSpec,
     UserMessage,
 )
@@ -60,7 +61,7 @@ class GeminiProvider(ChatProvider):
                 parts: list[dict[str, Any]] = [{"text": m.text}] if m.text else []
                 parts += [{"functionCall": {"name": c.name, "args": c.args}} for c in m.tool_calls]
                 out.append({"role": "model", "parts": parts or [{"text": ""}]})
-            elif isinstance(m, ToolResultsMessage):
+            else:  # ToolResultsMessage
                 out.append({"role": "user", "parts": [
                     {"functionResponse": {
                         "name": r.call.name,
@@ -120,22 +121,65 @@ class GeminiProvider(ChatProvider):
         data = await asyncio.to_thread(
             self._post, model, self._body(system, messages, tools, allow_tools)
         )
-        candidates = data.get("candidates") or []
-        if not candidates:
-            reason = (data.get("promptFeedback") or {}).get("blockReason", "no answer")
-            raise ProviderError(f"{model}: {reason}")
-        content = candidates[0].get("content") or {"role": "model", "parts": []}
-        parts = content.get("parts") or []
+        reply = _Response.model_validate(data)
+        if not reply.candidates:
+            reason = reply.prompt_feedback.block_reason if reply.prompt_feedback else None
+            raise ProviderError(f"{model}: {reason or 'no answer'}")
+        content = reply.candidates[0].content or _Content()
         calls = [
             ToolCall(
-                id=p["functionCall"].get("id") or uuid.uuid4().hex,
-                name=p["functionCall"]["name"],
-                args=p["functionCall"].get("args") or {},
+                id=p.function_call.id or uuid.uuid4().hex,
+                name=p.function_call.name,
+                args=p.function_call.args,
             )
-            for p in parts
-            if "functionCall" in p
+            for p in content.parts
+            if p.function_call is not None
         ]
-        text = "".join(p.get("text", "") for p in parts if not p.get("thought"))
+        text = "".join(p.text or "" for p in content.parts if not p.thought)
+        # The turn goes back verbatim on the next request (Gemini 3 needs its
+        # thought signatures), so keep the raw JSON, not the parsed model.
+        raw_candidates: list[Any] = data.get("candidates") or []
+        native: object = raw_candidates[0].get("content") or {"role": "model", "parts": []}
         return AssistantMessage(
-            text=text.strip(), tool_calls=calls, provider=self.name, model=model, native=content
+            text=text.strip(), tool_calls=calls, provider=self.name, model=model, native=native
         )
+
+
+# -- response shape (only the fields read; the rest is ignored) --------------------
+class _FunctionCall(BaseModel):
+    id: str | None = None
+    name: str
+    args: dict[str, Any] = {}
+
+
+class _Part(BaseModel):
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    text: str | None = None
+    thought: bool = False
+    function_call: _FunctionCall | None = Field(default=None, alias="functionCall")
+
+
+class _Content(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    parts: list[_Part] = []
+
+
+class _Candidate(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    content: _Content | None = None
+
+
+class _Feedback(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    block_reason: str | None = Field(default=None, alias="blockReason")
+
+
+class _Response(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
+    candidates: list[_Candidate] = []
+    prompt_feedback: _Feedback | None = Field(default=None, alias="promptFeedback")

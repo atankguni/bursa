@@ -8,6 +8,7 @@ from typing import TypedDict
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import utcnow
 from market.tickers import INDEX_ORDER
 from models import Fundamental, StockIndex, StockPrice, StockProfile
 
@@ -52,7 +53,7 @@ def _since(bars: int) -> datetime:
     """A lower time bound that surely holds the last `bars` daily bars (with room
     for holidays and short suspensions). Keeps the "last N bars" queries fast
     however much history is stored."""
-    return datetime.utcnow() - timedelta(days=bars * 2 + 30)
+    return utcnow() - timedelta(days=bars * 2 + 30)
 
 
 async def latest_daily(

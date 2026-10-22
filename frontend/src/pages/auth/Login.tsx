@@ -106,7 +106,10 @@ function SecondStep({
   onBack: () => void
 }) {
   const { signedIn } = useAuth()
-  const [method, setMethod] = useState<TwoFactorMethod>(challenge.methods[0])
+  // Recovery codes always work once 2FA is on; the server lists the best method first.
+  const [method, setMethod] = useState<TwoFactorMethod>(
+    challenge.methods[0] ?? 'recovery',
+  )
   const [code, setCode] = useState('')
   const [remember, setRemember] = useState(false)
   const [emailSent, setEmailSent] = useState(challenge.email_sent)

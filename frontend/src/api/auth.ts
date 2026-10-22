@@ -1,65 +1,26 @@
-import { api } from './client'
+import { api, errorStatus } from './client'
+import type {
+  AuthOptions,
+  InviteInfo,
+  LoginResult,
+  Me,
+  Role,
+  TotpSetup,
+  TwoFactorChallenge,
+  TwoFactorMethod,
+  TwoFactorStatus,
+} from './types'
 
-export type Role = 'user' | 'admin'
-
-export interface Me {
-  id: number
-  email: string
-  name: string
-  role: Role
-  has_2fa: boolean
-  /** Admin without 2FA: only the 2FA setup works until it's turned on. */
-  mfa_setup_required: boolean
-  /** The password is too guessable or was leaked (checked at sign-in). */
-  password_weak: boolean
-  /** Admin with a weak password: only changing it works until it's done. */
-  password_change_required: boolean
-}
-
-export type TwoFactorMethod = 'totp' | 'email' | 'recovery'
-
-/** The password was right; a code is needed to finish signing in. */
-export interface TwoFactorChallenge {
-  token: string
-  /** Usable now, preferred first. */
-  methods: TwoFactorMethod[]
-  email_hint: string
-  email_sent: boolean
-}
-
-export interface LoginResult {
-  user: Me | null
-  two_factor: TwoFactorChallenge | null
-}
-
-export interface TwoFactorStatus {
-  totp: boolean
-  email: boolean
-  /** Email is set up on the server (needed for email codes). */
-  email_available: boolean
-  recovery_codes_left: number
-  trusted_devices: number
-  /** Admins must keep 2FA on. */
-  required: boolean
-}
-
-export interface TotpSetup {
-  secret: string
-  uri: string
-  qr_svg: string
-}
-
-export interface AuthOptions {
-  password_reset_by_email: boolean
-  password_min_length: number
-  /** zxcvbn score (0-4) a new password needs. */
-  password_min_score: number
-}
-
-export interface InviteInfo {
-  /** null = setup invite: the first admin chooses their email. */
-  email: string | null
-  role: Role
+export type {
+  Role,
+  Me,
+  TwoFactorMethod,
+  TwoFactorChallenge,
+  LoginResult,
+  TwoFactorStatus,
+  TotpSetup,
+  AuthOptions,
+  InviteInfo,
 }
 
 /** The signed-in user, or null when signed out. */
@@ -68,8 +29,7 @@ export async function fetchMe(): Promise<Me | null> {
     const { data } = await api.get<Me>('/api/auth/me')
     return data
   } catch (error) {
-    if ((error as { response?: { status?: number } })?.response?.status === 401)
-      return null
+    if (errorStatus(error) === 401) return null
     throw error
   }
 }

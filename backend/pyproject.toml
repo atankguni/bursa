@@ -9,21 +9,30 @@ extend-exclude = ["data", "__pycache__"]
 select = ["E", "F", "I", "UP", "B", "C4", "ANN"]
 ignore = [
   "B008",   # FastAPI Depends() in defaults is idiomatic
-  "ANN401", # Any is allowed where it is genuinely dynamic (governor, DB-API hooks)
 ]
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["ANN"] # fixtures/test doubles don't need annotations
+# `Any` (ANN401) only at the boundaries, where outside data arrives untyped and
+# gets parsed into typed values: Yahoo/pandas, LLM wire formats, DB-API hooks.
+"market/providers/yahoo.py" = ["ANN401"]
+"assistant/providers/*.py" = ["ANN401"]
+"db/maintenance.py" = ["ANN401"]
+"migrations/**" = ["ANN401"]  # Alembic hook signatures
 
 [tool.ruff.lint.isort]
-known-first-party = ["assistant", "config", "database", "db", "deps", "mail", "market", "models", "routers", "schemas", "scheduler", "services"]
+known-first-party = ["assistant", "clock", "config", "database", "db", "deps", "mail", "market", "models", "routers", "schemas", "scheduler", "services"]
 
 [tool.pyright]
 pythonVersion = "3.14"
+# App code is checked strictly: every value has a known type. Tests (partial
+# doubles on purpose) and migrations (generated) use the standard level.
 typeCheckingMode = "standard"
+strict = ["*.py", "assistant", "db", "mail", "market", "routers", "scripts", "services"]
 include = ["."]
-# Tests use partial dicts / SimpleNamespace doubles on purpose.
-exclude = ["data", "tests", "**/__pycache__", ".venv"]
+exclude = ["data", "**/__pycache__", ".venv"]
+# Local stubs for untyped libraries (only the parts Bursa uses).
+stubPath = "typings"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"

@@ -7,7 +7,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from deps import get_session, require_admin, user_style
 from models import Fundamental, Stock, StockIndex, StockPrice, StockProfile
 from schemas import (
-    BacktestRecordOut,
     CatalogPage,
     CatalogRow,
     CompanyOut,
@@ -16,7 +15,6 @@ from schemas import (
     FundamentalOut,
     FundamentalsResponse,
     InvestingStyle,
-    LiveRecordOut,
     OfficerOut,
     PricePoint,
     RecommendationOut,
@@ -343,8 +341,8 @@ async def track_record(
     return TrackRecordOut(
         style=style,
         horizon=HORIZON[style][0],
-        backtest=BacktestRecordOut.model_validate(backtest) if backtest else None,
-        live=LiveRecordOut.model_validate(await live_record(session, style)),
+        backtest=backtest,
+        live=await live_record(session, style),
     )
 
 
@@ -359,7 +357,7 @@ async def stock_valuation(
     ).scalar_one_or_none()
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
-    return ValuationOut(**await valuation(session, ticker))
+    return await valuation(session, ticker)
 
 
 @router.get("/stocks/{ticker}/dividends", response_model=DividendSummary)
@@ -417,7 +415,7 @@ async def stock_company(
 
     officers: list[OfficerOut] = []
     if profile and profile.officers:
-        officers = [OfficerOut(**o) for o in profile.officers if isinstance(o, dict)]
+        officers = [OfficerOut.model_validate(o) for o in profile.officers]
 
     return CompanyOut(
         ticker=stock.ticker,

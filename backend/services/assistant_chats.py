@@ -12,6 +12,7 @@ from datetime import datetime, timedelta
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import utcnow
 from config import settings
 from models import AssistantChat, ChatMessage
 
@@ -19,7 +20,7 @@ TITLE_LENGTH = 80
 
 
 def _now() -> datetime:
-    return datetime.utcnow()
+    return utcnow()
 
 
 def _cutoff() -> datetime:

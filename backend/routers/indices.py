@@ -13,7 +13,7 @@ router = APIRouter(prefix="/api/indices", tags=["indices"])
 
 @router.get("", response_model=list[IndexOut])
 async def get_indices(session: AsyncSession = Depends(get_session)) -> list[IndexOut]:
-    return [IndexOut(**row) for row in await list_indices(session)]
+    return await list_indices(session)
 
 
 @router.get("/{code}/history", response_model=IndexHistoryOut)

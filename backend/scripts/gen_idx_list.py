@@ -13,23 +13,17 @@ Defaults to writing ../market/idx_listed.py. Source: idx.co.id.
 import sys
 from pathlib import Path
 
-from curl_cffi import requests
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-URL = (
-    "https://www.idx.co.id/primary/StockData/GetSecuritiesStock"
-    "?start=0&length=3000&language=en-us"
-)
+from market.idx_site import fetch_securities  # noqa: E402
 
 
 def fetch() -> dict[str, str]:
-    resp = requests.get(URL, impersonate="chrome", timeout=40)
-    resp.raise_for_status()
-    data = resp.json()
     rows: dict[str, str] = {}
-    for x in data.get("data", []):
-        code = (x.get("Code") or "").strip().upper()
+    for x in fetch_securities():
+        code = (x.code or "").strip().upper()
         if code:
-            rows[f"{code}.JK"] = (x.get("Name") or "").strip()
+            rows[f"{code}.JK"] = (x.name or "").strip()
     return dict(sorted(rows.items()))
 
 

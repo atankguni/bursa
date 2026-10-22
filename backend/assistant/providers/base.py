@@ -44,7 +44,7 @@ class ToolCall:
 @dataclass(frozen=True)
 class ToolResult:
     call: ToolCall
-    content: Any  # JSON-serialisable
+    content: object  # JSON-serialisable (plain dicts/lists/str/numbers/bool/None)
     is_error: bool = False
 
 
@@ -56,7 +56,7 @@ class UserMessage:
 @dataclass
 class AssistantMessage:
     text: str = ""
-    tool_calls: list[ToolCall] = field(default_factory=list)
+    tool_calls: list[ToolCall] = field(default_factory=list[ToolCall])
     provider: str = ""  # which adapter produced it (empty for client-sent history)
     model: str = ""
     native: Any = None  # provider-native turn; only re-sent to the same provider

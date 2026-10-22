@@ -15,7 +15,6 @@ main horizon (investor 3 months, trader 4 weeks). 50% is a coin flip.
 """
 
 import bisect
-import json
 import logging
 import statistics as st
 import time
@@ -23,14 +22,14 @@ from collections import defaultdict
 from collections.abc import Iterable
 from datetime import date, timedelta
 from pathlib import Path
-from typing import Any
 
+from pydantic import RootModel
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from models import RatingSnapshot, StockPrice
-from schemas import InvestingStyle
+from schemas import BacktestRecordOut, InvestingStyle, LiveRecordOut, RatingRecordOut
 from services.prices import median_traded_value
 from services.recommendation import RATING_LABELS, compute_universe
 
@@ -44,10 +43,10 @@ HORIZON: dict[InvestingStyle, tuple[str, int]] = {
 }
 SUMMARY_FILE = Path(__file__).with_name("backtest_summary.json")
 _LIVE_CACHE_SECONDS = 3600
-_live_cache: dict[InvestingStyle, tuple[float, dict[str, Any]]] = {}
+_live_cache: dict[InvestingStyle, tuple[float, LiveRecordOut]] = {}
 
 
-def beat_rates(rows: Iterable[tuple[str, str, float]]) -> list[dict[str, Any]]:
+def beat_rates(rows: Iterable[tuple[str, str, float]]) -> list[RatingRecordOut]:
     """`rows` = (date, rating, forward return). Per rating: how many, and the share
     that beat the median stock of the same date. Ratings without rows are left out."""
     by_date: dict[str, list[float]] = defaultdict(list)
@@ -59,17 +58,22 @@ def beat_rates(rows: Iterable[tuple[str, str, float]]) -> list[dict[str, Any]]:
     for day, rating, ret in items:
         wins[rating].append(ret > median[day])
     return [
-        {"rating": r, "n": len(wins[r]), "beat": round(sum(wins[r]) / len(wins[r]), 3)}
+        RatingRecordOut(rating=r, n=len(wins[r]), beat=round(sum(wins[r]) / len(wins[r]), 3))
         for r in RATINGS
         if wins[r]
     ]
 
 
-def load_backtest(style: InvestingStyle) -> dict[str, Any] | None:
+def load_backtest(style: InvestingStyle) -> BacktestRecordOut | None:
     try:
-        return json.loads(SUMMARY_FILE.read_text()).get(style)
-    except (OSError, ValueError):
+        summary = _BacktestSummary.model_validate_json(SUMMARY_FILE.read_bytes())
+    except (OSError, ValueError):  # missing, or not the expected shape
         return None
+    return summary.root.get(style)
+
+
+class _BacktestSummary(RootModel[dict[InvestingStyle, BacktestRecordOut]]):
+    """backtest_summary.json: {style: record}."""
 
 
 # --------------------------------------------------------------------------- #
@@ -109,7 +113,7 @@ async def record_ratings(session: AsyncSession) -> int:
     return written
 
 
-async def live_record(session: AsyncSession, style: InvestingStyle) -> dict[str, Any]:
+async def live_record(session: AsyncSession, style: InvestingStyle) -> LiveRecordOut:
     """Recorded ratings vs. what happened over the main horizon (cached an hour)."""
     cached = _live_cache.get(style)
     if cached and time.monotonic() - cached[0] < _LIVE_CACHE_SECONDS:
@@ -123,14 +127,12 @@ async def live_record(session: AsyncSession, style: InvestingStyle) -> dict[str,
         query = query.where(RatingSnapshot.liquid.is_(True))
     snaps = (await session.execute(query)).all()
     days = sorted({d for d, _, _ in snaps})
-    result: dict[str, Any] = {
-        "since": days[0] if days else None,
-        "days": len(days),
-        "matured_days": 0,
+    result = LiveRecordOut(
+        since=days[0] if days else None,
+        days=len(days),
         # ~7 calendar days per 5 trading days, plus slack for holidays.
-        "ready_on": days[0] + timedelta(days=horizon * 7 // 5 + 7) if days else None,
-        "ratings": [],
-    }
+        ready_on=days[0] + timedelta(days=horizon * 7 // 5 + 7) if days else None,
+    )
     if days:
         bars = await _daily_bars(session, sorted({t for _, t, _ in snaps}), days[0])
         rows: list[tuple[str, str, float]] = []
@@ -143,8 +145,8 @@ async def live_record(session: AsyncSession, style: InvestingStyle) -> dict[str,
             if i < 0 or dates[i] != day or i + horizon >= len(dates):
                 continue  # no bar that day, or the horizon hasn't passed yet
             rows.append((day.isoformat(), rating, closes[i + horizon] / closes[i] - 1))
-        result["matured_days"] = len({d for d, _, _ in rows})
-        result["ratings"] = beat_rates(rows)
+        result.matured_days = len({d for d, _, _ in rows})
+        result.ratings = beat_rates(rows)
     _live_cache[style] = (time.monotonic(), result)
     return result
 

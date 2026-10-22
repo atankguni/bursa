@@ -1,5 +1,7 @@
 """Assistant loop, provider chain/registry, tools and the Gemini adapter (no network)."""
 
+from typing import Self
+
 import assistant.providers.registry as registry
 import assistant.service as service
 from assistant.providers import (
@@ -14,7 +16,8 @@ from assistant.providers import (
 )
 from assistant.providers.gemini import GeminiProvider
 from assistant.tools import _ticker, available_tools
-from config import settings
+from clock import utcnow
+from config import Settings, settings
 
 
 class _Scripted(ChatProvider):
@@ -23,15 +26,15 @@ class _Scripted(ChatProvider):
     name = "fake"
     credential_env = "FAKE_API_KEY"
 
-    def __init__(self, script, name="fake"):
+    def __init__(self, script):
         self.script = list(script)
-        self.name = name
         self.seen = []  # messages passed on each call
         self.allow_tools_seen = []
+        self.tool_names: list[str] = []
 
     @classmethod
-    def from_settings(cls, settings):  # pragma: no cover - tests build instances directly
-        return None
+    def from_settings(cls, settings: Settings) -> Self | None:  # pragma: no cover
+        return None  # tests build instances directly
 
     async def complete(self, *, model, system, messages, tools, allow_tools=True):
         self.seen.append(list(messages))
@@ -42,6 +45,11 @@ class _Scripted(ChatProvider):
             raise step
         step.provider, step.model = self.name, model
         return step
+
+
+def _named(name: str) -> type[_Scripted]:
+    """A _Scripted adapter registered under another name (`name` is per class)."""
+    return type(f"_Scripted_{name}", (_Scripted,), {"name": name})
 
 
 def _chain(monkeypatch, *attempts):
@@ -73,7 +81,8 @@ async def test_chat_runs_tools_then_answers(client, monkeypatch):
     assert (body["provider"], body["model"], body["tools_used"]) == ("fake", "m1", ["get_stock"])
     tool_msg = fake.seen[1][-1]
     assert isinstance(tool_msg, ToolResultsMessage)
-    assert tool_msg.results[0].content["ticker"] == "BBCA.JK"  # "bbca" normalised
+    content = tool_msg.results[0].content
+    assert isinstance(content, dict) and content["ticker"] == "BBCA.JK"  # "bbca" normalised
     assert "get_portfolio" not in fake.tool_names  # personal data is off by default
 
 
@@ -123,9 +132,9 @@ async def test_last_message_must_be_user(client):
 # --------------------------------------------------------------------------- #
 async def test_busy_attempt_falls_back_and_restarts_cleanly(client, monkeypatch):
     # First provider gets as far as a tool call, then hits its quota mid-question.
-    first = _Scripted([AssistantMessage(tool_calls=[_call("market_overview")]),
-                       ProviderBusyError("429 quota")], name="primary")
-    second = _Scripted([AssistantMessage(text="Answered by backup.")], name="backup")
+    first = _named("primary")([AssistantMessage(tool_calls=[_call("market_overview")]),
+                               ProviderBusyError("429 quota")])
+    second = _named("backup")([AssistantMessage(text="Answered by backup.")])
     _chain(monkeypatch, (first, "a"), (second, "b"))
 
     body = (await _ask(client, "how is the market?")).json()
@@ -137,8 +146,8 @@ async def test_busy_attempt_falls_back_and_restarts_cleanly(client, monkeypatch)
 
 
 async def test_rejected_attempt_falls_back(client, monkeypatch):
-    bad = _Scripted([ProviderError("401 bad key")], name="badkey")
-    good = _Scripted([AssistantMessage(text="ok")], name="good")
+    bad = _named("badkey")([ProviderError("401 bad key")])
+    good = _named("good")([AssistantMessage(text="ok")])
     _chain(monkeypatch, (bad, "x"), (good, "y"))
     assert (await _ask(client)).json()["provider"] == "good"
 
@@ -159,15 +168,15 @@ def test_registry_resolves_chain_skipping_unknown_and_unconfigured(monkeypatch):
         credential_env = "KEYED_API_KEY"
 
         @classmethod
-        def from_settings(cls, settings):
-            return cls([], name="keyed")
+        def from_settings(cls, settings: Settings) -> Self | None:
+            return cls([])
 
     class _NoKey(_Keyed):
         name = "nokey"
         credential_env = "NOKEY_API_KEY"
 
         @classmethod
-        def from_settings(cls, settings):
+        def from_settings(cls, settings: Settings) -> Self | None:
             return None
 
     monkeypatch.setattr(registry, "_REGISTRY", {"keyed": _Keyed, "nokey": _NoKey})
@@ -313,7 +322,7 @@ async def test_turning_saving_off_deletes_and_stops_saving(client, monkeypatch):
 
 
 async def test_chats_expire_after_last_message(client, monkeypatch):
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from sqlalchemy import func, select, update
 
@@ -328,11 +337,11 @@ async def test_chats_expire_after_last_message(client, monkeypatch):
     recent = (await _say(client, [("user", "recent")])).json()["chat_id"]
     async with AsyncSessionLocal() as s:
         # Started long ago but used 6 days ago: kept. Last used 8 days ago: expired.
-        long_ago = datetime.utcnow() - timedelta(days=30)
+        long_ago = utcnow() - timedelta(days=30)
         await s.execute(update(AssistantChat).where(AssistantChat.id == recent).values(
-            created_at=long_ago, updated_at=datetime.utcnow() - timedelta(days=6)))
+            created_at=long_ago, updated_at=utcnow() - timedelta(days=6)))
         await s.execute(update(AssistantChat).where(AssistantChat.id == old).values(
-            created_at=long_ago, updated_at=datetime.utcnow() - timedelta(days=8)))
+            created_at=long_ago, updated_at=utcnow() - timedelta(days=8)))
         await s.commit()
 
     assert [c["id"] for c in (await client.get("/api/assistant/chats")).json()] == [recent]
@@ -370,3 +379,13 @@ def test_chat_title_is_first_question_shortened():
     assert title_for("  Is\nBBCA   cheap? ") == "Is BBCA cheap?"
     long = title_for("x" * 200)
     assert len(long) == 80 and long.endswith("…")
+
+
+def test_tool_output_is_plain_json():
+    from datetime import date
+
+    from schemas import EquityPoint
+
+    out = service._jsonable({"curve": [EquityPoint(date=date(2026, 3, 10), value=1.5)]})
+    assert out == {"curve": [{"date": "2026-03-10", "value": 1.5,
+                              "return_pct": None, "benchmark_pct": None}]}

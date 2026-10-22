@@ -14,6 +14,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
+from clock import utcnow
 from config import settings
 from database import AsyncSessionLocal
 from models import Alert, AlertEvent, RatingState, User
@@ -132,7 +133,7 @@ async def evaluate_alerts() -> int:
 
         cooldown = timedelta(hours=settings.alert_cooldown_hours)
         outbox: list[str] = []  # sent after the events are safely committed (admins only)
-        now = datetime.utcnow()
+        now = utcnow()
         created = 0
 
         for a in alerts:

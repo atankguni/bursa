@@ -3,7 +3,7 @@ import type { Fundamental, FundamentalsResponse } from '../api'
 import { fmtCompact, fmtPercent, fmtRatio } from '../lib/format'
 
 interface Props {
-  data?: FundamentalsResponse
+  data?: FundamentalsResponse | undefined
   isLoading: boolean
   isError?: boolean
   onRefresh?: () => void

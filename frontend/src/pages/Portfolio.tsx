@@ -87,14 +87,13 @@ export default function Portfolio() {
   // Latest time-weighted return vs IHSG over the same period.
   const lastPoint = [...history]
     .reverse()
-    .find((p) => p.return_pct != null && p.benchmark_pct != null)
-  const versus = lastPoint
-    ? {
-        since: history[0].date,
-        mine: lastPoint.return_pct as number,
-        ihsg: lastPoint.benchmark_pct as number,
-      }
-    : null
+    .flatMap((p) =>
+      p.return_pct != null && p.benchmark_pct != null
+        ? [{ mine: p.return_pct, ihsg: p.benchmark_pct }]
+        : [],
+    )[0]
+  const firstPoint = history[0]
+  const versus = lastPoint && firstPoint ? { since: firstPoint.date, ...lastPoint } : null
 
   const totals = pf?.totals
   const holdings = pf?.holdings ?? []

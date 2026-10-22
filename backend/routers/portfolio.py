@@ -10,10 +10,8 @@ from models import Stock, Transaction, User
 from schemas import (
     EquityPoint,
     ExpectedDividendOut,
-    HoldingOut,
     PortfolioOut,
     PortfolioRiskOut,
-    PortfolioTotals,
     TransactionIn,
     TransactionOut,
 )
@@ -38,8 +36,8 @@ async def get_portfolio(
 ) -> PortfolioOut:
     totals, holdings = await build_portfolio(session, user.id)
     return PortfolioOut(
-        totals=PortfolioTotals(**totals),
-        holdings=[HoldingOut(**h) for h in holdings],
+        totals=totals,
+        holdings=holdings,
     )
 
 
@@ -114,7 +112,7 @@ async def portfolio_history(
 ) -> list[EquityPoint]:
     # IHSG benchmark needs its history (fetched once, then stored).
     await index_service.ensure_full_history(session, "COMPOSITE")
-    return [EquityPoint(**p) for p in await equity_curve(session, user.id)]
+    return await equity_curve(session, user.id)
 
 
 @router.get("/risk", response_model=PortfolioRiskOut)

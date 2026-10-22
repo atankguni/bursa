@@ -16,13 +16,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant.providers import ToolSpec
 from models import Fundamental, Stock, StockPrice, Watchlist
-from schemas import InvestingStyle
+from schemas import InvestingStyle, RatingRecordOut, ScreenerRow
 from services.market_overview import overview
 from services.metrics import derive_metrics
 from services.portfolio import build_portfolio
 from services.prices import latest_daily
 from services.recommendation import compute_universe_cached, rating_code, rating_label
-from services.screener import ScreenerRowData, build_rows, filter_rows
+from services.screener import build_rows, filter_rows
 from services.track_record import HORIZON, live_record, load_backtest
 
 
@@ -35,7 +35,9 @@ class ToolContext:
     style: InvestingStyle
 
 
-type Handler = Callable[[ToolContext, dict[str, Any]], Awaitable[Any]]
+# Arguments are the model's JSON (untrusted, read with care); the result is any
+# value `to_jsonable_python` can encode.
+type Handler = Callable[[ToolContext, dict[str, Any]], Awaitable[object]]
 
 
 @dataclass(frozen=True)
@@ -45,7 +47,7 @@ class Tool:
     personal: bool = False
 
 
-def _ticker(raw: Any) -> str:
+def _ticker(raw: object) -> str:
     """Accept 'bbca', 'BBCA' or 'BBCA.JK' -> 'BBCA.JK'."""
     t = str(raw or "").strip().upper()
     return t if not t or "." in t else f"{t}.JK"
@@ -63,21 +65,21 @@ def _num(v: float | None, digits: int = 4) -> float | None:
     return None if v is None else round(v, digits)
 
 
-def _row(r: ScreenerRowData) -> dict[str, Any]:
+def _row(r: ScreenerRow) -> dict[str, Any]:
     return {
-        "ticker": r["ticker"], "name": r["name"], "sector": r["sector"],
-        "indices": r["indices"], "price": r["price"], "change_pct": r["change_percent"],
-        "pbv": r["pbv"], "roe": r["roe"], "signal_score": r["score"],
-        "rating": rating_label(r["rating"]) if r["rating"] else None,
-        "conviction": r["strength"],
-        "special_monitoring": r["board"] == "Watchlist",
+        "ticker": r.ticker, "name": r.name, "sector": r.sector,
+        "indices": r.indices, "price": r.price, "change_pct": r.change_percent,
+        "pbv": r.pbv, "roe": r.roe, "signal_score": r.score,
+        "rating": rating_label(r.rating) if r.rating else None,
+        "conviction": r.strength,
+        "special_monitoring": r.board == "Watchlist",
     }
 
 
 # --------------------------------------------------------------------------- #
 # Handlers
 # --------------------------------------------------------------------------- #
-async def search_stocks(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def search_stocks(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     q = str(args.get("query", "")).strip()
     if len(q) < 2:
@@ -94,16 +96,16 @@ async def search_stocks(ctx: ToolContext, args: dict[str, Any]) -> Any:
     return [{"ticker": t, "name": n} for t, n in rows]
 
 
-async def get_stock(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_stock(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     ticker = _ticker(args.get("ticker"))
     for r in await build_rows(session, ctx.style):
-        if r["ticker"] == ticker:
+        if r.ticker == ticker:
             return _row(r)
     return {"error": f"{ticker} is not in the app's universe (try search_stocks)"}
 
 
-async def screen_stocks(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def screen_stocks(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     rows = filter_rows(
         await build_rows(session, ctx.style),
@@ -115,15 +117,25 @@ async def screen_stocks(ctx: ToolContext, args: dict[str, Any]) -> Any:
         buy_only=bool(args.get("buy_only", False)),
     )
     sort_by = args.get("sort_by", "signal_score")
-    key = {"signal_score": "score", "pbv": "pbv", "roe": "roe", "change_pct": "change_percent"}
-    field = key.get(sort_by, "score")
+    columns: dict[str, Callable[[ScreenerRow], float | None]] = {
+        "signal_score": lambda r: r.score,
+        "pbv": lambda r: r.pbv,
+        "roe": lambda r: r.roe,
+        "change_pct": lambda r: r.change_percent,
+    }
+    column = columns.get(sort_by, columns["signal_score"])
     descending = sort_by != "pbv"  # cheapest PBV first, otherwise highest first
-    rows.sort(key=lambda r: (r[field] is None, -(r[field] or 0) if descending else (r[field] or 0)))
+
+    def order(r: ScreenerRow) -> tuple[bool, float]:
+        value = column(r)
+        return value is None, -(value or 0.0) if descending else (value or 0.0)
+
+    rows.sort(key=order)
     limit = max(1, min(int(args.get("limit", 10)), 20))
     return {"matched": len(rows), "rows": [_row(r) for r in rows[:limit]]}
 
 
-async def get_signal(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_signal(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     ticker = _ticker(args.get("ticker"))
     style = ctx.style
@@ -135,12 +147,12 @@ async def get_signal(ctx: ToolContext, args: dict[str, Any]) -> Any:
     return {"rated": True, **rec.model_dump(), "rating": rating_label(rec.rating)}
 
 
-async def get_track_record(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_track_record(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     style = ctx.style
 
-    def named(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        return [{**r, "rating": rating_label(r["rating"])} for r in rows]
+    def named(rows: list[RatingRecordOut]) -> list[dict[str, Any]]:
+        return [{**r.model_dump(), "rating": rating_label(r.rating)} for r in rows]
 
     backtest = load_backtest(style)
     live = await live_record(session, style)
@@ -150,12 +162,12 @@ async def get_track_record(ctx: ToolContext, args: dict[str, Any]) -> Any:
         "how_to_read": "beat = share of stocks with this rating that beat the median "
                        "stock over the horizon; 0.5 is a coin flip. ic = rank "
                        "correlation of score vs. later return (~0 noise, >0.05 useful).",
-        "backtest": backtest and {**backtest, "ratings": named(backtest["ratings"])},
-        "live": {**live, "ratings": named(live["ratings"])},
+        "backtest": backtest and {**backtest.model_dump(), "ratings": named(backtest.ratings)},
+        "live": {**live.model_dump(), "ratings": named(live.ratings)},
     }
 
 
-async def get_fundamentals(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_fundamentals(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     ticker = _ticker(args.get("ticker"))
     funds = (
@@ -183,7 +195,7 @@ async def get_fundamentals(ctx: ToolContext, args: dict[str, Any]) -> Any:
     }
 
 
-async def get_price_history(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_price_history(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     ticker = _ticker(args.get("ticker"))
     days = max(5, min(int(args.get("days", 30)), 250))
@@ -210,12 +222,12 @@ async def get_price_history(ctx: ToolContext, args: dict[str, Any]) -> Any:
     }
 
 
-async def market_overview(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def market_overview(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     return await overview(session)
 
 
-async def get_investing_style_tool(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_investing_style_tool(ctx: ToolContext, args: dict[str, Any]) -> object:
     style = ctx.style
     return {"style": style, "meaning": {
         "investor": "long-term; signals from fundamentals (quality, valuation, growth, health)",
@@ -224,15 +236,15 @@ async def get_investing_style_tool(ctx: ToolContext, args: dict[str, Any]) -> An
     }[style]}
 
 
-async def get_watchlist(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_watchlist(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     tickers = set((await session.execute(
         select(Watchlist.ticker).where(Watchlist.user_id == ctx.user_id)
     )).scalars().all())
-    return [_row(r) for r in await build_rows(session, ctx.style) if r["ticker"] in tickers]
+    return [_row(r) for r in await build_rows(session, ctx.style) if r.ticker in tickers]
 
 
-async def get_portfolio(ctx: ToolContext, args: dict[str, Any]) -> Any:
+async def get_portfolio(ctx: ToolContext, args: dict[str, Any]) -> object:
     session = ctx.session
     totals, holdings = await build_portfolio(session, ctx.user_id)
     return {"totals": totals, "holdings": holdings}

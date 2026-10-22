@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from deps import get_session, require_admin, user_style
-from schemas import InvestingStyle, ScreenerPage, ScreenerRow, SyncStartOut, SyncStatusOut
+from schemas import InvestingStyle, ScreenerPage, SyncStartOut, SyncStatusOut
 from services import sync_job
 from services.screener import build_rows, filter_rows
 
@@ -39,19 +39,25 @@ async def screener(
     # Highest score first; stocks without a score sink to the bottom.
     # Highest score first, then stocks with data before blanks, then by ticker,
     # so the order is stable across pages.
-    rows.sort(key=lambda r: (r["score"] is None, -(r["score"] or 0), r["pbv"] is None, r["ticker"]))
+    rows.sort(key=lambda r: (r.score is None, -(r.score or 0), r.pbv is None, r.ticker))
     return ScreenerPage(
-        items=[ScreenerRow(**r) for r in rows[offset : offset + limit]],
+        items=rows[offset : offset + limit],
         total=len(rows),
         limit=limit,
         offset=offset,
     )
 
 
+async def _sync_status() -> SyncStatusOut:
+    status = sync_job.status()
+    status.missing = await sync_job.missing_count()
+    return status
+
+
 @router.get("/screener/sync/status", response_model=SyncStatusOut)
 async def screener_sync_status() -> SyncStatusOut:
     """Progress of the background 'sync missing fundamentals' job."""
-    return SyncStatusOut(**sync_job.status(), missing=await sync_job.missing_count())
+    return await _sync_status()
 
 
 @router.post(
@@ -71,8 +77,8 @@ async def screener_sync(
         started = await sync_job.start_all()
         st = sync_job.status()
         return SyncStartOut(
-            running=st["running"], queued=st["total"] if started else 0,
-            total=st["total"], remaining=st["remaining"],
+            running=st.running, queued=st.total if started else 0,
+            total=st.total, remaining=st.remaining,
         )
     missing = await sync_job.missing_tickers()
     cap = limit or settings.screener_sync_limit
@@ -83,10 +89,10 @@ async def screener_sync(
     started = sync_job.start(tickers)
     st = sync_job.status()
     return SyncStartOut(
-        running=st["running"],
+        running=st.running,
         queued=len(tickers) if started else 0,
-        total=st["total"],
-        remaining=st["remaining"],
+        total=st.total,
+        remaining=st.remaining,
     )
 
 
@@ -96,4 +102,4 @@ async def screener_sync(
 async def screener_sync_cancel() -> SyncStatusOut:
     """Stop the running sync after the current stock."""
     sync_job.cancel()
-    return SyncStatusOut(**sync_job.status(), missing=await sync_job.missing_count())
+    return await _sync_status()

@@ -2,6 +2,7 @@ import { useMutation, useQuery } from '@tanstack/react-query'
 import { isAxiosError } from 'axios'
 import { Send } from 'lucide-react'
 import { fetchNotificationStatus, sendTestNotification } from '../api'
+import { errorDetail } from '../api/client'
 
 /** Telegram delivery status for alerts, with a test button and setup steps. */
 export default function NotificationsCard() {
@@ -13,7 +14,7 @@ export default function NotificationsCard() {
   const on = status.data?.telegram
   const error =
     test.error && isAxiosError(test.error)
-      ? ((test.error.response?.data?.detail as string | undefined) ?? test.error.message)
+      ? (errorDetail(test.error) ?? test.error.message)
       : null
 
   return (

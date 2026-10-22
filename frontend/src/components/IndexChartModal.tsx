@@ -8,6 +8,10 @@ import Modal from './Modal'
 
 const StockChart = lazy(() => import('./StockChart'))
 
+/** Classes for one button of a segmented control. */
+const seg = (active: boolean) =>
+  `px-2.5 py-1 text-xs transition ${active ? 'bg-active text-ink' : 'text-muted hover:text-ink'}`
+
 /** Chart for one IDX index. IHSG/LQ45/JII have decades of history; others build up daily. */
 export default function IndexChartModal({
   index,
@@ -28,8 +32,6 @@ export default function IndexChartModal({
       : pct > 0
         ? 'text-bull'
         : 'text-bear'
-  const seg = (active: boolean) =>
-    `px-2.5 py-1 text-xs transition ${active ? 'bg-active text-ink' : 'text-muted hover:text-ink'}`
 
   return (
     <Modal

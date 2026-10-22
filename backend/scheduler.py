@@ -22,19 +22,21 @@ The heavy lifting lives in `market.sync` (batched downloads) and
 
 import logging
 from datetime import datetime, timedelta
-from typing import Any, cast
+from typing import Any, TypedDict, cast
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.cron import CronTrigger
 from sqlalchemy import CursorResult, delete, select
 
+from clock import utcnow
 from config import settings
 from database import AsyncSessionLocal, engine
 from db import maintenance
 from market.sync import DAILY_INTERVAL, INTRADAY_INTERVAL, sync_batch
 from market.tickers import all_tickers
 from models import Stock, StockIndex, StockPrice, Transaction, Watchlist
+from schemas import JobHealth
 from services.market_clock import is_open
 
 log = logging.getLogger("bursa.scheduler")
@@ -156,7 +158,7 @@ async def sync_watchlist_fundamentals() -> None:
 
 async def prune_intraday() -> None:
     """Delete old 1m bars, then checkpoint (SQLite's WAL). Keeps the DB from growing."""
-    cutoff = datetime.utcnow() - timedelta(days=settings.intraday_retention_days)
+    cutoff = utcnow() - timedelta(days=settings.intraday_retention_days)
     async with AsyncSessionLocal() as session:
         result = cast(CursorResult[Any], await session.execute(
             delete(StockPrice).where(
@@ -227,7 +229,7 @@ async def log_provider_stats() -> None:
     stats = governor.stats()
     log.info(
         "Provider calls today: %s",
-        {name: s["calls_today"] for name, s in stats.items()},
+        {name: s.calls_today for name, s in stats.items()},
     )
     governor.reset_daily()
 
@@ -240,33 +242,37 @@ async def log_provider_stats() -> None:
 # (default: 1 second). On a laptop, Docker pauses while the host sleeps, so a
 # 09:00 backfill would silently never happen. Run missed jobs once on wake
 # instead (within 6h), collapsing any backlog into a single run.
-scheduler = AsyncIOScheduler(
-    timezone=settings.timezone,
-    job_defaults={"misfire_grace_time": 6 * 3600, "coalesce": True},
-)
+JOB_DEFAULTS = {"misfire_grace_time": 6 * 3600, "coalesce": True}
+scheduler = AsyncIOScheduler(timezone=settings.timezone, job_defaults=JOB_DEFAULTS)
+
+
+class JobRun(TypedDict):
+    last_run: datetime | None
+    ok: bool | None
+    error: str | None
 
 
 # Last outcome per job id, for the data-health page (in-memory; single process).
-job_runs: dict[str, dict[str, object]] = {}
+job_runs: dict[str, JobRun] = {}
 
 
 def _record_job(event: JobExecutionEvent) -> None:
     job_runs[event.job_id] = {
-        "last_run": datetime.utcnow(),
+        "last_run": utcnow(),
         "ok": event.exception is None,
         "error": str(event.exception)[:300] if event.exception else None,
     }
 
 
-def job_report() -> list[dict[str, object]]:
+def job_report() -> list[JobHealth]:
     """Every scheduled job with its next run and last outcome (if any yet)."""
     return [
-        {
-            "id": job.id,
-            "description": (job.func.__doc__ or job.id).strip().splitlines()[0],
-            "next_run": job.next_run_time,
-            **job_runs.get(job.id, {"last_run": None, "ok": None, "error": None}),
-        }
+        JobHealth(
+            id=job.id,
+            description=(job.func.__doc__ or job.id).strip().splitlines()[0],
+            next_run=job.next_run_time,
+            **job_runs.get(job.id, JobRun(last_run=None, ok=None, error=None)),
+        )
         for job in sorted(scheduler.get_jobs(), key=lambda j: j.id)
     ]
 

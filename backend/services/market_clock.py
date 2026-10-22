@@ -13,11 +13,11 @@ closed.
 """
 
 from datetime import date, datetime, time, timedelta
-from typing import TypedDict
 from zoneinfo import ZoneInfo
 
 from config import settings
 from market.holidays import IDX_HOLIDAYS
+from schemas import MarketSession, MarketStatusOut
 
 WIB = ZoneInfo(settings.timezone)
 
@@ -36,23 +36,12 @@ _BOUNDARIES = (
 )
 
 
-class ClockStatus(TypedDict):
-    """Mirrors `schemas.MarketStatusOut`."""
-
-    is_open: bool
-    session: str
-    timezone: str
-    server_time: datetime
-    next_change_at: datetime | None
-    next_change_label: str
-
-
 def is_trading_day(d: date) -> bool:
     """Weekday and not a listed IDX holiday."""
     return d.weekday() < 5 and d.isoformat() not in IDX_HOLIDAYS
 
 
-def session(now: datetime | None = None) -> str:
+def session(now: datetime | None = None) -> MarketSession:
     """One of: pre_open, open, break, closed."""
     now = (now or datetime.now(WIB)).astimezone(WIB)
     if not is_trading_day(now.date()):
@@ -114,7 +103,7 @@ def _next_transition(now: datetime) -> datetime | None:
     return min(future) if future else None
 
 
-def status(now: datetime | None = None) -> ClockStatus:
+def status(now: datetime | None = None) -> MarketStatusOut:
     """Snapshot used by the API: state + when it next changes."""
     now = (now or datetime.now(WIB)).astimezone(WIB)
     current = session(now)
@@ -127,11 +116,11 @@ def status(now: datetime | None = None) -> ClockStatus:
         verb = "opens" if into in ("pre_open", "open") else "closes"
         label = f"{verb} in {_human(nxt - now)}"
 
-    return {
-        "is_open": current == "open",
-        "session": current,
-        "timezone": settings.timezone,
-        "server_time": now,
-        "next_change_at": nxt,
-        "next_change_label": label,
-    }
+    return MarketStatusOut(
+        is_open=current == "open",
+        session=current,
+        timezone=settings.timezone,
+        server_time=now,
+        next_change_at=nxt,
+        next_change_label=label,
+    )

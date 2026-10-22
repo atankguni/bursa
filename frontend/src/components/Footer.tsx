@@ -17,7 +17,7 @@ export default function Footer() {
   const { isAdmin } = useAuth()
   const year = new Date().getFullYear()
   const calls = Object.values(data?.calls_today ?? {}).reduce((a, b) => a + b, 0)
-  const provider = data?.providers?.price ?? 'yahoo'
+  const provider = data?.providers['price'] ?? 'yahoo'
 
   return (
     <footer className="border-t border-line bg-panel/80 px-4 py-2 text-[11px] text-subtle">

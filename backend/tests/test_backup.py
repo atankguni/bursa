@@ -26,8 +26,8 @@ def test_backup_is_restorable_private_and_pruned(tmp_path, monkeypatch):
     dest = tmp_path / "backups"
 
     stamps = ["2026-10-01_0230", "2026-10-02_0230", "2026-10-03_0230"]
-    for s in stamps:
-        target = backup.backup_sqlite(db, dest, keep=2, stamp=s)
+    targets = [backup.backup_sqlite(db, dest, keep=2, stamp=s) for s in stamps]
+    target = targets[-1]
 
     # Only the newest two remain, each with its key copy.
     names = sorted(p.name for p in dest.iterdir())
@@ -53,6 +53,7 @@ def test_no_key_copy_when_secret_comes_from_env(tmp_path, monkeypatch):
 
 
 def test_only_sqlite_is_backed_up():
-    assert backup.sqlite_path("sqlite+aiosqlite:///./data/bursa.db").name == "bursa.db"
+    path = backup.sqlite_path("sqlite+aiosqlite:///./data/bursa.db")
+    assert path is not None and path.name == "bursa.db"
     assert backup.sqlite_path("postgresql+asyncpg://u:p@h/bursa") is None
     assert backup.sqlite_path("sqlite+aiosqlite:///:memory:") is None

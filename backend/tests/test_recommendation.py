@@ -54,7 +54,7 @@ def test_lower_is_better_for_valuation():
     rec = score_universe(raw)
     cheap_val = next(c for c in rec["CHEAP.JK"].categories if c.name == "Valuation")
     pricey_val = next(c for c in rec["PRICEY.JK"].categories if c.name == "Valuation")
-    assert cheap_val.score > pricey_val.score
+    assert (cheap_val.score or 0) > (pricey_val.score or 0)
 
 
 def test_sparse_data_lowers_coverage_and_strength():
@@ -121,18 +121,15 @@ def test_thinly_traded_buy_is_capped_at_hold():
 
 
 def test_financials_skip_leverage_health_factors():
-    from types import SimpleNamespace
+    from models import StockProfile
 
-    bank = SimpleNamespace(
-        sector="Financial Services", trailing_pe=None, profit_margin=None,
-        revenue_growth=None, earnings_growth=None,
-    )
+    bank = StockProfile(sector="Financial Services")
     f = _fund(total_liabilities=8_000.0, equity=1_000.0)  # bank-like leverage
     raw = raw_factors([100.0] * 70, [f], bank, price=100.0)
     assert raw["der"] is None and raw["equity_ratio"] is None
     assert raw["roe"] is not None  # quality/valuation still scored
 
-    other = SimpleNamespace(**(vars(bank) | {"sector": "Industrials"}))
+    other = StockProfile(sector="Industrials")
     assert raw_factors([100.0] * 70, [f], other, price=100.0)["der"] == 8.0
 
 
@@ -151,8 +148,10 @@ def test_negative_equity_ranks_worst_not_missing():
         "BROKE.JK": raw,
         "OK.JK": _raw(roe=0.05, net_margin=0.02, pbv=3.0, der=2.0, equity_ratio=0.3),
     })
-    def cat(t, name):
-        return next(c.score for c in rec[t].categories if c.name == name)
+    def cat(t: str, name: str) -> float:
+        score = next(c.score for c in rec[t].categories if c.name == name)
+        assert score is not None
+        return score
     assert cat("BROKE.JK", "Valuation") < cat("OK.JK", "Valuation")
     assert cat("BROKE.JK", "Health") < cat("OK.JK", "Health")
 

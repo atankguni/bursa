@@ -5,16 +5,24 @@ import { errorMessage, fetchAuthOptions, requestPasswordReset } from '../../api'
 import AuthLayout, { Field, FormError, primaryBtn } from './AuthLayout'
 
 export default function ForgotPassword() {
-  const { data: options } = useQuery({ queryKey: ['auth', 'options'], queryFn: fetchAuthOptions })
+  const { data: options } = useQuery({
+    queryKey: ['auth', 'options'],
+    queryFn: fetchAuthOptions,
+  })
   const [email, setEmail] = useState('')
   const submit = useMutation({ mutationFn: () => requestPasswordReset(email) })
-  const back = <Link to="/" className="hover:text-ink">Back to sign in</Link>
+  const back = (
+    <Link to="/" className="hover:text-ink">
+      Back to sign in
+    </Link>
+  )
 
   if (options && !options.password_reset_by_email) {
     return (
       <AuthLayout title="Forgot password" footer={back}>
         <p className="text-sm text-muted">
-          Ask your admin for a password reset link. They can create one from the Users page.
+          Ask your admin for a password reset link. They can create one from the Users
+          page.
         </p>
       </AuthLayout>
     )
@@ -23,8 +31,8 @@ export default function ForgotPassword() {
     return (
       <AuthLayout title="Check your email" footer={back}>
         <p className="text-sm text-muted">
-          If <span className="text-ink">{email}</span> has an account, a reset link is on its
-          way. It works once and expires in a couple of hours.
+          If <span className="text-ink">{email}</span> has an account, a reset link is on
+          its way. It works once and expires in a couple of hours.
         </p>
       </AuthLayout>
     )
@@ -50,7 +58,9 @@ export default function ForgotPassword() {
           value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
-        <FormError>{submit.isError && errorMessage(submit.error, "Couldn't send the link.")}</FormError>
+        <FormError>
+          {submit.isError && errorMessage(submit.error, "Couldn't send the link.")}
+        </FormError>
         <button type="submit" disabled={submit.isPending} className={primaryBtn}>
           {submit.isPending ? 'Sending…' : 'Send reset link'}
         </button>

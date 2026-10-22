@@ -22,6 +22,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Dividend, IndexBar, Stock, StockPrice, Transaction
+from schemas import EquityPoint, HoldingOut, PortfolioTotals
 from services.corporate_actions import AdjustedTx, adjusted_transactions
 from services.preferences import get_trading_costs
 
@@ -47,50 +48,6 @@ class Book(TypedDict):
     quantity: float
     cost_basis: float
     realized_pl: float
-
-
-class Holding(TypedDict):
-    ticker: str
-    board: str | None
-    split_adjusted: bool  # some trades were re-expressed in post-split shares
-    name: str
-    quantity: float
-    avg_cost: float
-    price: float | None
-    market_value: float
-    invested: float
-    unrealized_pl: float
-    unrealized_pl_pct: float | None
-    day_change: float | None
-    day_change_pct: float | None
-    weight: float | None
-    projected_income: float
-    dividends_received: float
-
-
-class Totals(TypedDict):
-    invested: float
-    market_value: float
-    unrealized_pl: float
-    unrealized_pl_pct: float | None
-    day_change: float
-    day_change_pct: float | None
-    realized_pl: float
-    projected_income: float
-    exit_costs: float
-    dividends_received: float
-    total_return: float
-
-
-class EquityPointData(TypedDict):
-    date: date
-    value: float
-    # Cumulative time-weighted return (%): performance with deposits/withdrawals
-    # (buys/sells) taken out, so adding money doesn't count as profit. Dividends
-    # (after tax) count as income on their ex-date.
-    return_pct: float | None
-    # IHSG's cumulative change (%) over the same days, for comparison.
-    benchmark_pct: float | None
 
 
 def apply_transactions(txs: Sequence[Trade | Transaction | AdjustedTx]) -> dict[str, Book]:
@@ -168,7 +125,9 @@ async def load_dividends(
     return out
 
 
-async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, list[Holding]]:
+async def build_portfolio(
+    session: AsyncSession, user_id: int
+) -> tuple[PortfolioTotals, list[HoldingOut]]:
     """Return (totals, holdings) enriched with the latest prices."""
     # In today's shares: split-adjusted (shares x ratio, price / ratio).
     txs = await adjusted_transactions(session, user_id)
@@ -187,19 +146,15 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
     )
     dividends_received = sum(earned.values()) * after_tax
     if not open_books:
-        totals: Totals = {
-            "invested": 0.0,
-            "market_value": 0.0,
-            "unrealized_pl": 0.0,
-            "unrealized_pl_pct": None,
-            "day_change": 0.0,
-            "day_change_pct": None,
-            "realized_pl": round(realized_pl, 2),
-            "projected_income": 0.0,
-            "exit_costs": 0.0,
-            "dividends_received": round(dividends_received, 2),
-            "total_return": round(realized_pl + dividends_received, 2),
-        }
+        totals = PortfolioTotals(
+            invested=0.0,
+            market_value=0.0,
+            unrealized_pl=0.0,
+            day_change=0.0,
+            realized_pl=round(realized_pl, 2),
+            dividends_received=round(dividends_received, 2),
+            total_return=round(realized_pl + dividends_received, 2),
+        )
         return totals, []
 
     tickers = list(open_books)
@@ -215,7 +170,7 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
 
     prices = await latest_daily(session, tickers)
 
-    holdings: list[Holding] = []
+    holdings: list[HoldingOut] = []
     for ticker, book in open_books.items():
         qty = book["quantity"]
         avg_cost = book["cost_basis"] / qty if qty else 0.0
@@ -229,50 +184,45 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
         day_change = qty * (close - prev) if close is not None and prev else None
 
         holdings.append(
-            {
-                "ticker": ticker,
-                "name": stocks[ticker].name if ticker in stocks else ticker,
-                "board": stocks[ticker].listing_board if ticker in stocks else None,
-                "split_adjusted": any(
-                    t.ticker == ticker and t.split_factor != 1.0 for t in txs
+            HoldingOut(
+                ticker=ticker,
+                name=stocks[ticker].name if ticker in stocks else ticker,
+                board=stocks[ticker].listing_board if ticker in stocks else None,
+                split_adjusted=any(t.ticker == ticker and t.split_factor != 1.0 for t in txs),
+                quantity=qty,
+                avg_cost=round(avg_cost, 2),
+                price=close,
+                market_value=round(market_value, 2),
+                invested=round(invested, 2),
+                unrealized_pl=round(unrealized, 2),
+                unrealized_pl_pct=round(unrealized / invested * 100, 2) if invested else None,
+                day_change=round(day_change, 2) if day_change is not None else None,
+                day_change_pct=(
+                    round((close - prev) / prev * 100, 2) if close is not None and prev else None
                 ),
-                "quantity": qty,
-                "avg_cost": round(avg_cost, 2),
-                "price": close,
-                "market_value": round(market_value, 2),
-                "invested": round(invested, 2),
-                "unrealized_pl": round(unrealized, 2),
-                "unrealized_pl_pct": round(unrealized / invested * 100, 2) if invested else None,
-                "day_change": round(day_change, 2) if day_change is not None else None,
-                "day_change_pct": (
-                    round((close - prev) / prev * 100, 2)
-                    if close is not None and prev
-                    else None
-                ),
-                "weight": None,  # filled below
-                "projected_income": 0.0,  # filled below
-                "dividends_received": round(earned.get(ticker, 0.0) * after_tax, 2),
-            }
+                # weight and projected_income are filled below
+                dividends_received=round(earned.get(ticker, 0.0) * after_tax, 2),
+            )
         )
 
-    total_value = sum(h["market_value"] for h in holdings)
+    total_value = sum(h.market_value for h in holdings)
     for h in holdings:
-        h["weight"] = round(h["market_value"] / total_value * 100, 2) if total_value else None
+        h.weight = round(h.market_value / total_value * 100, 2) if total_value else None
 
     # Projected annual dividend income per holding (trailing 12m per share).
     from services.dividends import trailing_dps
 
     dps = await trailing_dps(session, tickers)
     for h in holdings:
-        h["projected_income"] = round(dps.get(h["ticker"], 0.0) * h["quantity"] * after_tax, 2)
+        h.projected_income = round(dps.get(h.ticker, 0.0) * h.quantity * after_tax, 2)
 
-    total_invested = sum(h["invested"] for h in holdings)
+    total_invested = sum(h.invested for h in holdings)
     unrealized_pl = total_value - total_invested
-    day_change = sum(h["day_change"] or 0.0 for h in holdings)
+    day_change = sum(h.day_change or 0.0 for h in holdings)
     prev_value = total_value - day_change
     exit_costs = total_value * costs.sell_fee_pct / 100
 
-    totals = Totals(
+    totals = PortfolioTotals(
         invested=round(total_invested, 2),
         market_value=round(total_value, 2),
         unrealized_pl=round(unrealized_pl, 2),
@@ -282,12 +232,12 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
         day_change=round(day_change, 2),
         day_change_pct=round(day_change / prev_value * 100, 2) if prev_value else None,
         realized_pl=round(realized_pl, 2),
-        projected_income=round(sum(h["projected_income"] for h in holdings), 2),
+        projected_income=round(sum(h.projected_income for h in holdings), 2),
         exit_costs=round(exit_costs, 2),
         dividends_received=round(dividends_received, 2),
         total_return=round(unrealized_pl - exit_costs + realized_pl + dividends_received, 2),
     )
-    holdings.sort(key=lambda h: h["market_value"], reverse=True)
+    holdings.sort(key=lambda h: h.market_value, reverse=True)
     return totals, holdings
 
 
@@ -297,7 +247,7 @@ def _close_on_or_before(series: list[tuple[date, float]], d: date) -> float | No
     return series[i][1] if i >= 0 else None
 
 
-async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPointData]:
+async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPoint]:
     """Daily portfolio value reconstructed from transactions + stored closes."""
     # In today's shares: split-adjusted (shares x ratio, price / ratio).
     txs = await adjusted_transactions(session, user_id)
@@ -354,7 +304,7 @@ async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPointD
     di = 0
     prev_value = 0.0
     growth = 1.0  # chained (1 + daily return)
-    curve: list[EquityPointData] = []
+    curve: list[EquityPoint] = []
     for d in dates:
         flow = 0.0  # money put in (+) or taken out (-) on this day
         # Dividends going ex up to today, on the shares held before today's trades.
@@ -386,12 +336,12 @@ async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPointD
             growth *= 1 + (value - prev_value - flow + income) / base
         prev_value = value
         bench = _close_on_or_before(ihsg, d) if ihsg_base else None
-        curve.append({
-            "date": d,
-            "value": round(value, 2),
-            "return_pct": round((growth - 1) * 100, 2),
-            "benchmark_pct": (
+        curve.append(EquityPoint(
+            date=d,
+            value=round(value, 2),
+            return_pct=round((growth - 1) * 100, 2),
+            benchmark_pct=(
                 round((bench / ihsg_base - 1) * 100, 2) if bench and ihsg_base else None
             ),
-        })
+        ))
     return curve

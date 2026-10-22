@@ -46,16 +46,16 @@ export function usePreferences() {
     onSuccess: (saved, patch) => {
       qc.setQueryData(queryKeys.preferences, saved)
       if (patch.investing_style !== undefined) {
-        SIGNAL_QUERIES.forEach((key) => qc.invalidateQueries({ queryKey: key }))
+        SIGNAL_QUERIES.forEach((key) => void qc.invalidateQueries({ queryKey: key }))
       }
       if (
         patch.assistant_personal_data !== undefined ||
         patch.assistant_save_chats !== undefined
       ) {
-        qc.invalidateQueries({ queryKey: queryKeys.assistantStatus })
+        void qc.invalidateQueries({ queryKey: queryKeys.assistantStatus })
       }
       if (patch.trading_costs !== undefined) {
-        qc.invalidateQueries({ queryKey: ['portfolio'] })
+        void qc.invalidateQueries({ queryKey: ['portfolio'] })
       }
       if (patch.assistant_save_chats === false) {
         qc.setQueryData(queryKeys.assistantChats, []) // the server deleted them

@@ -7,13 +7,29 @@ and suspicious values (including Yahoo vs IDX share-count mismatches).
 """
 
 from datetime import datetime, timedelta
-from typing import Any
+from typing import cast
 
 from sqlalchemy import func, literal_column, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import utcnow
 from market.providers.governor import governor
 from models import Fundamental, IndexQuote, Stock, StockPrice
+from schemas import (
+    DataHealthOut,
+    FundamentalsHealth,
+    HealthSections,
+    HealthStatus,
+    IndicesHealth,
+    JobHealth,
+    JobsHealth,
+    ListingHealth,
+    PricesHealth,
+    ProviderHealth,
+    ProvidersHealth,
+    SuspiciousHealth,
+    TickerIssue,
+)
 from services.fundamentals import SHARES_TOLERANCE  # the same rule the fix applies
 from services.market_clock import WIB, last_closed_trading_day
 from services.prices import latest_fundamentals
@@ -22,12 +38,12 @@ from services.screener import build_rows
 STALE_DAYS = 7  # no daily bar in this many days -> likely suspended/delisted
 
 
-def _status(ok: bool, warn: bool = False) -> str:
+def _status(ok: bool, warn: bool = False) -> HealthStatus:
     return "ok" if ok else ("warn" if warn else "error")
 
 
-async def report(session: AsyncSession, jobs: list[dict[str, Any]]) -> dict[str, Any]:
-    now = datetime.utcnow()
+async def report(session: AsyncSession, jobs: list[JobHealth]) -> DataHealthOut:
+    now = utcnow()
     trading_day = last_closed_trading_day()
     total = (await session.execute(select(func.count()).select_from(Stock))).scalar_one()
 
@@ -74,12 +90,16 @@ async def report(session: AsyncSession, jobs: list[dict[str, Any]]) -> dict[str,
     ).scalar_one()
 
     # --- indices & listing ----------------------------------------------------
-    idx_oldest, idx_newest, idx_count = (
+    idx_row = (
         await session.execute(
             select(func.min(IndexQuote.updated_at), func.max(IndexQuote.updated_at),
                    func.count())
         )
     ).one()
+    # min/max are None on an empty table.
+    idx_oldest = cast(datetime | None, idx_row[0])
+    idx_newest = cast(datetime | None, idx_row[1])
+    idx_count: int = idx_row[2]
     listing_at = (await session.execute(select(func.max(Stock.idx_synced_at)))).scalar_one()
     boards = dict(
         (await session.execute(
@@ -90,80 +110,77 @@ async def report(session: AsyncSession, jobs: list[dict[str, Any]]) -> dict[str,
     # --- suspicious values ----------------------------------------------------
     rows = await build_rows(session, None)  # data checks only, no ratings
     extreme = [
-        {"ticker": r["ticker"], "issue": issue}
+        TickerIssue(ticker=r.ticker, issue=issue)
         for r in rows
         for issue in (
-            [f"RoE {r['roe'] * 100:.0f}%"] if r["roe"] is not None and abs(r["roe"]) > 1 else []
+            [f"RoE {r.roe * 100:.0f}%"] if r.roe is not None and abs(r.roe) > 1 else []
         ) + (
-            [f"PBV {r['pbv']:.2f}"]
-            if r["pbv"] is not None and (r["pbv"] > 50 or r["pbv"] < 0.1) else []
+            [f"PBV {r.pbv:.2f}"]
+            if r.pbv is not None and (r.pbv > 50 or r.pbv < 0.1) else []
         )
     ]
     stocks = {s.ticker: s for s in (await session.execute(select(Stock))).scalars()}
     funds = await latest_fundamentals(session, list(stocks))
-    mismatched = []
+    mismatched: list[TickerIssue] = []
     for t, f in funds.items():
         idx_shares = stocks[t].idx_shares
         if f.total_shares and idx_shares:
             diff = abs(f.total_shares - idx_shares) / idx_shares
             if diff > SHARES_TOLERANCE:
-                mismatched.append({
-                    "ticker": t,
-                    "issue": f"shares: Yahoo {f.total_shares:,.0f} vs IDX {idx_shares:,.0f}",
-                })
+                mismatched.append(TickerIssue(
+                    ticker=t,
+                    issue=f"shares: Yahoo {f.total_shares:,.0f} vs IDX {idx_shares:,.0f}",
+                ))
 
-    failing_jobs = [j for j in jobs if j["ok"] is False]
+    failing_jobs = [j for j in jobs if j.ok is False]
     calls = governor.stats()
-    return {
-        "generated_at": now,
-        "sections": {
-            "jobs": {
-                "status": _status(not failing_jobs),
-                "items": jobs,
-            },
-            "providers": {
-                "status": _status(all(not s["last_error"] for s in calls.values()), warn=True),
-                "items": [{"name": n, **s} for n, s in calls.items()],
-            },
-            "prices": {
-                "status": _status(coverage >= 0.8, warn=coverage >= 0.5),
-                "trading_day": trading_day,
-                "stocks": total,
-                "current": current,
-                "coverage_pct": round(coverage * 100, 1),
-                "no_prices": no_prices,
-                "stale": len(stale),
-                "stale_sample": stale[:15],
-                "intraday_tickers": intraday_tickers,
-                "intraday_last": intraday_last,
-            },
-            "fundamentals": {
-                "status": _status(with_funds / total >= 0.5 if total else False, warn=True),
-                "statements": by_source.get("statements", 0),
-                "summary": by_source.get("summary", 0),
-                "missing": total - with_funds,
-                "never_tried": never_tried,
-            },
-            "indices": {
-                "status": _status(
+    return DataHealthOut(
+        generated_at=now,
+        sections=HealthSections(
+            jobs=JobsHealth(status=_status(not failing_jobs), items=jobs),
+            providers=ProvidersHealth(
+                status=_status(all(not s.last_error for s in calls.values()), warn=True),
+                items=[ProviderHealth(name=n, **s.model_dump()) for n, s in calls.items()],
+            ),
+            prices=PricesHealth(
+                status=_status(coverage >= 0.8, warn=coverage >= 0.5),
+                trading_day=trading_day,
+                stocks=total,
+                current=current,
+                coverage_pct=round(coverage * 100, 1),
+                no_prices=no_prices,
+                stale=len(stale),
+                stale_sample=stale[:15],
+                intraday_tickers=intraday_tickers,
+                intraday_last=intraday_last,
+            ),
+            fundamentals=FundamentalsHealth(
+                status=_status(with_funds / total >= 0.5 if total else False, warn=True),
+                statements=by_source.get("statements", 0),
+                summary=by_source.get("summary", 0),
+                missing=total - with_funds,
+                never_tried=never_tried,
+            ),
+            indices=IndicesHealth(
+                status=_status(
                     idx_newest is not None and now - idx_newest < timedelta(days=4), warn=True
                 ),
-                "count": idx_count,
-                "oldest_update": idx_oldest,
-                "newest_update": idx_newest,
-            },
-            "listing": {
-                "status": _status(
+                count=idx_count,
+                oldest_update=idx_oldest,
+                newest_update=idx_newest,
+            ),
+            listing=ListingHealth(
+                status=_status(
                     listing_at is not None and now - listing_at < timedelta(days=8), warn=True
                 ),
-                "synced_at": listing_at,
-                "boards": {str(k): v for k, v in boards.items()},
-            },
-            "suspicious": {
-                "status": _status(not mismatched, warn=True),
-                "extreme_values": extreme,
-                "share_mismatches": mismatched,
-            },
-        },
-        "timezone_now": datetime.now(WIB),
-    }
+                synced_at=listing_at,
+                boards={str(k): v for k, v in boards.items()},
+            ),
+            suspicious=SuspiciousHealth(
+                status=_status(not mismatched, warn=True),
+                extreme_values=extreme,
+                share_mismatches=mismatched,
+            ),
+        ),
+        timezone_now=datetime.now(WIB),
+    )

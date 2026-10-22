@@ -23,7 +23,7 @@ const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
 
 /** Typing in a field, or a dialog is open: leave the key alone. */
 function busy(e: KeyboardEvent) {
-  const el = e.target as HTMLElement | null
+  const el = e.target instanceof Element ? e.target : null
   return (
     !!el?.closest('input, textarea, select, [contenteditable="true"]') ||
     !!document.querySelector('[aria-modal="true"]')
@@ -43,14 +43,15 @@ export default function AccountMenu() {
 
   useEffect(() => {
     function onDoc(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+      if (ref.current && e.target instanceof Node && !ref.current.contains(e.target))
+        setOpen(false)
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') setOpen(false)
       else if (e.key === ',' && !e.metaKey && !e.ctrlKey && !e.altKey && !busy(e)) {
         e.preventDefault()
         setOpen(false)
-        navigate('/settings')
+        void navigate('/settings')
       }
     }
     document.addEventListener('mousedown', onDoc)

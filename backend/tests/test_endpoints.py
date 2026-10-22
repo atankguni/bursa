@@ -1,5 +1,7 @@
 """Smoke tests for the HTTP API (no network, in-process ASGI)."""
 
+from clock import utcnow
+
 EXPECTED_STOCK_KEYS = {
     "id",
     "ticker",
@@ -161,13 +163,13 @@ async def test_screener_total_counts_filtered_matches(client):
 
 
 async def _insert_daily_bars(ticker: str, days: int) -> None:
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
     from database import AsyncSessionLocal
     from db.upsert import upsert
     from models import StockPrice
 
-    today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
     rows = [
         {"ticker": ticker, "timestamp": today - timedelta(days=d), "interval": "1d",
          "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0 + d, "volume": 1000}
