@@ -8,14 +8,11 @@ Everything is statically typed, and one command checks it all (the backend
 runs in its Docker test image, so no local Python is needed):
 
 ```bash
-make check        # what CI runs: types, lint, format, tests, API types in sync
+make check        # everything: types, lint, format, tests, API types in sync
 make check-fast   # the pre-commit subset (~10 s): no test suite
 make hooks        # once per clone: run check-fast before every commit
 make api-types    # after changing a response/request model in backend/schemas.py
 ```
-
-`.github/workflows/check.yml` runs `make check` and a production build on every
-push and pull request.
 
 ### Typing rules
 
@@ -31,8 +28,8 @@ push and pull request.
   `AlertType`, ...), shared with the database models.
 - **Frontend types come from the backend:** `make api-types` exports the
   OpenAPI document and generates `frontend/src/api/schema.gen.ts` (never edit
-  it); `src/api/types.ts` gives its models short names. CI fails when the file
-  is out of date. Response fields with defaults are still *required* in the
+  it); `src/api/types.ts` gives its models short names. `make check` fails
+  when the file is out of date. Response fields with defaults are still *required* in the
   generated types (the `Schema` base class), since the server always sends them.
 - **TypeScript:** `strict` plus `noUncheckedIndexedAccess` (`arr[i]` may be
   `undefined`), `exactOptionalPropertyTypes`, `noImplicitOverride` and

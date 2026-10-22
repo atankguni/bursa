@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Fast checks before each commit (types, lint, format); the full suite runs in CI
-# and with `make check`. Skip once with `git commit --no-verify`.
+# Fast checks before each commit (types, lint, format); run `make check` for the
+# full suite (tests included). Skip once with `git commit --no-verify`.
 set -euo pipefail
 cd "$(git rev-parse --show-toplevel)"
 
@@ -18,7 +18,8 @@ if ! command -v npm >/dev/null 2>&1; then
 fi
 export PATH
 
-# Check what can run here; skip (with a warning) what can't, since CI runs it all.
+# Check what can run here; skip (with a warning) what can't rather than block
+# the commit; `make check` runs everything.
 targets=()
 if command -v docker >/dev/null 2>&1 && docker info >/dev/null 2>&1; then
   targets+=(backend-check-fast)

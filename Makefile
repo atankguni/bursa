@@ -1,7 +1,7 @@
 # Bursa: one entry point for the checks. The backend runs in Docker (its test
 # image), the frontend with the local Node install.
 #
-#   make check        everything CI runs: types, lint, format, tests, API types
+#   make check        everything: types, lint, format, tests, API types
 #   make check-fast   the pre-commit subset (no test suite, no rebuild of the types)
 #   make api-types    regenerate frontend/src/api/schema.gen.ts from the backend
 #   make hooks        use the repo's git hooks (.githooks/)
