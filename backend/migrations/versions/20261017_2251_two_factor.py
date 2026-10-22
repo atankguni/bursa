@@ -1,9 +1,9 @@
 """Two-factor authentication: methods on users, recovery codes, pending
 challenges and remembered devices.
 
-Revision ID: 0004
-Revises: 0003
-Create Date: 2026-10-17
+Revision ID: 20261017_225100
+Revises: 20261017_222700
+Create Date: 2026-10-17 22:51
 """
 
 from collections.abc import Sequence
@@ -11,8 +11,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0004"
-down_revision: str | None = "0003"
+revision: str = "20261017_225100"
+down_revision: str | None = "20261017_222700"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

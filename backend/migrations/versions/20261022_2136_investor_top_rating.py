@@ -1,17 +1,17 @@
 """Investor style no longer has a Strong Buy rating: move remembered ratings
 down, so rating-change alerts don't fire for the rename.
 
-Revision ID: 0009
-Revises: 0008
-Create Date: 2026-10-22
+Revision ID: 20261022_213600
+Revises: 20261022_205700
+Create Date: 2026-10-22 21:36
 """
 
 from collections.abc import Sequence
 
 from alembic import op
 
-revision: str = "0009"
-down_revision: str | None = "0008"
+revision: str = "20261022_213600"
+down_revision: str | None = "20261022_205700"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

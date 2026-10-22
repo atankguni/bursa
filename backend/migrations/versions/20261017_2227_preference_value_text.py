@@ -2,9 +2,9 @@
 
 user_preferences.value: VARCHAR(255) -> TEXT.
 
-Revision ID: 0003
-Revises: 0002
-Create Date: 2026-10-17
+Revision ID: 20261017_222700
+Revises: 20261017_220600
+Create Date: 2026-10-17 22:27
 """
 
 from collections.abc import Sequence
@@ -12,8 +12,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0003"
-down_revision: str | None = "0002"
+revision: str = "20261017_222700"
+down_revision: str | None = "20261017_220600"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

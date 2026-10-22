@@ -48,7 +48,10 @@ alembic upgrade head      # or just restart the app; it migrates on startup
 alembic check             # verifies models.py and the database agree
 ```
 
-Migrations live in `backend/migrations/versions/`. `0001_baseline` is the schema at
+Migrations live in `backend/migrations/versions/`, named by creation time (Jakarta):
+`20261022_2057_rating_snapshots.py`. New ones get that name and a matching revision id
+(`20261022_205703`) automatically. Alembic runs them in the order of each file's
+`down_revision`, not by name. `20261017_2114_baseline.py` is the schema at
 the time Alembic was introduced.
 
 ### Signal backtest

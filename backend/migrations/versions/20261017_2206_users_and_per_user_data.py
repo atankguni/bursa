@@ -10,9 +10,9 @@
 
 Downgrade removes accounts and every row that belongs to one.
 
-Revision ID: 0002
-Revises: 0001
-Create Date: 2026-10-17
+Revision ID: 20261017_220600
+Revises: 20261017_211400
+Create Date: 2026-10-17 22:06
 """
 
 from collections.abc import Sequence
@@ -21,8 +21,8 @@ import sqlalchemy as sa
 from alembic import op
 from alembic.operations import BatchOperations
 
-revision: str = "0002"
-down_revision: str | None = "0001"
+revision: str = "20261017_220600"
+down_revision: str | None = "20261017_211400"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

@@ -4,9 +4,9 @@ Creates only tables that don't exist yet, so a database made earlier by
 `create_all` (see db/migrate.py) converges on this schema instead of failing.
 Later migrations are ordinary Alembic scripts.
 
-Revision ID: 0001
+Revision ID: 20261017_211400
 Revises:
-Create Date: 2026-10-17
+Create Date: 2026-10-17 21:14
 """
 
 from collections.abc import Sequence
@@ -15,7 +15,7 @@ import sqlalchemy as sa
 from alembic import op
 from sqlalchemy.schema import SchemaItem
 
-revision: str = "0001"
+revision: str = "20261017_211400"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None

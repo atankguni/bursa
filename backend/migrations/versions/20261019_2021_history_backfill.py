@@ -1,8 +1,8 @@
 """Mark stocks whose multi-year daily history was fetched.
 
-Revision ID: 0007
-Revises: 0006
-Create Date: 2026-10-19
+Revision ID: 20261019_202100
+Revises: 20261018_065300
+Create Date: 2026-10-19 20:21
 """
 
 from collections.abc import Sequence
@@ -10,8 +10,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0007"
-down_revision: str | None = "0006"
+revision: str = "20261019_202100"
+down_revision: str | None = "20261018_065300"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 

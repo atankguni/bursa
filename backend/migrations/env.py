@@ -10,7 +10,9 @@ table); other dialects get plain ALTER TABLE statements.
 """
 
 import asyncio
+from datetime import datetime
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import sqlalchemy as sa
 from alembic import context
@@ -43,12 +45,22 @@ def _compare_type(
     return None  # Alembic's default comparison
 
 
+def _timestamp_ids(ctx: MigrationContext, revision: Any, directives: list[Any]) -> None:
+    """New revisions get a creation-time id (YYYYMMDD_HHMMSS) instead of random hex,
+    matching the file name (alembic.ini `file_template`)."""
+    if directives:
+        directives[0].rev_id = datetime.now(ZoneInfo(settings.timezone)).strftime(
+            "%Y%m%d_%H%M%S"
+        )
+
+
 def _run(connection: Connection) -> None:
     context.configure(
         connection=connection,
         target_metadata=target_metadata,
         render_as_batch=True,
         compare_type=_compare_type,
+        process_revision_directives=_timestamp_ids,
     )
     with context.begin_transaction():
         context.run_migrations()

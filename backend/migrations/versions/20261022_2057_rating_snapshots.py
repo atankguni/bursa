@@ -1,8 +1,8 @@
 """Daily rating snapshots for the live track record.
 
-Revision ID: 0008
-Revises: 0007
-Create Date: 2026-10-22
+Revision ID: 20261022_205700
+Revises: 20261019_202100
+Create Date: 2026-10-22 20:57
 """
 
 from collections.abc import Sequence
@@ -10,8 +10,8 @@ from collections.abc import Sequence
 import sqlalchemy as sa
 from alembic import op
 
-revision: str = "0008"
-down_revision: str | None = "0007"
+revision: str = "20261022_205700"
+down_revision: str | None = "20261019_202100"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
 
