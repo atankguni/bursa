@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { addTransaction, type TransactionInput } from '../api'
-import { useStatus, useStocks } from '../hooks'
+import { usePreferences, useStatus, useStocks } from '../hooks'
 import Modal from './Modal'
 
 export default function TransactionModal({ onClose }: { onClose: () => void }) {
@@ -14,13 +14,18 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
   const [unit, setUnit] = useState<'lots' | 'shares'>('lots')
   const [quantity, setQuantity] = useState('')
   const [price, setPrice] = useState('')
-  const [fees, setFees] = useState('0')
+  // Fee follows Settings → Trading costs until the user types their own.
+  const [fees, setFees] = useState<string | null>(null)
+  const { tradingCosts } = usePreferences()
   const [tradeDate, setTradeDate] = useState(new Date().toISOString().slice(0, 10))
   const [note, setNote] = useState('')
 
   // Quantity is stored as shares; lots are converted on submit.
   const shares =
     unit === 'lots' ? (Number(quantity) || 0) * lotSize : Number(quantity) || 0
+  const feePct = side === 'buy' ? tradingCosts.buy_fee_pct : tradingCosts.sell_fee_pct
+  const autoFee = Math.round((shares * (Number(price) || 0) * feePct) / 100)
+  const fee = fees ?? String(autoFee)
 
   const add = useMutation({
     mutationFn: (input: TransactionInput) => addTransaction(input),
@@ -36,7 +41,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
       side,
       quantity: shares,
       price: Number(price),
-      fees: Number(fees) || 0,
+      fees: Number(fee) || 0,
       trade_date: tradeDate,
       note: note.trim() || null,
     })
@@ -147,10 +152,23 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-muted">Fees</label>
+            <label className="mb-1 flex justify-between text-xs text-muted">
+              Fees
+              {fees === null ? (
+                <span className="text-subtle">{feePct}% · auto</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setFees(null)}
+                  className="text-accent hover:underline"
+                >
+                  Use {feePct}%
+                </button>
+              )}
+            </label>
             <input
               type="number"
-              value={fees}
+              value={fee}
               onChange={(e) => setFees(e.target.value)}
               className={inputCls}
             />

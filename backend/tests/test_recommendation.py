@@ -39,7 +39,7 @@ def test_ranking_and_ratings():
     rec = score_universe(raw)
 
     assert rec["GOOD.JK"].score > rec["MID.JK"].score > rec["BAD.JK"].score
-    assert rec["GOOD.JK"].rating in ("Strong Buy", "Buy")
+    assert rec["GOOD.JK"].rating == "Buy"  # investor style has no Strong Buy
     assert rec["BAD.JK"].rating in ("Reduce", "Avoid")
     assert rec["GOOD.JK"].coverage == 1.0
     assert rec["GOOD.JK"].disclaimer  # non-empty
@@ -112,12 +112,12 @@ def test_thinly_traded_buy_is_capped_at_hold():
     traded = {"LIQ.JK": 50e9, "THIN.JK": 0.2e9, "BAD.JK": 50e9}
 
     rec = score_universe(raw, traded)
-    assert rec["LIQ.JK"].rating in ("Buy", "Strong Buy")
+    assert rec["LIQ.JK"].rating == "Buy"
     assert rec["THIN.JK"].rating == "Hold"
     assert rec["THIN.JK"].score == rec["LIQ.JK"].score  # score itself unchanged
     assert any("Thinly traded" in r for r in rec["THIN.JK"].reasons)
     # Without liquidity data (e.g. pure scoring) nothing is capped.
-    assert score_universe(raw)["THIN.JK"].rating in ("Buy", "Strong Buy")
+    assert score_universe(raw)["THIN.JK"].rating == "Buy"
 
 
 def test_financials_skip_leverage_health_factors():
@@ -167,7 +167,6 @@ def test_trader_factors_from_closes():
     closes = [100.0] * 21 + [100.0 + i for i in range(1, 20)]  # steady climb to 119
     raw = trader_factors(closes)
     assert raw["from_high_20d"] == 0.0  # closing at the 20-day high
-    assert raw["ret_20d"] == 119 / 100 - 1
     assert raw["from_low_20d"] is not None and raw["from_low_20d"] > 0
     assert raw["volatility_20d"] is not None and raw["volatility_20d"] < 0.01
     # Not enough history -> nothing to score.
@@ -187,7 +186,7 @@ def test_trader_style_rates_liquid_price_only_stocks():
     assert set(rec) == {"CALM.JK", "WILD.JK"}  # illiquid names are not rated for traders
     assert rec["CALM.JK"].score > rec["WILD.JK"].score  # stability is rewarded
     assert rec["CALM.JK"].style == "trader"
-    assert [c.name for c in rec["CALM.JK"].categories] == ["Stability", "Setup", "Pullback"]
+    assert [c.name for c in rec["CALM.JK"].categories] == ["Stability", "Setup"]
     # Investor style still refuses price-only data.
     assert score_universe({"CALM.JK": _raw(ret_3m=0.1)}, traded, "investor") == {}
 
@@ -198,3 +197,11 @@ def test_52_week_position_ignores_older_history():
     last_year = [50.0 + (i % 51) for i in range(251)] + [75.0]  # range 50..100, ends at 75
     deep = [1000.0] * 3000 + last_year  # an old all-time high far above
     assert _momentum(deep)["pos_52w"] == _momentum(last_year)["pos_52w"] == 0.5
+
+
+def test_investor_style_has_no_top_rating():
+    from services.recommendation import _rating
+
+    assert _rating(95, "investor") == "Buy"
+    assert _rating(95, "trader") == "Strong Buy"
+    assert _rating(10, "investor") == "Avoid"

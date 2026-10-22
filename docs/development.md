@@ -70,6 +70,27 @@ years, not just in the months it was tuned on. The history comes from
 `DAILY_HISTORY_YEARS` (5) of daily prices, fetched once per stock by the
 `backfill_history` job, and the ~5 fiscal years of fundamentals.
 
+`--write-summary` also saves the main-horizon result (how often each rating beat
+the median stock) to `services/backtest_summary.json`. The app shows it as the
+**track record** next to each rating, so re-run it for both styles after changing
+the model and commit the file:
+
+```bash
+docker compose exec backend python scripts/evaluate_signals.py --write-summary
+docker compose exec backend python scripts/evaluate_signals.py --style trader --write-summary
+docker compose cp backend:/app/services/backtest_summary.json backend/services/
+```
+
+Findings so far (5 years, 2026-10): for **investor**, only Valuation had an edge in
+every year; reweighting toward it gained only noise and made the top rating do worse
+than the second (the very cheapest stocks are often value traps), so the weights were
+kept. For **trader**, the Pullback factor added nothing and was dropped (4-week IC
+0.099 → 0.112, better in every year).
+
+The **live** track record needs no script: the `record_ratings` job saves both
+styles' ratings at each trading day's close (`rating_snapshots`), and the app compares
+them with what prices did once the horizon (3 months / 4 weeks) has passed.
+
 ## Frontend
 
 ```bash

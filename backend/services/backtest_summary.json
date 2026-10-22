@@ -1,0 +1,78 @@
+{
+  "trader": {
+    "start": "2022-01-18",
+    "end": "2026-09-21",
+    "universe": "liquid stocks (>= Rp 1bn traded a day)",
+    "ic": 0.112,
+    "years": {
+      "2022": 0.171,
+      "2023": 0.119,
+      "2024": 0.084,
+      "2025": 0.022,
+      "2026": 0.187
+    },
+    "ratings": [
+      {
+        "rating": "Strong Buy",
+        "n": 7341,
+        "beat": 0.594
+      },
+      {
+        "rating": "Buy",
+        "n": 11476,
+        "beat": 0.546
+      },
+      {
+        "rating": "Hold",
+        "n": 16153,
+        "beat": 0.502
+      },
+      {
+        "rating": "Reduce",
+        "n": 11862,
+        "beat": 0.477
+      },
+      {
+        "rating": "Avoid",
+        "n": 14771,
+        "beat": 0.426
+      }
+    ],
+    "generated": "2026-10-22"
+  },
+  "investor": {
+    "start": "2022-04-18",
+    "end": "2026-07-15",
+    "universe": "liquid stocks (>= Rp 1bn traded a day)",
+    "ic": 0.078,
+    "years": {
+      "2023": 0.096,
+      "2024": 0.052,
+      "2025": -0.019,
+      "2026": 0.267
+    },
+    "ratings": [
+      {
+        "rating": "Buy",
+        "n": 2289,
+        "beat": 0.548
+      },
+      {
+        "rating": "Hold",
+        "n": 4465,
+        "beat": 0.494
+      },
+      {
+        "rating": "Reduce",
+        "n": 2054,
+        "beat": 0.469
+      },
+      {
+        "rating": "Avoid",
+        "n": 804,
+        "beat": 0.449
+      }
+    ],
+    "generated": "2026-10-22"
+  }
+}

@@ -10,6 +10,11 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bursa.db"
+    # Nightly SQLite backups (services/backup.py): kept next to the database, so
+    # also copy them elsewhere. PostgreSQL / MySQL use their own tools.
+    backup_enabled: bool = True
+    backup_dir: str = "./data/backups"
+    backup_keep: int = 7
     # AI assistant. Ordered "provider:model" attempts (see assistant/providers):
     # the first configured one answers; on busy/quota/errors the next is tried.
     # Providers without credentials are skipped, so a fallback can be listed
@@ -142,7 +147,11 @@ class Settings(BaseSettings):
     # Chosen with scripts/evaluate_signals.py on a time split (picked on Jan-May
     # 2026, validated on Jun-Sep): valuation was the strongest factor and growth
     # was consistently negative, so weight moved from growth to valuation/health.
-    # Re-check as more history accumulates; the sample is still short.
+    # 5-year re-check (2026-10, 921 stocks): Valuation is the only category with
+    # an edge in every year; Growth and Health showed none, Quality failed in
+    # 2025. Reweighting toward valuation (e.g. 0.7/0.2/0.1) gained only noise
+    # (+0.009 IC) and made the top rating do worse than the second (the very
+    # cheapest stocks are often value traps), so these weights were kept.
     recommendation_weights: dict[str, float] = {
         "quality": 0.30,
         "valuation": 0.40,
@@ -153,6 +162,15 @@ class Settings(BaseSettings):
     # Composite score (0-100) -> rating label. Highest threshold that is met wins.
     recommendation_ratings: list[tuple[str, int]] = [
         ("Strong Buy", 80),
+        ("Buy", 65),
+        ("Hold", 45),
+        ("Reduce", 30),
+        ("Avoid", 0),
+    ]
+    # Investor style has no top rating: in the 5-year backtest the highest scores
+    # (often the very cheapest stocks: value traps) did no better than the next
+    # band, so "Strong Buy" (Very positive) would overstate the evidence.
+    recommendation_investor_ratings: list[tuple[str, int]] = [
         ("Buy", 65),
         ("Hold", 45),
         ("Reduce", 30),
@@ -169,13 +187,14 @@ class Settings(BaseSettings):
     #   thinly traded names are capped at Hold.
     recommendation_min_traded_value: float = 1_000_000_000
     # Trader (swing, 1-4 weeks) style: price behaviour only, for liquid stocks.
-    # From the factor research: low volatility, a tight range near the 20-day
-    # high, and recent pullbacks predicted 1-4 week returns; classic momentum
-    # did not (it was slightly negative). Measured in a falling market only.
+    # From the factor research: low volatility and a tight range near the
+    # 20-day high predicted 1-4 week returns; classic momentum did not. A
+    # "pullback" factor (weak 20-day return) was dropped after the 5-year
+    # backtest: no edge, and the 4-week IC rose in every year without it
+    # (0.099 -> 0.112).
     recommendation_trader_weights: dict[str, float] = {
-        "stability": 0.50,
-        "setup": 0.30,
-        "pullback": 0.20,
+        "stability": 0.625,
+        "setup": 0.375,
     }
     # Leverage ratios are structural for balance-sheet businesses (bank deposits
     # are liabilities), so Health (Debt/Equity, equity ratio) is not scored here.

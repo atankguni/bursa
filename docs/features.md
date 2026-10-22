@@ -36,19 +36,31 @@
 ## Signals and screening
 
 - **Recommendation**: an explainable, cross-sectional **factor score** (Quality, Valuation,
-  Growth, Momentum, Health) → rating (Strong Buy → Avoid) + conviction, with a factor
-  breakdown and plain-language reasons. It appears on **Home** (sortable column, "Buy only"
+  Growth, Momentum, Health) → rating + conviction, with a factor breakdown and
+  plain-language reasons. Ratings read **Very positive / Positive / Neutral / Negative /
+  Very negative**: a rank against the other stocks, not buy/sell advice (the API keeps
+  the codes Strong Buy … Avoid). Investor style tops out at **Positive**: in the 5-year
+  backtest its highest scores (often the very cheapest stocks) did no better than the
+  next band, so "Very positive" would overstate the evidence. It appears on **Home** (sortable column, "Positive only"
   filter, buy-signal counts) and the **Watchlist**, plus a detail tab.
   - Only stocks with fundamentals are rated.
   - Thinly traded names (< Rp 1bn/day median traded value) are capped at Hold.
   - Financials skip leverage-based Health.
 - **Investing style**: choose **Investor** (default, fundamentals-led factor score) or
-  **Trader** (swing, 1–4 weeks: price stability, setup near the 20-day high and pullbacks).
+  **Trader** (swing, 1–4 weeks: price stability and setup near the 20-day high).
   Trader mode can rate liquid stocks without fundamentals. The choice is stored on the server.
 - **Screener**: rank/filter the tracked universe by score, PBV, RoE, sector, or
-  "Buy signals only", with pagination. **Sync missing** backfills fundamentals
+  "Positive signals only", with pagination. **Sync missing** backfills fundamentals
   (PBV/RoE/sector) in a capped, throttled background job. **Sync all** runs a paced job
   over the whole catalog and can be cancelled.
+
+- **Track record**: the signal tab shows how often each rating beat the typical
+  (median) stock over the next 3 months (investor) or 4 weeks (trader), 50% being a
+  coin flip, with the current rating highlighted:
+  - **Backtest**: the model replayed over 5 years of prices, with the overall edge in
+    words and the years it didn't work.
+  - **Live record**: each trading day's ratings are saved at the close and checked once
+    the horizon has passed (first results about 5 weeks / 3 months after recording starts).
 
 Signals are heuristics, **not financial advice**. Measure changes with the point-in-time
 backtest (see [Development](development.md#signal-backtest)).
@@ -83,15 +95,29 @@ backtest (see [Development](development.md#signal-backtest)).
   shares toggle). Shows holdings with average-cost **P/L**, allocation weights, day change,
   realized P/L and a portfolio value curve. A **hide values** toggle masks amounts
   when others can see your screen.
+- **Trading costs** (Settings → Investing): your broker's buy fee, sell fee (incl. the
+  0.1% sales tax) and dividend tax; defaults 0.15% / 0.25% / 10%. New transactions
+  pre-fill their fee from them (editable), and the portfolio shows:
+  - P/L **after selling costs** (what selling everything now would leave);
+  - **dividends received**: cash dividends on shares held before each ex-date, after tax;
+  - **total return**: P/L after selling costs + realized P/L + dividends;
+  - estimated annual income after tax.
 - **Portfolio analytics**:
-  - **Return vs IHSG**, time-weighted so buys and sells don't count as gains.
+  - **Return vs IHSG**, time-weighted so buys and sells don't count as gains, with
+    dividends (after tax) counted as income. IHSG itself is a price index (no dividends).
   - A **risk view**: diversification, sector exposure, beta vs IHSG, an "if IHSG
     falls 10%" stress test and max drawdown.
   - An **expected dividend calendar**, projected from last year's ex-dates.
   - Holdings are **split-adjusted** automatically.
-- **Alerts**: price-above/below, %-change and rating-change rules with in-app
-  notifications (navbar bell) and optional **Telegram** delivery (admins' alerts). Rules
-  are evaluated after each market sync.
+- **Alerts**: price-above/below, %-change, signal-change and **dividend coming up** rules
+  with in-app notifications (navbar bell) and optional **Telegram** delivery (admins'
+  alerts). Rules are evaluated after each market sync. A dividend reminder fires once,
+  N days (default 3) before the estimated **cum date** (the last day to buy and still get
+  the dividend: the trading day before the ex-date), projected from last year's ex-date.
+- **Daily summary email** (opt-in, Settings → Investing; needs email set up): after the
+  close on trading days, your portfolio's day and total return, the biggest moves among
+  holdings and watchlist, signal changes, dividends expected in the next 10 days and how
+  many alerts fired. "Send now" emails a preview.
 
 ## Assistant and tools
 
@@ -111,6 +137,8 @@ backtest (see [Development](development.md#signal-backtest)).
 - **Data health** (`/data`, footer link): scheduled jobs, provider calls, price
   freshness, fundamentals coverage and suspicious values. Missed jobs (e.g. while the
   host slept) run on wake, and 1-minute gaps are back-filled.
+- **Nightly backups** (SQLite): a compressed copy of the database plus the 2FA secret,
+  newest 7 kept in `backend/data/backups/` (see [Configuration](configuration.md#backups)).
 
 ## Personalization
 

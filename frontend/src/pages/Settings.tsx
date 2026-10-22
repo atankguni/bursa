@@ -1,4 +1,5 @@
-import { type ReactNode } from 'react'
+import { type ReactNode, useState } from 'react'
+import { useMutation, useQuery } from '@tanstack/react-query'
 import { Navigate, NavLink, useParams } from 'react-router-dom'
 import {
   Check,
@@ -11,7 +12,13 @@ import {
   TrendingUp,
   Users as UsersIcon,
 } from 'lucide-react'
-import { DEFAULT_INDEXES, type InvestingStyle } from '../api'
+import {
+  DEFAULT_INDEXES,
+  fetchAuthOptions,
+  sendDigestPreview,
+  type InvestingStyle,
+  type TradingCosts,
+} from '../api'
 import { useAssistantStatus, usePreferences } from '../hooks'
 import { useAuth } from '../lib/auth'
 import {
@@ -140,10 +147,12 @@ function Switch({
   checked,
   onChange,
   label,
+  disabled = false,
 }: {
   checked: boolean
   onChange: (v: boolean) => void
   label: string
+  disabled?: boolean
 }) {
   return (
     <button
@@ -151,8 +160,9 @@ function Switch({
       role="switch"
       aria-checked={checked}
       aria-label={label}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-5 w-9 shrink-0 rounded transition-colors ${
+      className={`relative h-5 w-9 shrink-0 rounded transition-colors disabled:opacity-40 ${
         checked ? 'bg-accent' : 'bg-active'
       }`}
     >
@@ -300,6 +310,121 @@ function InvestingSettings() {
         <Switch checked={saveChats} onChange={onSaveChats} label="Save assistant chats" />
       </ListRow>
     </Rows>
+  )
+}
+
+const COST_FIELDS: {
+  key: keyof TradingCosts
+  label: string
+  hint: string
+  max: number
+}[] = [
+  { key: 'buy_fee_pct', label: 'Buy fee', hint: 'Broker fee + levies', max: 5 },
+  {
+    key: 'sell_fee_pct',
+    label: 'Sell fee',
+    hint: 'Includes the 0.1% final tax on share sales',
+    max: 5,
+  },
+  {
+    key: 'dividend_tax_pct',
+    label: 'Dividend tax',
+    hint: '10% final tax for residents (0% if exempt by reinvesting)',
+    max: 50,
+  },
+]
+
+/** The summary email after the close (needs email set up on the server). */
+function DigestSettings() {
+  const { dailyDigest, setDailyDigest } = usePreferences()
+  const { data: options } = useQuery({
+    queryKey: ['auth', 'options'],
+    queryFn: fetchAuthOptions,
+  })
+  const emailReady = options?.password_reset_by_email ?? false // email is set up
+  const preview = useMutation({ mutationFn: sendDigestPreview })
+  const detail = (preview.error as { response?: { data?: { detail?: string } } } | null)
+    ?.response?.data?.detail
+  return (
+    <Rows>
+      <ListRow
+        label="Daily summary email"
+        hint={
+          emailReady
+            ? 'After the close on trading days: your portfolio’s day, big moves, signal changes and dividends coming up.'
+            : 'Needs email to be set up on the server (an admin can do that).'
+        }
+      >
+        <Switch
+          checked={dailyDigest}
+          onChange={setDailyDigest}
+          label="Daily summary email"
+          disabled={!emailReady}
+        />
+      </ListRow>
+      {emailReady && (
+        <ListRow
+          label="Preview"
+          hint={
+            preview.isSuccess
+              ? 'Sent: check your inbox.'
+              : (detail ?? 'Email today’s summary to yourself now.')
+          }
+        >
+          <button
+            onClick={() => preview.mutate()}
+            disabled={preview.isPending}
+            className="rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+          >
+            {preview.isPending ? 'Sending…' : 'Send now'}
+          </button>
+        </ListRow>
+      )}
+    </Rows>
+  )
+}
+
+/** Broker costs: fill in new trades' fees and make the portfolio's returns net. */
+function TradingCostSettings() {
+  const { tradingCosts, setTradingCosts } = usePreferences()
+  const [draft, setDraft] = useState<Record<string, string>>({})
+  const save = (key: keyof TradingCosts, max: number) => {
+    const raw = draft[key]
+    if (raw === undefined) return
+    const value = Number(raw.replace(',', '.'))
+    setDraft(({ [key]: _, ...rest }) => rest)
+    if (raw.trim() !== '' && Number.isFinite(value) && value >= 0 && value <= max) {
+      if (value !== tradingCosts[key]) setTradingCosts({ ...tradingCosts, [key]: value })
+    }
+  }
+  return (
+    <div className="space-y-2">
+      <div>
+        <h3 className="text-xs font-semibold text-ink">Trading costs</h3>
+        <p className="text-[11px] text-subtle">
+          From your broker&apos;s fee schedule. They pre-fill the fee of new transactions,
+          and the portfolio shows profit after selling costs and dividends after tax.
+        </p>
+      </div>
+      <Rows>
+        {COST_FIELDS.map(({ key, label, hint, max }) => (
+          <ListRow key={key} label={label} hint={hint}>
+            <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+              <input
+                inputMode="decimal"
+                aria-label={`${label} (%)`}
+                value={draft[key] ?? String(tradingCosts[key])}
+                onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
+                onBlur={() => save(key, max)}
+                onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                className="w-16 rounded bg-panel px-2 py-1 text-right tabular-nums text-ink ring-1 ring-line-strong outline-none focus:ring-accent"
+              />
+              %
+            </span>
+          </ListRow>
+        ))}
+      </Rows>
+    </div>
   )
 }
 
@@ -619,7 +744,13 @@ export default function Settings() {
             <p className="mt-0.5 text-xs text-muted">{section.description}</p>
           </div>
 
-          {section.id === 'investing' && <InvestingSettings />}
+          {section.id === 'investing' && (
+            <div className="space-y-5">
+              <InvestingSettings />
+              <DigestSettings />
+              <TradingCostSettings />
+            </div>
+          )}
           {section.id === 'appearance' && <AppearanceSettings />}
           {section.id === 'display' && <DisplaySettings />}
           {section.id === 'tables' && <TableSettings />}

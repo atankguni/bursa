@@ -161,7 +161,7 @@ export default function Screener() {
               : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
           }`}
         >
-          Buy signals only
+          Positive signals only
         </button>
 
         <div className="ml-auto flex items-center gap-3">

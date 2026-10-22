@@ -144,10 +144,12 @@ export default function Home() {
 
           <span
             className="inline-flex items-center gap-2 rounded bg-panelalt/70 px-2.5 py-1 ring-1 ring-line"
-            title="Signal ratings are relative to the tracked universe"
+            title="Signals rank each stock against the others; they are not buy/sell advice"
           >
-            <span className="text-bull">{signals.strongBuy} Strong Buy</span>
-            <span className="text-bull/80">{signals.buy} Buy</span>
+            {signals.strongBuy > 0 && (
+              <span className="text-bull">{signals.strongBuy} Very positive</span>
+            )}
+            <span className="text-bull/80">{signals.buy} Positive</span>
           </span>
 
           <button
@@ -158,7 +160,7 @@ export default function Home() {
                 : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
             }`}
           >
-            Buy only
+            Positive only
           </button>
           <button
             onClick={() => {
@@ -238,7 +240,7 @@ export default function Home() {
                 <tr>
                   <td colSpan={colCount} className="px-4 py-10 text-center text-subtle">
                     {buyOnly
-                      ? 'No Buy signals in this view.'
+                      ? 'No positive signals in this view.'
                       : 'No stocks match the selected indices.'}
                   </td>
                 </tr>

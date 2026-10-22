@@ -15,14 +15,16 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from db.upsert import upsert
-from models import RatingState, UserPreference
-from schemas import DisplaySettings, InvestingStyle
+from models import RatingState, User, UserPreference
+from schemas import DisplaySettings, InvestingStyle, TradingCosts
 
 INVESTING_STYLE_KEY = "investing_style"
 ASSISTANT_PERSONAL_KEY = "assistant_personal_data"
 ASSISTANT_SAVE_CHATS_KEY = "assistant_save_chats"
 DISPLAY_KEY = "display_settings"
 ALERTS_SEEN_KEY = "alerts_seen_at"
+TRADING_COSTS_KEY = "trading_costs"
+DAILY_DIGEST_KEY = "daily_digest"
 DEFAULT_STYLE: InvestingStyle = "investor"
 _STYLES: tuple[str, ...] = get_args(InvestingStyle)
 
@@ -121,6 +123,45 @@ async def get_display(session: AsyncSession, user_id: int) -> DisplaySettings | 
 async def set_display(session: AsyncSession, user_id: int, display: DisplaySettings) -> None:
     await _set(session, user_id, DISPLAY_KEY, display.model_dump_json(by_alias=True))
     await session.commit()
+
+
+async def get_trading_costs(session: AsyncSession, user_id: int) -> TradingCosts:
+    """The user's broker fee / tax rates (defaults until saved)."""
+    raw = await _get(session, user_id, TRADING_COSTS_KEY)
+    if raw is not None:
+        try:
+            return TradingCosts.model_validate_json(raw)
+        except ValidationError:
+            log.warning("Ignoring invalid trading costs of user %d", user_id)
+    return TradingCosts()
+
+
+async def set_trading_costs(session: AsyncSession, user_id: int, costs: TradingCosts) -> None:
+    await _set(session, user_id, TRADING_COSTS_KEY, costs.model_dump_json())
+    await session.commit()
+
+
+async def get_daily_digest(session: AsyncSession, user_id: int) -> bool:
+    """Opt-in: the daily summary email (services/digest.py)."""
+    return await _get(session, user_id, DAILY_DIGEST_KEY) == "true"
+
+
+async def set_daily_digest(session: AsyncSession, user_id: int, enabled: bool) -> None:
+    await _set(session, user_id, DAILY_DIGEST_KEY, "true" if enabled else "false")
+    await session.commit()
+
+
+async def users_with_digest(session: AsyncSession) -> list[User]:
+    """Active users who turned the daily summary on."""
+    return list((
+        await session.execute(
+            select(User).join(UserPreference, UserPreference.user_id == User.id).where(
+                UserPreference.key == DAILY_DIGEST_KEY,
+                UserPreference.value == "true",
+                User.is_active.is_(True),
+            )
+        )
+    ).scalars().all())
 
 
 async def get_alerts_seen_at(session: AsyncSession, user_id: int) -> datetime | None:

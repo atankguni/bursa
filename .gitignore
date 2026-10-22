@@ -10,6 +10,8 @@ backend/data/*.db-wal
 backend/data/*.db-shm
 # Server secret for 2FA (services/crypto.py): never commit it.
 backend/data/secret.key
+# Nightly backups (services/backup.py): database copies + the secret key.
+backend/data/backups/
 !backend/data/.gitkeep
 backend/data/yfinance-cache/
 

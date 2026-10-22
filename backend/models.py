@@ -490,6 +490,32 @@ class RatingState(Base):
         return f"<RatingState {self.user_id} {self.ticker} {self.rating}>"
 
 
+class RatingSnapshot(Base):
+    """
+    The rating each stock had at a day's close, per investing style: the live
+    track record (services/track_record.py) compares it with what the price did
+    next. Written once per trading day; shared market data, not per user.
+    """
+
+    __tablename__ = "rating_snapshots"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    style: Mapped[str] = mapped_column(String(8), nullable=False)
+    ticker: Mapped[str] = mapped_column(String(20), nullable=False)
+    rating: Mapped[str] = mapped_column(String(16), nullable=False)
+    score: Mapped[float] = mapped_column(Double, nullable=False)
+    # Traded >= recommendation_min_traded_value then (the backtest's "liquid").
+    liquid: Mapped[bool] = mapped_column(Boolean, nullable=False)
+
+    __table_args__ = (
+        UniqueConstraint("style", "day", "ticker", name="uq_rating_snapshot"),
+    )
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<RatingSnapshot {self.day} {self.style} {self.ticker} {self.rating}>"
+
+
 class Dividend(Base):
     """A historical cash dividend (ex-date + amount per share)."""
 

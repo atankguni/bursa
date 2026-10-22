@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from models import Dividend, Stock, Watchlist
 from services.dividends import sync_dividends
+from services.market_clock import is_trading_day
 from services.portfolio import build_portfolio
 
 
@@ -57,6 +58,53 @@ def project(
         if today <= expected <= today + timedelta(days=horizon_days):
             regular = (ex_date.year - 1, ex_date.month) in months_year_before
             out.append((expected, ex_date, amount, regular))
+    return out
+
+
+def cum_date(ex_date: date) -> date:
+    """The last day to buy and still get the dividend: the trading day before the
+    ex-date (IDX settles T+2, so buying on the ex-date is too late)."""
+    d = ex_date - timedelta(days=1)
+    while not is_trading_day(d):
+        d -= timedelta(days=1)
+    return d
+
+
+class UpcomingDividend(TypedDict):
+    cum_date: date
+    expected_ex_date: date
+    amount_per_share: float
+    regular: bool
+
+
+async def next_expected(
+    session: AsyncSession, tickers: list[str], today: date, days: int = 45
+) -> dict[str, UpcomingDividend]:
+    """The nearest projected dividend per ticker within `days` (stored history only)."""
+    if not tickers:
+        return {}
+    history: dict[str, list[tuple[date, float]]] = {}
+    rows = await session.execute(
+        select(Dividend.ticker, Dividend.ex_date, Dividend.amount)
+        .where(
+            Dividend.ticker.in_(tickers),
+            Dividend.ex_date >= today - timedelta(days=2 * 365 + 7),
+        )
+        .order_by(Dividend.ex_date)
+    )
+    for ticker, ex_date, amount in rows:
+        history.setdefault(ticker, []).append((ex_date, amount))
+    out: dict[str, UpcomingDividend] = {}
+    for ticker, hist in history.items():
+        projected = sorted(project(hist, today, days))
+        for expected, _, amount, regular in projected:
+            cum = cum_date(expected)
+            if cum >= today:
+                out[ticker] = UpcomingDividend(
+                    cum_date=cum, expected_ex_date=expected,
+                    amount_per_share=amount, regular=regular,
+                )
+                break
     return out
 
 

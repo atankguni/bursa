@@ -61,6 +61,6 @@ def test_special_monitoring_caps_buy_at_hold():
     bad = {"roe": 0.01, "net_margin": 0.01, "pbv": 5.0, "per": 40, "revenue_yoy": -0.2}
     universe = {"OK.JK": raw(**good), "PPK.JK": raw(**good), "BAD.JK": raw(**bad)}
     rec = score_universe(universe, special_monitoring={"PPK.JK"})
-    assert rec["OK.JK"].rating in ("Buy", "Strong Buy")
+    assert rec["OK.JK"].rating == "Buy"
     assert rec["PPK.JK"].rating == "Hold"
     assert any("special monitoring" in r for r in rec["PPK.JK"].reasons)

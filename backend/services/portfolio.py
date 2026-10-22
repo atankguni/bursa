@@ -3,6 +3,10 @@ services/portfolio.py
 ---------------------
 Derive the portfolio (holdings + average-cost P/L) from recorded transactions.
 
+Costs follow the user's `TradingCosts`: recorded fees are part of cost / proceeds;
+P/L after selling estimates the sell fee + tax on today's value; dividends count
+when the shares were held before the ex-date (cum date or earlier), after tax.
+
 Pure helpers (`apply_transactions`) are unit-tested without a database; the
 `build_*` functions enrich the result with current prices.
 """
@@ -11,14 +15,15 @@ import logging
 from bisect import bisect_right
 from collections import defaultdict
 from collections.abc import Sequence
-from datetime import date
+from datetime import date, timedelta
 from typing import Protocol, TypedDict
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import IndexBar, Stock, StockPrice, Transaction
+from models import Dividend, IndexBar, Stock, StockPrice, Transaction
 from services.corporate_actions import AdjustedTx, adjusted_transactions
+from services.preferences import get_trading_costs
 
 log = logging.getLogger("bursa.portfolio")
 
@@ -60,6 +65,7 @@ class Holding(TypedDict):
     day_change_pct: float | None
     weight: float | None
     projected_income: float
+    dividends_received: float
 
 
 class Totals(TypedDict):
@@ -71,13 +77,17 @@ class Totals(TypedDict):
     day_change_pct: float | None
     realized_pl: float
     projected_income: float
+    exit_costs: float
+    dividends_received: float
+    total_return: float
 
 
 class EquityPointData(TypedDict):
     date: date
     value: float
     # Cumulative time-weighted return (%): performance with deposits/withdrawals
-    # (buys/sells) taken out, so adding money doesn't count as profit.
+    # (buys/sells) taken out, so adding money doesn't count as profit. Dividends
+    # (after tax) count as income on their ex-date.
     return_pct: float | None
     # IHSG's cumulative change (%) over the same days, for comparison.
     benchmark_pct: float | None
@@ -114,14 +124,68 @@ def apply_transactions(txs: Sequence[Trade | Transaction | AdjustedTx]) -> dict[
     return books
 
 
+type DividendMap = dict[str, list[tuple[date, float]]]
+
+
+def dividend_income(txs: Sequence[AdjustedTx], dividends: DividendMap) -> dict[str, float]:
+    """
+    Gross cash dividends earned per ticker: for each ex-date, the shares held at
+    the end of the day before (bought on the cum date or earlier) x the amount.
+    `txs` are in today's (split-adjusted) shares, like the provider's amounts.
+    """
+    out: dict[str, float] = defaultdict(float)
+    for ticker, divs in dividends.items():
+        trades = [t for t in txs if t.ticker == ticker]
+        for ex_date, amount in divs:
+            held = sum(
+                t.quantity if t.side == "buy" else -t.quantity
+                for t in trades
+                if t.trade_date < ex_date
+            )
+            if held > 0:
+                out[ticker] += held * amount
+    return dict(out)
+
+
+async def load_dividends(
+    session: AsyncSession, tickers: Sequence[str], since: date
+) -> DividendMap:
+    """Ex-dates (up to today) and amounts per ticker, ascending."""
+    out: DividendMap = defaultdict(list)
+    if not tickers:
+        return out
+    rows = await session.execute(
+        select(Dividend.ticker, Dividend.ex_date, Dividend.amount)
+        .where(
+            Dividend.ticker.in_(tickers),
+            Dividend.ex_date > since,
+            Dividend.ex_date <= date.today(),
+        )
+        .order_by(Dividend.ex_date)
+    )
+    for ticker, ex_date, amount in rows:
+        out[ticker].append((ex_date, amount))
+    return out
+
+
 async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, list[Holding]]:
     """Return (totals, holdings) enriched with the latest prices."""
     # In today's shares: split-adjusted (shares x ratio, price / ratio).
     txs = await adjusted_transactions(session, user_id)
     books = apply_transactions(txs)
+    costs = await get_trading_costs(session, user_id)
+    after_tax = 1 - costs.dividend_tax_pct / 100
 
     open_books = {t: b for t, b in books.items() if b["quantity"] > 0}
     realized_pl = sum(b["realized_pl"] for b in books.values())
+    earned = (
+        dividend_income(
+            txs, await load_dividends(session, list(books), min(t.trade_date for t in txs))
+        )
+        if txs
+        else {}
+    )
+    dividends_received = sum(earned.values()) * after_tax
     if not open_books:
         totals: Totals = {
             "invested": 0.0,
@@ -132,6 +196,9 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
             "day_change_pct": None,
             "realized_pl": round(realized_pl, 2),
             "projected_income": 0.0,
+            "exit_costs": 0.0,
+            "dividends_received": round(dividends_received, 2),
+            "total_return": round(realized_pl + dividends_received, 2),
         }
         return totals, []
 
@@ -184,6 +251,7 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
                 ),
                 "weight": None,  # filled below
                 "projected_income": 0.0,  # filled below
+                "dividends_received": round(earned.get(ticker, 0.0) * after_tax, 2),
             }
         )
 
@@ -196,12 +264,13 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
 
     dps = await trailing_dps(session, tickers)
     for h in holdings:
-        h["projected_income"] = round(dps.get(h["ticker"], 0.0) * h["quantity"], 2)
+        h["projected_income"] = round(dps.get(h["ticker"], 0.0) * h["quantity"] * after_tax, 2)
 
     total_invested = sum(h["invested"] for h in holdings)
     unrealized_pl = total_value - total_invested
     day_change = sum(h["day_change"] or 0.0 for h in holdings)
     prev_value = total_value - day_change
+    exit_costs = total_value * costs.sell_fee_pct / 100
 
     totals = Totals(
         invested=round(total_invested, 2),
@@ -214,6 +283,9 @@ async def build_portfolio(session: AsyncSession, user_id: int) -> tuple[Totals, 
         day_change_pct=round(day_change / prev_value * 100, 2) if prev_value else None,
         realized_pl=round(realized_pl, 2),
         projected_income=round(sum(h["projected_income"] for h in holdings), 2),
+        exit_costs=round(exit_costs, 2),
+        dividends_received=round(dividends_received, 2),
+        total_return=round(unrealized_pl - exit_costs + realized_pl + dividends_received, 2),
     )
     holdings.sort(key=lambda h: h["market_value"], reverse=True)
     return totals, holdings
@@ -269,13 +341,28 @@ async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPointD
     ]
     ihsg_base = _close_on_or_before(ihsg, dates[0]) if dates else None
 
+    # Dividends are income: paid on shares held before the ex-date, after tax.
+    after_tax = 1 - (await get_trading_costs(session, user_id)).dividend_tax_pct / 100
+    divs_by_date: dict[date, list[tuple[str, float]]] = defaultdict(list)
+    for ticker, divs in (await load_dividends(session, tickers, start - timedelta(days=1))).items():
+        for ex_date, amount in divs:
+            divs_by_date[ex_date].append((ticker, amount))
+    div_dates = sorted(divs_by_date)
+
     qty: dict[str, float] = defaultdict(float)
     ti = 0
+    di = 0
     prev_value = 0.0
     growth = 1.0  # chained (1 + daily return)
     curve: list[EquityPointData] = []
     for d in dates:
         flow = 0.0  # money put in (+) or taken out (-) on this day
+        # Dividends going ex up to today, on the shares held before today's trades.
+        income = 0.0
+        while di < len(div_dates) and div_dates[di] <= d:
+            for ticker, amount in divs_by_date[div_dates[di]]:
+                income += max(qty[ticker], 0.0) * amount * after_tax
+            di += 1
         while ti < len(tx_dates) and tx_dates[ti] <= d:
             for t in tx_by_date[tx_dates[ti]]:
                 gross = t.quantity * t.price
@@ -296,7 +383,7 @@ async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPointD
         # Daily return with the day's flow at the start (Modified Dietz, daily).
         base = prev_value + flow
         if base > 0:
-            growth *= 1 + (value - prev_value - flow) / base
+            growth *= 1 + (value - prev_value - flow + income) / base
         prev_value = value
         bench = _close_on_or_before(ihsg, d) if ihsg_base else None
         curve.append({

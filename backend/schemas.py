@@ -128,7 +128,8 @@ class HoldingOut(BaseModel):
     day_change: float | None = None
     day_change_pct: float | None = None
     weight: float | None = None
-    projected_income: float | None = None
+    projected_income: float | None = None  # after dividend tax
+    dividends_received: float = 0.0  # since the first trade, after tax
 
 
 class PortfolioTotals(BaseModel):
@@ -139,7 +140,13 @@ class PortfolioTotals(BaseModel):
     day_change: float
     day_change_pct: float | None = None
     realized_pl: float
-    projected_income: float = 0.0
+    projected_income: float = 0.0  # after dividend tax
+    # Selling everything now would cost about this (sell fee + tax).
+    exit_costs: float = 0.0
+    # Cash dividends the trades were entitled to (held before the ex-date), after tax.
+    dividends_received: float = 0.0
+    # Unrealized P/L after exit costs + realized P/L + dividends received.
+    total_return: float = 0.0
 
 
 class PortfolioOut(BaseModel):
@@ -245,7 +252,11 @@ class MarketOverviewOut(BaseModel):
 # Alerts
 # --------------------------------------------------------------------------- #
 
-AlertType = Literal["price_above", "price_below", "pct_change", "rating_change"]
+AlertType = Literal[
+    "price_above", "price_below", "pct_change", "rating_change",
+    # Expected dividend: threshold = days ahead of the (estimated) cum date, default 3.
+    "dividend_soon",
+]
 
 
 class AlertIn(BaseModel):
@@ -455,6 +466,39 @@ class RecommendationOut(BaseModel):
     style: InvestingStyle = "investor"  # which model produced this score
 
 
+class RatingRecordOut(BaseModel):
+    rating: str      # internal code (Strong Buy ... Avoid)
+    n: int           # stock-dates with this rating
+    beat: float      # share that beat that date's median stock (0.5 = coin flip)
+
+
+class BacktestRecordOut(BaseModel):
+    start: str                   # first / last as-of date (YYYY-MM-DD)
+    end: str
+    universe: str                # which stocks were judged, in words
+    ic: float                    # mean rank correlation of score vs. later return
+    years: dict[str, float] = {}  # the same, per calendar year
+    ratings: list[RatingRecordOut] = []
+    generated: str = ""
+
+
+class LiveRecordOut(BaseModel):
+    since: date | None = None    # first recorded day
+    days: int = 0                # days recorded
+    matured_days: int = 0        # of which the horizon has passed
+    ready_on: date | None = None  # roughly when the first result arrives
+    ratings: list[RatingRecordOut] = []
+
+
+class TrackRecordOut(BaseModel):
+    """How past ratings of this style did over its main horizon."""
+
+    style: InvestingStyle
+    horizon: str                 # "3m" / "4w"
+    backtest: BacktestRecordOut | None = None
+    live: LiveRecordOut = LiveRecordOut()
+
+
 class WatchlistItemOut(StockBase):
     """A watchlist row: stock + latest price + latest fundamentals + ratios."""
 
@@ -562,6 +606,18 @@ class DisplaySettings(BaseModel):
     hidden_columns: HiddenColumns = Field(default_factory=HiddenColumns)
 
 
+class TradingCosts(BaseModel):
+    """
+    The user's broker costs, in percent. Defaults are typical for Indonesian
+    online brokers: 0.15% to buy, 0.25% to sell (including the 0.1% final tax on
+    share sales), and the 10% final tax on dividends for residents.
+    """
+
+    buy_fee_pct: float = Field(default=0.15, ge=0, le=5)
+    sell_fee_pct: float = Field(default=0.25, ge=0, le=5)
+    dividend_tax_pct: float = Field(default=10.0, ge=0, le=50)
+
+
 class PreferencesOut(BaseModel):
     """Server-side preferences of the signed-in user."""
 
@@ -574,6 +630,8 @@ class PreferencesOut(BaseModel):
     display: DisplaySettings | None = None
     # Alert events up to this time were seen (the navbar bell's unread count).
     alerts_seen_at: datetime | None = None
+    trading_costs: TradingCosts = Field(default_factory=TradingCosts)
+    daily_digest: bool = False  # the summary email after the close (opt-in)
 
 
 class PreferencesIn(BaseModel):
@@ -585,6 +643,8 @@ class PreferencesIn(BaseModel):
     display: DisplaySettings | None = None  # replaces the saved settings
     # Only ever moves forward, so a device with an older list can't un-read alerts.
     alerts_seen_at: datetime | None = None
+    trading_costs: TradingCosts | None = None
+    daily_digest: bool | None = None
 
 
 class IndexOut(BaseModel):

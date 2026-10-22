@@ -189,6 +189,17 @@ export interface Preferences {
   display: DisplaySettings | null
   /** Alert events up to this (server) time were seen: the bell's unread count. */
   alerts_seen_at: string | null
+  trading_costs: TradingCosts
+  /** Opt-in: the summary email after the close. */
+  daily_digest: boolean
+}
+
+/** Broker costs in percent (defaults: typical Indonesian online broker). */
+export interface TradingCosts {
+  buy_fee_pct: number
+  /** Includes the 0.1% final tax on share sales. */
+  sell_fee_pct: number
+  dividend_tax_pct: number
 }
 
 export interface Recommendation {
@@ -201,6 +212,34 @@ export interface Recommendation {
   reasons: string[]
   disclaimer: string
   style: InvestingStyle
+}
+
+export interface RatingRecord {
+  rating: string
+  n: number
+  /** Share that beat that date's median stock (0.5 = coin flip). */
+  beat: number
+}
+
+export interface TrackRecord {
+  style: InvestingStyle
+  horizon: string
+  backtest: {
+    start: string
+    end: string
+    universe: string
+    ic: number
+    years: Record<string, number>
+    ratings: RatingRecord[]
+    generated: string
+  } | null
+  live: {
+    since: string | null
+    days: number
+    matured_days: number
+    ready_on: string | null
+    ratings: RatingRecord[]
+  }
 }
 
 export interface MarketStatus {
@@ -263,6 +302,8 @@ export interface Holding {
   day_change_pct: number | null
   weight: number | null
   projected_income: number | null
+  /** Since the first trade, after tax. */
+  dividends_received: number
 }
 
 export interface PortfolioTotals {
@@ -273,7 +314,14 @@ export interface PortfolioTotals {
   day_change: number
   day_change_pct: number | null
   realized_pl: number
+  /** After dividend tax. */
   projected_income: number
+  /** Selling everything now would cost about this. */
+  exit_costs: number
+  /** Dividends the trades were entitled to, after tax. */
+  dividends_received: number
+  /** Unrealized P/L after exit costs + realized P/L + dividends. */
+  total_return: number
 }
 
 export interface Portfolio {
@@ -405,7 +453,13 @@ export interface MarketOverview {
 
 // --- Alerts ----------------------------------------------------------------
 
-export type AlertType = 'price_above' | 'price_below' | 'pct_change' | 'rating_change'
+export type AlertType =
+  | 'price_above'
+  | 'price_below'
+  | 'pct_change'
+  | 'rating_change'
+  /** Threshold = days ahead of the estimated cum date (default 3). */
+  | 'dividend_soon'
 
 export interface Alert {
   id: number

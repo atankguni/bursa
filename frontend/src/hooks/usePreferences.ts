@@ -1,6 +1,17 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { fetchPreferences, updatePreferences, type Preferences } from '../api'
+import {
+  fetchPreferences,
+  updatePreferences,
+  type Preferences,
+  type TradingCosts,
+} from '../api'
 import { queryKeys } from './keys'
+
+export const DEFAULT_COSTS: TradingCosts = {
+  buy_fee_pct: 0.15,
+  sell_fee_pct: 0.25,
+  dividend_tax_pct: 10,
+}
 
 // Everything that shows a signal / rating is re-scored when the style changes.
 const SIGNAL_QUERIES = [
@@ -43,6 +54,9 @@ export function usePreferences() {
       ) {
         qc.invalidateQueries({ queryKey: queryKeys.assistantStatus })
       }
+      if (patch.trading_costs !== undefined) {
+        qc.invalidateQueries({ queryKey: ['portfolio'] })
+      }
       if (patch.assistant_save_chats === false) {
         qc.setQueryData(queryKeys.assistantChats, []) // the server deleted them
       }
@@ -53,6 +67,10 @@ export function usePreferences() {
     style: query.data?.investing_style ?? 'investor',
     personalData: query.data?.assistant_personal_data ?? false,
     saveChats: query.data?.assistant_save_chats ?? true,
+    tradingCosts: query.data?.trading_costs ?? DEFAULT_COSTS,
+    dailyDigest: query.data?.daily_digest ?? false,
+    setDailyDigest: (daily_digest: boolean) => mutation.mutate({ daily_digest }),
+    setTradingCosts: (trading_costs: TradingCosts) => mutation.mutate({ trading_costs }),
     setStyle: (investing_style: Preferences['investing_style']) =>
       mutation.mutate({ investing_style }),
     setPersonalData: (assistant_personal_data: boolean) =>

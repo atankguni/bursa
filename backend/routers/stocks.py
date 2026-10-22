@@ -7,6 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from deps import get_session, require_admin, user_style
 from models import Fundamental, Stock, StockIndex, StockPrice, StockProfile
 from schemas import (
+    BacktestRecordOut,
     CatalogPage,
     CatalogRow,
     CompanyOut,
@@ -15,6 +16,7 @@ from schemas import (
     FundamentalOut,
     FundamentalsResponse,
     InvestingStyle,
+    LiveRecordOut,
     OfficerOut,
     PricePoint,
     RecommendationOut,
@@ -23,6 +25,7 @@ from schemas import (
     SplitOut,
     StockHistory,
     StockOut,
+    TrackRecordOut,
     TrackStockIn,
     ValuationOut,
 )
@@ -34,6 +37,7 @@ from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily
 from services.recommendation import compute_universe_cached
 from services.search import search
+from services.track_record import HORIZON, live_record, load_backtest
 from services.valuation import valuation
 
 router = APIRouter(prefix="/api", tags=["stocks"])
@@ -327,6 +331,21 @@ async def stock_recommendation(
         )
         raise HTTPException(status_code=404, detail=f"{ticker} is not rated ({style}): {need}")
     return rec
+
+
+@router.get("/track-record", response_model=TrackRecordOut)
+async def track_record(
+    session: AsyncSession = Depends(get_session),
+    style: InvestingStyle = Depends(user_style),
+) -> TrackRecordOut:
+    """How past ratings (your investing style) did: backtest and live record."""
+    backtest = load_backtest(style)
+    return TrackRecordOut(
+        style=style,
+        horizon=HORIZON[style][0],
+        backtest=BacktestRecordOut.model_validate(backtest) if backtest else None,
+        live=LiveRecordOut.model_validate(await live_record(session, style)),
+    )
 
 
 @router.get("/stocks/{ticker}/valuation", response_model=ValuationOut)

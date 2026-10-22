@@ -11,7 +11,8 @@ const TYPES: { value: AlertType; label: string }[] = [
   { value: 'price_above', label: 'Price above' },
   { value: 'price_below', label: 'Price below' },
   { value: 'pct_change', label: '% change ≥' },
-  { value: 'rating_change', label: 'Rating change' },
+  { value: 'rating_change', label: 'Signal change' },
+  { value: 'dividend_soon', label: 'Dividend coming up' },
 ]
 const THRESHOLD_TYPES: AlertType[] = ['price_above', 'price_below', 'pct_change']
 
@@ -31,13 +32,15 @@ export default function Alerts() {
 
   const invalidate = () => qc.invalidateQueries({ queryKey: ['alerts'] })
   const needsThreshold = THRESHOLD_TYPES.includes(type)
+  const isDividend = type === 'dividend_soon'
 
   const add = useMutation({
     mutationFn: () =>
       createAlert({
         ticker: ticker.trim().toUpperCase(),
         type,
-        threshold: needsThreshold ? Number(threshold) : null,
+        threshold:
+          needsThreshold || (isDividend && threshold !== '') ? Number(threshold) : null,
       }),
     onSuccess: () => {
       invalidate()
@@ -54,7 +57,8 @@ export default function Alerts() {
         <Bell size={16} className="text-accent" />
         <h2 className="text-sm font-semibold tracking-tight">Alerts</h2>
         <p className="text-[11px] text-subtle">
-          Evaluated after each market sync · shown here{isAdmin && ', and on Telegram if connected'}
+          Evaluated after each market sync · shown here
+          {isAdmin && ', and on Telegram if connected'}
         </p>
       </div>
 
@@ -98,13 +102,16 @@ export default function Alerts() {
               ))}
             </select>
           </div>
-          {needsThreshold && (
+          {(needsThreshold || isDividend) && (
             <div>
               <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-                Threshold
+                {isDividend ? 'Days before cum date' : 'Threshold'}
               </label>
               <input
                 type="number"
+                min={isDividend ? 0 : undefined}
+                max={isDividend ? 30 : undefined}
+                placeholder={isDividend ? '3' : undefined}
                 value={threshold}
                 onChange={(e) => setThreshold(e.target.value)}
                 className={`${inputCls} w-28`}
@@ -125,6 +132,14 @@ export default function Alerts() {
             </span>
           )}
         </div>
+        {isDividend && (
+          <p className="-mt-1 mb-3 text-[11px] text-subtle">
+            Reminds you before the <span className="text-muted">cum date</span>, the last
+            day to buy and still get the dividend. Dates are estimated from last
+            year&apos;s ex-dates (IDX companies pay on regular schedules); confirm with
+            the company&apos;s announcement before trading.
+          </p>
+        )}
 
         {/* Rules */}
         <div className="surface overflow-hidden">
@@ -156,7 +171,9 @@ export default function Alerts() {
                       {TYPES.find((t) => t.value === a.type)?.label ?? a.type}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-muted">
-                      {a.threshold ?? '—'}
+                      {a.type === 'dividend_soon'
+                        ? `${a.threshold ?? 3} days ahead`
+                        : (a.threshold ?? '—')}
                     </td>
                     <td className="px-4 py-2">
                       <button

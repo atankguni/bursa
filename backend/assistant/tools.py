@@ -21,8 +21,9 @@ from services.market_overview import overview
 from services.metrics import derive_metrics
 from services.portfolio import build_portfolio
 from services.prices import latest_daily
-from services.recommendation import compute_universe_cached
+from services.recommendation import compute_universe_cached, rating_code, rating_label
 from services.screener import ScreenerRowData, build_rows, filter_rows
+from services.track_record import HORIZON, live_record, load_backtest
 
 
 @dataclass(frozen=True)
@@ -67,7 +68,8 @@ def _row(r: ScreenerRowData) -> dict[str, Any]:
         "ticker": r["ticker"], "name": r["name"], "sector": r["sector"],
         "indices": r["indices"], "price": r["price"], "change_pct": r["change_percent"],
         "pbv": r["pbv"], "roe": r["roe"], "signal_score": r["score"],
-        "rating": r["rating"], "conviction": r["strength"],
+        "rating": rating_label(r["rating"]) if r["rating"] else None,
+        "conviction": r["strength"],
         "special_monitoring": r["board"] == "Watchlist",
     }
 
@@ -108,7 +110,7 @@ async def screen_stocks(ctx: ToolContext, args: dict[str, Any]) -> Any:
         min_score=_float(args, "min_score"),
         max_pbv=_float(args, "max_pbv"),
         min_roe=_float(args, "min_roe"),
-        rating=args.get("rating") or None,
+        rating=rating_code(args.get("rating")),
         sector=args.get("sector") or None,
         buy_only=bool(args.get("buy_only", False)),
     )
@@ -130,7 +132,27 @@ async def get_signal(ctx: ToolContext, args: dict[str, Any]) -> Any:
         need = ("too thinly traded or too little price history" if style == "trader"
                 else "no fundamentals data yet")
         return {"ticker": ticker, "style": style, "rated": False, "why": need}
-    return {"rated": True, **rec.model_dump()}
+    return {"rated": True, **rec.model_dump(), "rating": rating_label(rec.rating)}
+
+
+async def get_track_record(ctx: ToolContext, args: dict[str, Any]) -> Any:
+    session = ctx.session
+    style = ctx.style
+
+    def named(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [{**r, "rating": rating_label(r["rating"])} for r in rows]
+
+    backtest = load_backtest(style)
+    live = await live_record(session, style)
+    return {
+        "style": style,
+        "horizon": HORIZON[style][0],
+        "how_to_read": "beat = share of stocks with this rating that beat the median "
+                       "stock over the horizon; 0.5 is a coin flip. ic = rank "
+                       "correlation of score vs. later return (~0 noise, >0.05 useful).",
+        "backtest": backtest and {**backtest, "ratings": named(backtest["ratings"])},
+        "live": {**live, "ratings": named(live["ratings"])},
+    }
 
 
 async def get_fundamentals(ctx: ToolContext, args: dict[str, Any]) -> Any:
@@ -197,7 +219,8 @@ async def get_investing_style_tool(ctx: ToolContext, args: dict[str, Any]) -> An
     style = ctx.style
     return {"style": style, "meaning": {
         "investor": "long-term; signals from fundamentals (quality, valuation, growth, health)",
-        "trader": "swing, 1-4 weeks; signals from price behaviour (stability, setup, pullback)",
+        "trader": "swing, 1-4 weeks; signals from price behaviour "
+                  "(stability, setup near the 20-day high)",
     }[style]}
 
 
@@ -230,14 +253,16 @@ TOOLS: list[Tool] = [
                   {"type": "object", "properties": {"ticker": _TICKER}, "required": ["ticker"]}),
          get_stock),
     Tool(ToolSpec("screen_stocks", "Filter and rank the stock universe. RoE is a fraction "
-                  "(0.15 = 15%). Ratings: Strong Buy, Buy, Hold, Reduce, Avoid.",
+                  "(0.15 = 15%). Ratings: Very positive, Positive, Neutral, Negative, "
+                  "Very negative.",
                   {"type": "object", "properties": {
                       "min_score": {"type": "number", "description": "signal score 0-100"},
                       "max_pbv": {"type": "number"},
                       "min_roe": {"type": "number"},
                       "rating": {"type": "string"},
                       "sector": {"type": "string", "description": "e.g. Financial Services"},
-                      "buy_only": {"type": "boolean"},
+                      "buy_only": {"type": "boolean",
+                                   "description": "Positive / Very positive only"},
                       "sort_by": {"type": "string",
                                   "enum": ["signal_score", "pbv", "roe", "change_pct"]},
                       "limit": {"type": "integer", "description": "max 20"}}}),
@@ -247,6 +272,10 @@ TOOLS: list[Tool] = [
                   "produced it.",
                   {"type": "object", "properties": {"ticker": _TICKER}, "required": ["ticker"]}),
          get_signal),
+    Tool(ToolSpec("get_track_record", "How well this style's ratings worked: per "
+                  "rating, how often stocks beat the median stock afterwards, in the "
+                  "backtest and in the live record since recording started.",
+                  {"type": "object", "properties": {}}), get_track_record),
     Tool(ToolSpec("get_fundamentals", "Yearly financials (IDR) and derived PBV/RoE.",
                   {"type": "object", "properties": {"ticker": _TICKER}, "required": ["ticker"]}),
          get_fundamentals),

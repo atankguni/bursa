@@ -57,7 +57,8 @@ All admin only.
 | GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |
 | GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values (admin) |
-| GET/PUT | `/api/preferences` | Your preferences: investing style, assistant access to your data, `assistant_save_chats` (`false` also deletes saved chats), `display` settings (camelCase, as the Settings menu), `alerts_seen_at` (only moves forward) |
+| GET/PUT | `/api/preferences` | Your preferences: investing style, assistant access to your data, `assistant_save_chats` (`false` also deletes saved chats), `display` settings (camelCase, as the Settings menu), `alerts_seen_at` (only moves forward), `trading_costs` (buy/sell fee and dividend tax, %), `daily_digest` (summary email) |
+| POST   | `/api/preferences/digest/preview` | Email today's summary to yourself now (409 without email or followed stocks) |
 
 ## Stocks
 
@@ -69,6 +70,7 @@ All admin only.
 | GET    | `/api/stocks/{ticker}/history?interval=1d\|1m` | OHLCV bars for charts |
 | GET    | `/api/stocks/{ticker}/fundamentals` | Yearly fundamentals + PBV/RoE |
 | GET    | `/api/stocks/{ticker}/recommendation` | Buy-signal score + rating + conviction + factors |
+| GET    | `/api/track-record` | How past ratings (your style) beat the median stock: backtest summary + live record |
 | GET    | `/api/stocks/{ticker}/valuation` | PBV/RoE vs own history (percentile) |
 | GET    | `/api/stocks/{ticker}/dividends` | Dividend history + trailing yield |
 | GET    | `/api/stocks/{ticker}/company` | Company profile + board/management |
@@ -117,7 +119,7 @@ All admin only.
 
 | Method | Path | Description |
 |--------|------|-------------|
-| GET/POST | `/api/alerts` | List / create alert rules |
+| GET/POST | `/api/alerts` | List / create alert rules (`dividend_soon`: threshold = days before the estimated cum date, default 3) |
 | POST   | `/api/alerts/{id}/toggle` | Pause / resume an alert |
 | DELETE | `/api/alerts/{id}` | Delete an alert |
 | GET    | `/api/alerts/events` | Recent triggered alerts |

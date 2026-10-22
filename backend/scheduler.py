@@ -12,6 +12,9 @@ Jobs:
   * purge_auth                    -> delete expired sessions and invite/reset links (daily)
   * purge_chats                   -> delete assistant chats past their retention (hourly)
   * backfill_history              -> years of daily bars for stocks without them (startup + daily)
+  * record_ratings                -> both styles' ratings at the close, for the live track record
+  * send_digests                  -> the daily summary email to users who turned it on
+  * backup_db                     -> compressed SQLite backup, newest BACKUP_KEEP kept (nightly)
 
 The heavy lifting lives in `market.sync` (batched downloads) and
 `services.fundamentals` (per-ticker statements).
@@ -135,18 +138,20 @@ async def sync_splits_active() -> None:
 
 
 async def sync_watchlist_fundamentals() -> None:
-    """Refresh yearly fundamentals for every ticker on anyone's watchlist."""
+    """Refresh yearly fundamentals and dividends for every ticker on anyone's
+    watchlist or in anyone's portfolio (dividend reminders and the daily summary
+    project from the stored dividend history)."""
     from services.fundamentals import sync_many
 
     async with AsyncSessionLocal() as session:
-        tickers = (
-            await session.execute(select(Watchlist.ticker).distinct())
-        ).scalars().all()
+        watched = (await session.execute(select(Watchlist.ticker).distinct())).scalars().all()
+        traded = (await session.execute(select(Transaction.ticker).distinct())).scalars().all()
+    tickers = sorted(set(watched) | set(traded))
 
     if not tickers:
-        log.info("Watchlist empty — skipping fundamentals sync")
+        log.info("Watchlist and portfolios empty — skipping fundamentals sync")
         return
-    await sync_many(list(tickers), throttle=1.0)
+    await sync_many(tickers, throttle=1.0)
 
 
 async def prune_intraday() -> None:
@@ -172,6 +177,29 @@ async def compact_db() -> None:
     ran = await maintenance.compact(engine)
     if ran:
         log.info("%s complete", ran)
+
+
+async def record_ratings() -> None:
+    """Store the day's ratings (live track record)."""
+    from services.track_record import record_ratings as record
+
+    async with AsyncSessionLocal() as session:
+        await record(session)
+
+
+async def send_digests() -> None:
+    """Daily summary emails (after the ratings are recorded)."""
+    from services.digest import send_digests as send
+
+    async with AsyncSessionLocal() as session:
+        await send(session)
+
+
+async def backup_db() -> None:
+    """Nightly database backup (SQLite)."""
+    from services.backup import run_backup
+
+    await run_backup()
 
 
 async def purge_auth() -> None:
@@ -368,6 +396,37 @@ def start_scheduler() -> None:
         purge_chats,
         trigger=CronTrigger(minute=17),
         id="purge_chats",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Ratings at the close (IDX closes 16:00 WIB; the last sync lands soon after).
+    scheduler.add_job(
+        record_ratings,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=17, minute=15),
+        id="record_ratings",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
+    # Daily summary email, after the close's ratings are recorded (17:15).
+    scheduler.add_job(
+        send_digests,
+        trigger=CronTrigger(day_of_week="mon-fri", hour=17, minute=45),
+        id="send_digests",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+        misfire_grace_time=3600,  # a summary hours late is just noise
+    )
+
+    # Database backup, nightly at 02:30 WIB (quiet: no syncs run then).
+    scheduler.add_job(
+        backup_db,
+        trigger=CronTrigger(hour=2, minute=30),
+        id="backup_db",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

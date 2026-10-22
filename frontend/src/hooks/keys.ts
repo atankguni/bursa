@@ -7,6 +7,8 @@ export const queryKeys = {
     ['history', ticker, interval, range ?? ''] as const,
   fundamentals: (ticker: string) => ['fundamentals', ticker] as const,
   recommendation: (ticker: string) => ['recommendation', ticker] as const,
+  // Under 'recommendation' so a style change refetches it too.
+  trackRecord: ['recommendation', 'track-record'] as const,
   marketStatus: ['market-status'] as const,
   status: ['status'] as const,
   portfolio: ['portfolio'] as const,

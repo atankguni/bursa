@@ -1,19 +1,14 @@
 import { AlertCircle, Info } from 'lucide-react'
 import type { InvestingStyle, Recommendation } from '../api'
 import { usePreferences } from '../hooks'
+import { ratingLabel, ratingTone } from '../lib/ratings'
+import TrackRecord from './TrackRecord'
 
 interface Props {
   data?: Recommendation
   isLoading: boolean
   isError?: boolean
 }
-
-const ratingTone = (rating: string) =>
-  rating === 'Strong Buy' || rating === 'Buy'
-    ? 'text-bull'
-    : rating === 'Reduce' || rating === 'Avoid'
-      ? 'text-bear'
-      : 'text-muted'
 
 const barTone = (score: number) =>
   score >= 65 ? 'bg-bull' : score <= 40 ? 'bg-bear' : 'bg-active'
@@ -68,7 +63,10 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
         </div>
         <div className="flex flex-col">
           <span className={`text-sm font-semibold ${ratingTone(data.rating)}`}>
-            {data.rating}
+            {ratingLabel(data.rating)}
+            <span className="ml-1.5 text-[11px] font-normal text-subtle">
+              vs. other stocks
+            </span>
           </span>
           <span className="flex items-center gap-1 text-[11px] text-muted">
             Conviction: {data.strength}
@@ -134,6 +132,8 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
           </ul>
         </div>
       )}
+
+      <TrackRecord current={data.rating} />
 
       {/* Disclaimer */}
       <p className="flex items-start gap-1.5 text-[11px] text-subtle">

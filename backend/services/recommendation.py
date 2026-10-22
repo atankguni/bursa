@@ -11,7 +11,7 @@ factor agreement and data coverage.
 
 * investor (long term): quality, valuation, growth, momentum, health from
   yearly fundamentals + prices. Only stocks with fundamentals are rated.
-* trader (swing, 1-4 weeks): stability, setup, pullback from daily prices.
+* trader (swing, 1-4 weeks): stability and setup from daily prices.
   Any stock liquid enough to trade is rated, fundamentals or not.
 
 Both models were chosen with scripts/evaluate_signals.py (point-in-time
@@ -67,21 +67,46 @@ _FACTOR_KEYS = [f[0] for f in FACTORS]
 _FUNDAMENTAL_KEYS = [f[0] for f in FACTORS if f[1] in ("Quality", "Valuation")]
 _BUY_RATINGS = ("Strong Buy", "Buy")
 
+# What users see instead of the internal codes (which alerts, filters and the
+# backtest keep using). The score ranks stocks against each other; it is not a
+# buy/sell instruction, and the backtest edge is modest (services/track_record).
+RATING_LABELS: dict[str, str] = {
+    "Strong Buy": "Very positive",
+    "Buy": "Positive",
+    "Hold": "Neutral",
+    "Reduce": "Negative",
+    "Avoid": "Very negative",
+}
+
+
+def rating_label(rating: str) -> str:
+    return RATING_LABELS.get(rating, rating)
+
+
+def rating_code(value: str | None) -> str | None:
+    """A rating code from a code or a label, any case ("positive" -> "Buy")."""
+    if not value:
+        return None
+    wanted = value.strip().lower()
+    for code, label in RATING_LABELS.items():
+        if wanted in (code.lower(), label.lower()):
+            return code
+    return None
+
 # factor key -> raw value (None when the input data is missing).
 type RawFactors = dict[str, float | None]
 type Factor = tuple[str, str, str, str, str]
 
 TRADER_DISCLAIMER = (
     "Short-term (1-4 week) score from daily price behaviour — favours calm, "
-    "orderly stocks over recent winners. Backtested in a falling market only; "
+    "orderly stocks trading near their recent high. Backtested over 2022-2026; "
     "for personal reference, not financial advice."
 )
-TRADER_CATEGORY_ORDER = ["Stability", "Setup", "Pullback"]
+TRADER_CATEGORY_ORDER = ["Stability", "Setup"]
 TRADER_FACTORS: list[Factor] = [
     ("volatility_20d", "Stability", "lower", "20-day volatility", "pct"),
     ("from_high_20d", "Setup", "higher", "vs 20-day high", "pct"),
     ("from_low_20d", "Setup", "lower", "Above 20-day low", "pct"),
-    ("ret_20d", "Pullback", "lower", "20-day return", "pct"),
 ]
 _TRADER_KEYS = [f[0] for f in TRADER_FACTORS]
 
@@ -204,7 +229,6 @@ def trader_factors(closes: list[float]) -> RawFactors:
     raw["volatility_20d"] = pstdev(rets) if len(rets) >= 10 else None
     raw["from_high_20d"] = last / max(window) - 1 if max(window) else None
     raw["from_low_20d"] = last / min(window) - 1 if min(window) else None
-    raw["ret_20d"] = last / closes[-21] - 1 if closes[-21] else None
     return raw
 
 
@@ -227,11 +251,16 @@ def _fmt(value: float | None, kind: str) -> str:
     return f"{value * 100:.1f}%" if kind == "pct" else f"{value:.2f}"
 
 
-def _rating(score: float) -> str:
-    for label, threshold in settings.recommendation_ratings:
+def _rating(score: float, style: InvestingStyle) -> str:
+    scale = (
+        settings.recommendation_investor_ratings
+        if style == "investor"
+        else settings.recommendation_ratings
+    )
+    for label, threshold in scale:
         if score >= threshold:
             return label
-    return settings.recommendation_ratings[-1][0]
+    return scale[-1][0]
 
 
 def _conviction(score: float, cat_scores: list[float], coverage: float) -> str:
@@ -325,7 +354,7 @@ def score_universe(
         coverage = n_present / len(spec.factors)
 
         scored.sort(key=lambda f: f[3], reverse=True)
-        rating = _rating(composite)
+        rating = _rating(composite, style)
         reasons = _reasons(scored)
         if style == "investor" and traded_value is not None and rating in _BUY_RATINGS:
             liquidity = traded_value.get(ticker, 0.0)

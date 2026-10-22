@@ -1,15 +1,20 @@
 """Alert endpoints: the signed-in user's rules and in-app events."""
 
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import current_user, get_session, require_admin
-from models import Alert, AlertEvent, Stock, User
+from models import Alert, AlertEvent, Dividend, Stock, User
 from schemas import AlertEventOut, AlertIn, AlertOut, NotificationStatusOut
 from services import notify
 from services.alerts import THRESHOLD_TYPES
+from services.dividends import sync_dividends
+
+log = logging.getLogger("bursa.alerts")
 
 router = APIRouter(prefix="/api/alerts", tags=["alerts"])
 
@@ -43,6 +48,18 @@ async def list_events(
     return [AlertEventOut.model_validate(r) for r in rows]
 
 
+async def _ensure_dividends(session: AsyncSession, ticker: str) -> None:
+    """Dividend reminders project from stored history: fetch it once if missing."""
+    have = (
+        await session.execute(select(Dividend.id).where(Dividend.ticker == ticker).limit(1))
+    ).first()
+    if have is None:
+        try:
+            await sync_dividends(ticker)
+        except Exception:  # the provider is down: the history arrives with a later sync
+            log.warning("Could not fetch dividends for %s", ticker, exc_info=True)
+
+
 @router.post("", response_model=AlertOut, status_code=status.HTTP_201_CREATED)
 async def create_alert(
     payload: AlertIn,
@@ -56,6 +73,10 @@ async def create_alert(
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {payload.ticker}")
     if payload.type in THRESHOLD_TYPES and payload.threshold is None:
         raise HTTPException(status_code=400, detail="threshold is required")
+    if payload.type == "dividend_soon":
+        if payload.threshold is not None and not 0 <= payload.threshold <= 30:
+            raise HTTPException(status_code=400, detail="days ahead must be 0-30")
+        await _ensure_dividends(session, payload.ticker)
 
     alert = Alert(
         user_id=user.id, ticker=payload.ticker, type=payload.type, threshold=payload.threshold

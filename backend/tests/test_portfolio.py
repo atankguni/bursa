@@ -199,3 +199,54 @@ async def test_dividend_calendar_endpoint(client, monkeypatch):
     by = {r["ticker"]: r for r in rows}
     assert by["BBCA.JK"]["expected_income"] == 50_000.0 and by["BBCA.JK"]["in_portfolio"]
     assert by["TLKM.JK"]["expected_income"] is None and by["TLKM.JK"]["in_watchlist"]
+
+
+def test_dividends_need_the_shares_before_the_ex_date():
+    from datetime import date
+
+    from services.portfolio import dividend_income
+
+    def tx(side, qty, day):
+        return SimpleNamespace(ticker="X", side=side, quantity=qty, trade_date=day)
+
+    txs = [
+        tx("buy", 100, date(2026, 1, 5)),
+        tx("buy", 100, date(2026, 3, 10)),  # bought ON the ex-date: not entitled
+        tx("sell", 200, date(2026, 6, 1)),
+    ]
+    divs = {"X": [(date(2026, 3, 10), 50.0), (date(2026, 4, 1), 10.0), (date(2026, 7, 1), 99.0)]}
+    # 100 x 50 (March) + 200 x 10 (April); nothing after selling out.
+    assert dividend_income(txs, divs) == {"X": 7_000.0}
+
+
+async def test_portfolio_counts_costs_and_dividends(client):
+    from datetime import date, datetime
+
+    from sqlalchemy import insert
+
+    from database import AsyncSessionLocal
+    from models import Dividend, StockPrice, Transaction
+
+    async with AsyncSessionLocal() as s:
+        await s.execute(insert(StockPrice).values([
+            {"ticker": "BBCA.JK", "timestamp": datetime(2026, 1, d), "interval": "1d",
+             "open": 1000.0, "high": 1000.0, "low": 1000.0, "close": 1100.0, "volume": 0}
+            for d in (5, 6)
+        ]))
+        s.add(Transaction(user_id=client.user_id, ticker="BBCA.JK", side="buy", quantity=1000,
+                          price=1000.0, fees=1_500.0, trade_date=date(2025, 1, 2)))
+        s.add(Dividend(ticker="BBCA.JK", ex_date=date(2025, 6, 1), amount=100.0))
+        await s.commit()
+
+    await client.put("/api/preferences", json={"trading_costs": {
+        "buy_fee_pct": 0.15, "sell_fee_pct": 0.3, "dividend_tax_pct": 10}})
+    t = (await client.get("/api/portfolio")).json()["totals"]
+    assert t["unrealized_pl"] == 1_100_000 - 1_001_500
+    assert t["exit_costs"] == 3_300            # 0.3% of 1.1m
+    assert t["dividends_received"] == 90_000   # 1000 x 100, less 10% tax
+    assert t["total_return"] == 98_500 - 3_300 + 90_000
+
+    prefs = (await client.get("/api/preferences")).json()
+    assert prefs["trading_costs"]["sell_fee_pct"] == 0.3
+    bad = await client.put("/api/preferences", json={"trading_costs": {"sell_fee_pct": 40}})
+    assert bad.status_code == 422

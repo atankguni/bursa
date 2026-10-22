@@ -10,6 +10,7 @@ import type {
   SearchResult,
   Stock,
   StockHistory,
+  TrackRecord,
   Valuation,
 } from './types'
 
@@ -46,6 +47,12 @@ export async function fetchFundamentals(
     `/api/stocks/${ticker}/fundamentals`,
     { params: refresh ? { refresh: true } : undefined },
   )
+  return data
+}
+
+/** How past ratings of the signed-in user's style did (backtest + live). */
+export async function fetchTrackRecord(): Promise<TrackRecord> {
+  const { data } = await api.get<TrackRecord>('/api/track-record')
   return data
 }
 

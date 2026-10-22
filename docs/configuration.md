@@ -43,6 +43,35 @@ The schema is created and upgraded automatically on startup (Alembic). Data is n
 copied between databases: a new database starts empty and fills from the providers.
 Your portfolio, watchlist and alerts would need to be moved separately.
 
+### Backups
+
+With SQLite, the backend backs up the database every night at 02:30 (Jakarta time):
+a consistent copy taken while the app runs, gzip-compressed (~46 MB for a 255 MB
+database), together with the 2FA server secret (`secret.key`; without it a restored
+database can't read anyone's 2FA). The newest 7 are kept, readable by the owner only.
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `BACKUP_ENABLED` | `true` | Turn the nightly backup off |
+| `BACKUP_DIR` | `./data/backups` | Where backups go (`backend/data/backups/` on the host, git-ignored) |
+| `BACKUP_KEEP` | `7` | How many nightly backups to keep |
+
+They sit on the same disk as the database, so they protect against mistakes and
+corruption, not a lost disk: copy `backend/data/backups/` somewhere else now and then
+(another drive or cloud storage). Back up now: `docker compose exec backend python -m services.backup`.
+
+To restore one, stop the backend and put the copy back:
+
+```bash
+docker compose stop backend
+gunzip -c backend/data/backups/bursa-2026-10-22_0230.db.gz > backend/data/bursa.db
+rm -f backend/data/bursa.db-wal backend/data/bursa.db-shm
+cp backend/data/backups/bursa-2026-10-22_0230.secret.key backend/data/secret.key  # if present
+docker compose start backend
+```
+
+PostgreSQL and MySQL are not covered: use `pg_dump` / `mysqldump`.
+
 ## Accounts
 
 Bursa is **invite-only** and every page needs a signed-in user. There is no sign-up:

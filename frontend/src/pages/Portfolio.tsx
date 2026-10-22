@@ -42,17 +42,22 @@ function Card({
   label,
   value,
   tone,
+  hint,
+  title,
 }: {
   label: string
   value: ReactNode
   tone?: string
+  hint?: ReactNode
+  title?: string
 }) {
   return (
-    <div className="surface px-4 py-3">
+    <div className="surface px-4 py-3" title={title}>
       <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
       <div className={`mt-1 text-lg font-semibold tabular-nums ${tone ?? 'text-ink'}`}>
         {value}
       </div>
+      {hint && <div className="mt-0.5 text-[10px] text-subtle">{hint}</div>}
     </div>
   )
 }
@@ -131,7 +136,7 @@ export default function Portfolio() {
         <div className="surface px-4 py-10 text-center text-subtle">Loading…</div>
       ) : (
         <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <Card
               label="Market value"
               value={<Secret hidden={hide}>{fmtPrice(totals?.market_value ?? 0)}</Secret>}
@@ -145,6 +150,15 @@ export default function Portfolio() {
                 </>
               }
               tone={tone(totals?.unrealized_pl)}
+              hint={
+                <>
+                  After selling costs:{' '}
+                  <Secret hidden={hide}>
+                    {signed((totals?.unrealized_pl ?? 0) - (totals?.exit_costs ?? 0))}
+                  </Secret>
+                </>
+              }
+              title="Selling everything now would cost about this much in broker fee + tax (Settings → Trading costs)"
             />
             <Card
               label="Day change"
@@ -166,10 +180,24 @@ export default function Portfolio() {
               tone={tone(totals?.realized_pl)}
             />
             <Card
+              label="Dividends received"
+              value={
+                <Secret hidden={hide}>{fmtPrice(totals?.dividends_received ?? 0)}</Secret>
+              }
+              hint="After tax, on shares held before each ex-date"
+            />
+            <Card
+              label="Total return"
+              value={<Secret hidden={hide}>{signed(totals?.total_return ?? 0)}</Secret>}
+              tone={tone(totals?.total_return)}
+              hint="P/L after selling costs + realized + dividends"
+            />
+            <Card
               label="Est. annual income"
               value={
                 <Secret hidden={hide}>{fmtPrice(totals?.projected_income ?? 0)}</Secret>
               }
+              hint="Last 12 months' dividends, after tax"
             />
           </div>
 
@@ -331,7 +359,8 @@ export default function Portfolio() {
                   </span>
                   <span className="text-subtle">
                     {' '}
-                    · time-weighted (buys/sells don’t count as gains)
+                    · time-weighted, dividends included (buys/sells don’t count as gains;
+                    IHSG is price only)
                   </span>
                 </p>
               )}

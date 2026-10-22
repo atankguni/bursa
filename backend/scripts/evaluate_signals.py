@@ -22,6 +22,11 @@ and by sector, for the main horizon on liquid stocks.
 
 Usage (inside the backend environment):
     python scripts/evaluate_signals.py [--style investor|trader] [--db data/bursa.db | --url URL]
+                                       [--write-summary]
+
+`--write-summary` also stores the main-horizon result per rating in
+services/backtest_summary.json: the track record the app shows next to ratings.
+Re-run it (for both styles) after changing the model, and commit the file.
 
 `--db` is a SQLite file; `--url` any SQLAlchemy async URL. Default: DATABASE_URL.
 
@@ -32,9 +37,11 @@ import argparse
 import asyncio
 import bisect
 import collections
+import json
 import statistics as st
 import sys
 from collections.abc import Callable, Sequence
+from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any, TypedDict
@@ -54,6 +61,7 @@ from services.recommendation import (  # noqa: E402
     score_universe,
     trader_factors,
 )
+from services.track_record import HORIZON, SUMMARY_FILE, beat_rates  # noqa: E402
 
 RATINGS = ["Strong Buy", "Buy", "Hold", "Reduce", "Avoid"]
 CATEGORIES: dict[InvestingStyle, list[str]] = {
@@ -346,6 +354,34 @@ def report_by(
               f"{beat(top):>9} {beat(bottom):>10}")
 
 
+def write_summary(
+    samples: list[Sample], style: InvestingStyle, keep: Callable[[Sample], bool], universe: str
+) -> None:
+    """Store the main-horizon track record for the app (services/track_record)."""
+    horizon = HORIZON[style][0]
+    sel = [s for s in samples if s["forward"][horizon] is not None and keep(s)]
+    by_year: dict[str, list[Sample]] = collections.defaultdict(list)
+    for s in sel:
+        by_year[s["asof"][:4]].append(s)
+    ic, _ = _ic_mean(sel, horizon)
+    years = {y: round(v, 3) for y, g in sorted(by_year.items())
+             if (v := _ic_mean(g, horizon)[0]) is not None}
+    dates = sorted({s["asof"] for s in sel})
+    entry = {
+        "start": dates[0], "end": dates[-1], "universe": universe,
+        "ic": round(ic or 0.0, 3), "years": years,
+        "ratings": beat_rates((s["asof"], s["rating"], s["forward"][horizon] or 0.0) for s in sel),
+        "generated": date.today().isoformat(),
+    }
+    try:
+        data = json.loads(SUMMARY_FILE.read_text())
+    except (OSError, ValueError):
+        data = {}
+    data[style] = entry
+    SUMMARY_FILE.write_text(json.dumps(data, indent=2) + "\n")
+    print(f"\nWrote the {style} track record to {SUMMARY_FILE}")
+
+
 def snapshot(
     prices: dict[str, list[Bar]],
     funds: dict[str, list[Any]],
@@ -378,6 +414,8 @@ def main() -> None:
     source.add_argument("--db", help="SQLite database file")
     source.add_argument("--url", help="SQLAlchemy async URL (default: DATABASE_URL)")
     parser.add_argument("--style", choices=list(HORIZONS), default="investor")
+    parser.add_argument("--write-summary", action="store_true",
+                        help="store the main-horizon result for the app's track record")
     args = parser.parse_args()
     style: InvestingStyle = args.style
 
@@ -414,6 +452,12 @@ def main() -> None:
     report_by(samples, main, "BY YEAR (liquid)", liquid, lambda s: s["asof"][:4])
     report_by(samples, main, "BY SECTOR (liquid; IC within the sector)", liquid,
               lambda s: s["sector"])
+    if args.write_summary:
+        # Investor ratings of illiquid stocks are capped, so judge liquid ones only.
+        write_summary(
+            samples, style, liquid if style == "investor" else (lambda s: True),
+            f"liquid stocks (>= Rp {floor / 1e9:g}bn traded a day)",
+        )
 
 
 if __name__ == "__main__":
