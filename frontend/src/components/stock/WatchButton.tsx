@@ -23,7 +23,7 @@ export default function WatchButton({ ticker }: { ticker: string }) {
       onClick={() => (watched ? remove.mutate() : add.mutate())}
       disabled={watchPending}
       title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
-      className={`flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-50 ${
+      className={`flex items-center gap-1 rounded-sm px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-50 ${
         watched
           ? 'text-accent ring-accent/40 hover:bg-accent/10'
           : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'

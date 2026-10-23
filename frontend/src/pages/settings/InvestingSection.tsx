@@ -137,7 +137,7 @@ function DigestSettings() {
           <button
             onClick={() => preview.mutate()}
             disabled={preview.isPending}
-            className="rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+            className="rounded-sm px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
           >
             {preview.isPending ? 'Sending…' : 'Send now'}
           </button>
@@ -180,7 +180,7 @@ function TradingCostSettings() {
                 onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
                 onBlur={() => save(key, max)}
                 onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                className="w-16 rounded bg-panel px-2 py-1 text-right tabular-nums text-ink ring-1 ring-line-strong outline-none focus:ring-accent"
+                className="w-16 rounded-sm bg-panel px-2 py-1 text-right tabular-nums text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent"
               />
               %
             </span>

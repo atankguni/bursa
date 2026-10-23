@@ -4,7 +4,7 @@
 |----------|-------|
 | Backend  | Python 3.14, FastAPI, SQLAlchemy 2.0 (async) + aiosqlite, APScheduler, yfinance |
 | Database | SQLite by default (WAL mode, persisted on the host); PostgreSQL supported |
-| Frontend | React 19 + Vite, TypeScript, Tailwind CSS, TanStack Query, lightweight-charts, lucide-react |
+| Frontend | React 19 + Vite, TypeScript, Tailwind CSS 4, TanStack Query, lightweight-charts, lucide-react |
 | Infra    | Docker Compose (single stack) + nginx |
 
 ## Project structure

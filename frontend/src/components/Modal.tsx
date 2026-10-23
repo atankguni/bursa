@@ -110,7 +110,7 @@ export default function Modal({
   const titleId = `${id}-title`
   return createPortal(
     // No click handler on the backdrop: only ✕ (or Escape) closes the dialog.
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm sm:p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs sm:p-4">
       <div
         ref={panel}
         role="dialog"
@@ -118,7 +118,7 @@ export default function Modal({
         aria-labelledby={title && !label ? titleId : undefined}
         aria-label={label}
         tabIndex={-1}
-        className={`flex h-full w-full animate-fade-in flex-col overflow-hidden bg-panel shadow-pop outline-none ring-1 ring-line sm:rounded-md ${PANEL[size]}`}
+        className={`flex h-full w-full animate-fade-in flex-col overflow-hidden bg-panel shadow-pop outline-hidden ring-1 ring-line sm:rounded-md ${PANEL[size]}`}
       >
         <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-5 py-4">
           <div className="min-w-0 flex-1">
@@ -146,7 +146,7 @@ export default function Modal({
               onClick={onClose}
               aria-label="Close"
               title="Close"
-              className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
+              className="rounded-sm p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
             >
               <X size={18} />
             </button>

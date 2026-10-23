@@ -24,7 +24,7 @@ function BeatRow({ row, current }: { row: RatingRecord; current: boolean }) {
   const side = Math.min(Math.abs(pct - 50) / 20, 1) * 50
   return (
     <div
-      className={`flex items-center gap-3 rounded px-1.5 py-0.5 text-xs ${
+      className={`flex items-center gap-3 rounded-sm px-1.5 py-0.5 text-xs ${
         current ? 'bg-panelalt ring-1 ring-line-strong' : ''
       }`}
     >
@@ -33,9 +33,9 @@ function BeatRow({ row, current }: { row: RatingRecord; current: boolean }) {
       >
         {ratingLabel(row.rating)}
       </span>
-      <div className="relative h-2 flex-1 rounded-sm bg-panelalt">
+      <div className="relative h-2 flex-1 rounded-xs bg-panelalt">
         <div
-          className={`absolute inset-y-0 rounded-sm ${pct >= 50 ? 'bg-bull' : 'bg-bear'}`}
+          className={`absolute inset-y-0 rounded-xs ${pct >= 50 ? 'bg-bull' : 'bg-bear'}`}
           style={
             pct >= 50
               ? { left: '50%', width: `${side}%` }

@@ -42,7 +42,7 @@ function ResetSettings() {
   return (
     <button
       onClick={onReset}
-      className="inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+      className="inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
     >
       <RotateCcw size={13} /> Reset appearance, display &amp; tables
     </button>
@@ -105,7 +105,7 @@ const SECTIONS: {
 ]
 
 const navCls = ({ isActive }: { isActive: boolean }) =>
-  `flex shrink-0 items-center gap-2 whitespace-nowrap rounded px-2.5 py-1.5 text-xs font-medium transition ${
+  `flex shrink-0 items-center gap-2 whitespace-nowrap rounded-sm px-2.5 py-1.5 text-xs font-medium transition ${
     isActive
       ? 'bg-panel text-accent shadow-card ring-1 ring-line-strong'
       : 'text-muted hover:bg-panelalt hover:text-ink'
@@ -140,7 +140,7 @@ export default function Settings() {
             <NavLink key={s.id} to={`/settings/${s.id}`} className={navCls}>
               <s.icon size={14} /> {s.label}
               {s.id === 'security' && (user?.password_weak || !user?.has_2fa) && (
-                <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <span className="ml-auto rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
                   {user?.password_weak ? 'Weak password' : '2FA off'}
                 </span>
               )}
@@ -157,7 +157,7 @@ export default function Settings() {
               {section.scope && (
                 <span
                   title={SCOPE_LABEL[section.scope].hint}
-                  className="rounded bg-panelalt px-1.5 py-0.5 text-[10px] font-medium text-subtle ring-1 ring-line"
+                  className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px] font-medium text-subtle ring-1 ring-line"
                 >
                   {SCOPE_LABEL[section.scope].label}
                 </span>

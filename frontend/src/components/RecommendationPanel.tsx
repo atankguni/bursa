@@ -80,7 +80,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
           </span>
         </div>
         <div className="ml-auto text-right text-[11px] text-subtle">
-          <div className="mb-1 inline-block rounded-sm bg-panel px-1.5 py-0.5 font-medium text-muted ring-1 ring-line">
+          <div className="mb-1 inline-block rounded-xs bg-panel px-1.5 py-0.5 font-medium text-muted ring-1 ring-line">
             {STYLE_LABEL[data.style ?? 'investor']}
           </div>
           <div>Data coverage</div>
@@ -100,9 +100,9 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
                 {(c.weight * 100).toFixed(0)}%
               </span>
             </span>
-            <div className="h-2 flex-1 overflow-hidden rounded-sm bg-panelalt">
+            <div className="h-2 flex-1 overflow-hidden rounded-xs bg-panelalt">
               <div
-                className={`h-full rounded-sm ${barTone(c.score ?? 50)}`}
+                className={`h-full rounded-xs ${barTone(c.score ?? 50)}`}
                 style={{ width: `${c.score ?? 0}%` }}
               />
             </div>

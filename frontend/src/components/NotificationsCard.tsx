@@ -33,7 +33,7 @@ export default function NotificationsCard() {
           <button
             onClick={() => test.mutate()}
             disabled={test.isPending}
-            className="rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+            className="rounded-sm px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
           >
             {test.isPending ? 'Sending…' : 'Send test'}
           </button>

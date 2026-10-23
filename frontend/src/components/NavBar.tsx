@@ -8,7 +8,7 @@ import MarketStatus from './MarketStatus'
 import SearchBox from './SearchBox'
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition ${
+  `flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition ${
     isActive
       ? 'bg-panel text-accent shadow-card ring-1 ring-line-strong'
       : 'text-muted hover:bg-panelalt hover:text-ink'

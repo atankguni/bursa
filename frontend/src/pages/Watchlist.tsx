@@ -96,7 +96,7 @@ export default function Watchlist() {
           <button
             onClick={() => refresh.mutate()}
             disabled={refresh.isPending || items.length === 0}
-            className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
           >
             <RefreshCw
               size={13}
@@ -108,7 +108,7 @@ export default function Watchlist() {
       </div>
 
       {refresh.isSuccess && (
-        <div className="mb-3 flex items-center gap-1.5 rounded bg-accent/10 px-3 py-2 text-[11px] text-accent ring-1 ring-accent/20">
+        <div className="mb-3 flex items-center gap-1.5 rounded-sm bg-accent/10 px-3 py-2 text-[11px] text-accent ring-1 ring-accent/20">
           <Info size={13} /> Updated {refresh.data.tickers} tickers ({refresh.data.rows}{' '}
           rows).
         </div>
@@ -234,7 +234,7 @@ export default function Watchlist() {
                         {f?.financial_currency && f.financial_currency !== 'IDR' && (
                           <span
                             title={`Reported in ${f.financial_currency}, converted to IDR`}
-                            className="rounded-sm bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
+                            className="rounded-xs bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
                           >
                             {f.financial_currency}
                           </span>
@@ -314,7 +314,7 @@ export default function Watchlist() {
                         }}
                         disabled={remove.isPending}
                         title="Remove from watchlist"
-                        className="mx-auto flex items-center justify-center rounded p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
+                        className="mx-auto flex items-center justify-center rounded-sm p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
                       >
                         <Trash2 size={14} />
                       </button>

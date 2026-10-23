@@ -7,7 +7,7 @@ import TwoFactorSettings from '../components/TwoFactorSettings'
 import { ME_KEY, useAuth } from '../lib/auth'
 
 const secondaryBtn =
-  'rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink'
+  'rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink'
 
 /** Settings → Security: password, two-factor authentication, devices, activity. */
 export default function Security() {

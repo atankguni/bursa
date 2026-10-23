@@ -14,7 +14,7 @@ function pageItems(page: number, pageCount: number): (number | 'gap')[] {
 }
 
 const btn =
-  'inline-flex h-7 min-w-7 items-center justify-center rounded px-2 text-xs tabular-nums transition disabled:pointer-events-none disabled:opacity-40'
+  'inline-flex h-7 min-w-7 items-center justify-center rounded-sm px-2 text-xs tabular-nums transition disabled:pointer-events-none disabled:opacity-40'
 
 /** Numbered pager. `page` is 0-based; renders nothing when everything fits on one page. */
 export default function Pagination({

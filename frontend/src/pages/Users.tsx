@@ -25,9 +25,9 @@ const INVITES_KEY = ['admin', 'invites'] as const
 const LOG_KEY = ['admin', 'security-log'] as const
 
 const inputCls =
-  'rounded bg-panelalt px-3 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
+  'rounded-sm bg-panelalt px-3 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
 const smallBtn =
-  'inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
+  'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 
 /** A one-time link: shown once (only its hash is stored), with a copy button. */
 function LinkNotice({
@@ -49,7 +49,7 @@ function LinkNotice({
     }
   }
   return (
-    <div className="rounded bg-accent/10 p-3 text-xs ring-1 ring-accent/20">
+    <div className="rounded-sm bg-accent/10 p-3 text-xs ring-1 ring-accent/20">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="font-medium text-ink">{title}</span>
         <button onClick={onDismiss} className="text-[11px] text-muted hover:text-ink">
@@ -61,7 +61,7 @@ function LinkNotice({
         Send this link yourself if needed. It works once and won&apos;t be shown again.
       </p>
       <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 select-all truncate rounded bg-panel px-2 py-1.5 font-mono text-[11px] text-ink ring-1 ring-line">
+        <code className="min-w-0 flex-1 select-all truncate rounded-sm bg-panel px-2 py-1.5 font-mono text-[11px] text-ink ring-1 ring-line">
           {result.link}
         </code>
         <button onClick={() => void copy()} className={smallBtn}>
@@ -200,7 +200,7 @@ export default function Users() {
         <button
           type="submit"
           disabled={invite.isPending}
-          className="inline-flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
         >
           <UserPlus size={13} /> {invite.isPending ? 'Creating…' : 'Create invite'}
         </button>

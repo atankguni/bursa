@@ -68,7 +68,7 @@ export default function StockDetailModal({
             {stock.indices.map((idx) => (
               <span
                 key={idx}
-                className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
+                className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
               >
                 {idx}
               </span>
@@ -96,7 +96,7 @@ export default function StockDetailModal({
             <button
               key={t.value}
               onClick={() => setTab(t.value)}
-              className={`rounded px-3 py-1.5 text-xs font-medium transition ${
+              className={`rounded-sm px-3 py-1.5 text-xs font-medium transition ${
                 tab === t.value
                   ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
                   : 'text-muted hover:text-ink'

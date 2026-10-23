@@ -68,7 +68,7 @@ export default function DataHealth() {
         </div>
         <button
           onClick={() => void refetch()}
-          className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+          className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
         >
           <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} /> Refresh
         </button>

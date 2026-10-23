@@ -45,11 +45,11 @@ export default function AlertsBell() {
         onClick={toggle}
         title="Alerts"
         aria-label="Alerts"
-        className="relative rounded p-2 text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+        className="relative rounded-sm p-2 text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
       >
         <Bell size={15} />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded bg-bear px-1 text-[9px] font-semibold text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-sm bg-bear px-1 text-[9px] font-semibold text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}

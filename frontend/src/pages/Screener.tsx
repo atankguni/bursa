@@ -27,7 +27,7 @@ function blankReason(r: ScreenerRow, metric: 'pbv' | 'roe'): string | undefined 
   return 'Not meaningful: book value / equity is negative'
 }
 const inputCls =
-  'w-full rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
+  'w-full rounded-sm bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
 
 export default function Screener() {
   const { settings } = useSettings()
@@ -156,7 +156,7 @@ export default function Screener() {
         </div>
         <button
           onClick={() => setBuyOnly((v) => !v)}
-          className={`rounded px-3 py-1.5 text-xs font-medium ring-1 transition ${
+          className={`rounded-sm px-3 py-1.5 text-xs font-medium ring-1 transition ${
             buyOnly
               ? 'bg-accent/15 text-accent ring-accent/30'
               : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
@@ -181,7 +181,7 @@ export default function Screener() {
                 <button
                   onClick={() => stopSync.mutate()}
                   disabled={stopSync.isPending}
-                  className="rounded px-2.5 py-1.5 font-medium text-bear ring-1 ring-bear/30 transition hover:bg-bear/10 disabled:opacity-50"
+                  className="rounded-sm px-2.5 py-1.5 font-medium text-bear ring-1 ring-bear/30 transition hover:bg-bear/10 disabled:opacity-50"
                 >
                   Stop
                 </button>
@@ -201,7 +201,7 @@ export default function Screener() {
                 onClick={() => startSync.mutate(false)}
                 disabled={startSync.isPending}
                 title="Fetch fundamentals for up to 40 stocks missing data"
-                className="flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+                className="flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
               >
                 <RefreshCw
                   size={13}
@@ -213,7 +213,7 @@ export default function Screener() {
                 onClick={() => startSync.mutate(true)}
                 disabled={startSync.isPending || missing === 0}
                 title="Work through every stock never synced, in batches of 40 with a pause between them. Runs in the background; you can leave this page or stop it."
-                className="rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+                className="rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
               >
                 Sync all
               </button>
@@ -353,7 +353,7 @@ export default function Screener() {
               setPageSize(Number(e.target.value))
               goTo(0)
             }}
-            className="rounded bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
+            className="rounded-sm bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
           >
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>

@@ -87,8 +87,7 @@ hooks:
 # Known vulnerabilities in the dependencies (needs the internet). Fails on any
 # advisory in what runs: the backend's packages and the frontend's shipped ones.
 # The frontend's build tools are only reported: they run on your own sources
-# at build time (today: Tailwind 3's file watcher and CSS parser, fixed only by
-# moving to Tailwind 4).
+# at build time, so an advisory there with no fix yet doesn't block commits.
 audit: backend-image
 	docker run --rm $(BACKEND_IMAGE) pip-audit --progress-spinner off
 	cd frontend && npm audit --omit=dev

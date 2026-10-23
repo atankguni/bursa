@@ -73,7 +73,7 @@ export default function SearchBox() {
 
   return (
     <div ref={ref} className="relative">
-      <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
+      <div className="flex items-center gap-1.5 rounded-sm bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
         <Search size={13} className="text-muted" />
         <input
           value={q}
@@ -83,12 +83,12 @@ export default function SearchBox() {
           }}
           onFocus={() => setOpen(true)}
           placeholder="Search ticker…"
-          className="w-44 bg-transparent text-ink outline-none placeholder:text-subtle"
+          className="w-44 bg-transparent text-ink outline-hidden placeholder:text-subtle"
         />
       </div>
 
       {error && (
-        <div className="absolute left-0 z-30 mt-1 whitespace-nowrap rounded bg-panel px-2.5 py-1 text-[11px] text-bear shadow-pop ring-1 ring-line">
+        <div className="absolute left-0 z-30 mt-1 whitespace-nowrap rounded-sm bg-panel px-2.5 py-1 text-[11px] text-bear shadow-pop ring-1 ring-line">
           {error}
         </div>
       )}
@@ -118,7 +118,7 @@ export default function SearchBox() {
               key={r.symbol}
               onClick={() => void openPreview(r)}
               disabled={preparing != null}
-              className="flex w-full items-center justify-between gap-2 rounded px-2.5 py-1.5 text-left text-xs transition hover:bg-panelalt disabled:opacity-50"
+              className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition hover:bg-panelalt disabled:opacity-50"
             >
               <span className="min-w-0">
                 <span className="font-medium text-ink">{r.symbol}</span>

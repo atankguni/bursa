@@ -43,7 +43,7 @@ export default function IndexChartModal({
             <h2 className="text-lg font-semibold">
               {index.code === 'COMPOSITE' ? 'IHSG' : index.code}
             </h2>
-            <span className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px] text-muted">
+            <span className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] text-muted">
               {index.group}
             </span>
           </div>
@@ -63,7 +63,7 @@ export default function IndexChartModal({
     >
       {index.has_history && (
         <div
-          className="flex w-fit overflow-hidden rounded ring-1 ring-line-strong"
+          className="flex w-fit overflow-hidden rounded-sm ring-1 ring-line-strong"
           role="group"
           aria-label="Time span"
         >

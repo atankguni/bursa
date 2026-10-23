@@ -42,7 +42,7 @@ export default function WeakPasswordBanner() {
       <button
         onClick={dismiss}
         aria-label="Dismiss"
-        className="rounded p-1 hover:bg-amber-500/10"
+        className="rounded-sm p-1 hover:bg-amber-500/10"
       >
         <X size={14} />
       </button>

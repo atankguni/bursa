@@ -16,7 +16,7 @@ export function Segmented<T extends string>({
         <button
           key={o.value}
           onClick={() => onChange(o.value)}
-          className={`rounded px-2.5 py-1 text-xs font-medium transition ${
+          className={`rounded-sm px-2.5 py-1 text-xs font-medium transition ${
             value === o.value
               ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
               : 'text-muted hover:text-ink'
@@ -48,12 +48,12 @@ export function Switch({
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-5 w-9 shrink-0 rounded transition-colors disabled:opacity-40 ${
+      className={`relative h-5 w-9 shrink-0 rounded-sm transition-colors disabled:opacity-40 ${
         checked ? 'bg-accent' : 'bg-active'
       }`}
     >
       <span
-        className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow transition-transform ${
+        className={`absolute left-0.5 top-0.5 h-4 w-4 rounded-full bg-white shadow-sm transition-transform ${
           checked ? 'translate-x-4' : ''
         }`}
       />
@@ -74,7 +74,7 @@ export function Chip({
     <button
       type="button"
       onClick={onClick}
-      className={`rounded px-2.5 py-1 text-xs font-medium ring-1 transition ${
+      className={`rounded-sm px-2.5 py-1 text-xs font-medium ring-1 transition ${
         active
           ? 'bg-accent/15 text-accent ring-accent/30'
           : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'

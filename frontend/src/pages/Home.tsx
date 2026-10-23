@@ -124,7 +124,7 @@ export default function Home() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1.5 rounded bg-panelalt/70 px-2.5 py-1 font-medium ring-1 ring-line">
+          <span className="inline-flex items-center gap-1.5 rounded-sm bg-panelalt/70 px-2.5 py-1 font-medium ring-1 ring-line">
             {marketUp ? (
               <TrendingUp size={13} className="text-bull" />
             ) : (
@@ -135,14 +135,14 @@ export default function Home() {
             </span>
           </span>
 
-          <span className="hidden items-center gap-2.5 rounded bg-panelalt/70 px-2.5 py-1 ring-1 ring-line sm:inline-flex">
+          <span className="hidden items-center gap-2.5 rounded-sm bg-panelalt/70 px-2.5 py-1 ring-1 ring-line sm:inline-flex">
             <span className="text-bull">{summary.gainers} up</span>
             <span className="text-bear">{summary.losers} down</span>
             <span className="text-subtle">{summary.unchanged} flat</span>
           </span>
 
           <span
-            className="inline-flex items-center gap-2 rounded bg-panelalt/70 px-2.5 py-1 ring-1 ring-line"
+            className="inline-flex items-center gap-2 rounded-sm bg-panelalt/70 px-2.5 py-1 ring-1 ring-line"
             title="Signals rank each stock against the others; they are not buy/sell advice"
           >
             {signals.strongBuy > 0 && (
@@ -153,7 +153,7 @@ export default function Home() {
 
           <button
             onClick={() => setBuyOnly((v) => !v)}
-            className={`rounded px-2.5 py-1 font-medium ring-1 transition ${
+            className={`rounded-sm px-2.5 py-1 font-medium ring-1 transition ${
               buyOnly
                 ? 'bg-accent/15 text-accent ring-accent/30'
                 : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
@@ -166,7 +166,7 @@ export default function Home() {
               void refetch()
               void refetchStatus()
             }}
-            className="inline-flex items-center gap-1.5 rounded px-2.5 py-1 font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+            className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
           >
             <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
             Refresh
@@ -273,7 +273,7 @@ export default function Home() {
                           {s.indices.map((idx) => (
                             <span
                               key={idx}
-                              className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px] font-medium text-muted"
+                              className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] font-medium text-muted"
                             >
                               {idx}
                             </span>
@@ -317,7 +317,7 @@ export default function Home() {
                             e.stopPropagation()
                             openDetail(s, 'recommendation')
                           }}
-                          className="rounded transition hover:opacity-80"
+                          className="rounded-sm transition hover:opacity-80"
                           title="View signal breakdown"
                         >
                           <SignalBadge rec={s.recommendation} />
@@ -337,7 +337,7 @@ export default function Home() {
                             openDetail(s, 'fundamentals')
                           }}
                           title="View fundamentals"
-                          className="inline-flex items-center justify-center rounded p-2 text-muted transition hover:bg-active hover:text-ink"
+                          className="inline-flex items-center justify-center rounded-sm p-2 text-muted transition hover:bg-active hover:text-ink"
                         >
                           <BarChart3 size={14} />
                         </button>
@@ -348,7 +348,7 @@ export default function Home() {
                           }}
                           disabled={watched || add.isPending}
                           title={watched ? 'On watchlist' : 'Add to watchlist'}
-                          className={`inline-flex items-center justify-center rounded p-2 transition ${
+                          className={`inline-flex items-center justify-center rounded-sm p-2 transition ${
                             watched
                               ? 'cursor-default text-accent'
                               : 'text-muted hover:bg-active hover:text-ink'

@@ -16,9 +16,9 @@ const ACTIVITY_KEY = ['auth', 'activity'] as const
 
 const cardCls = 'rounded-md bg-panelalt/40 p-4 ring-1 ring-line'
 const secondaryBtn =
-  'rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
+  'rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 const smallBtn =
-  'rounded px-2 py-1 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
+  'rounded-sm px-2 py-1 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 
 function Heading({ icon, title }: { icon: ReactNode; title: string }) {
   return (
@@ -55,7 +55,7 @@ export function SignedInDevices() {
         ) : sessions.isError ? (
           <p className="text-bear">Couldn&apos;t load your devices.</p>
         ) : (
-          <ul className="divide-y divide-line rounded ring-1 ring-line">
+          <ul className="divide-y divide-line rounded-sm ring-1 ring-line">
             {sessions.data.map((s) => (
               <li key={s.id} className="flex items-center gap-3 px-3 py-2">
                 <div className="min-w-0 flex-1">
@@ -124,7 +124,7 @@ export function RecentActivity() {
         ) : activity.data.length === 0 ? (
           <p className="text-subtle">Nothing yet.</p>
         ) : (
-          <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded ring-1 ring-line">
+          <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-sm ring-1 ring-line">
             {activity.data.map((e) => (
               <li key={e.id} className="flex items-baseline gap-3 px-3 py-1.5">
                 <span className="w-24 shrink-0 tabular-nums text-subtle">

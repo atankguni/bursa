@@ -85,9 +85,9 @@ function ValuationCard({ ticker }: { ticker: string }) {
               </span>
               <span className="text-[10px] text-subtle">{row.range}</span>
             </div>
-            <div className="mt-1.5 h-1.5 overflow-hidden rounded-sm bg-panelalt">
+            <div className="mt-1.5 h-1.5 overflow-hidden rounded-xs bg-panelalt">
               <div
-                className="h-full rounded-sm bg-accent"
+                className="h-full rounded-xs bg-accent"
                 style={{ width: `${row.pct ?? 0}%` }}
               />
             </div>

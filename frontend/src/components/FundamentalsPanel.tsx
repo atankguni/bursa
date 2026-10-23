@@ -46,7 +46,7 @@ export default function FundamentalsPanel({
         {onRefresh && (
           <button
             onClick={onRefresh}
-            className="mt-1 rounded px-2.5 py-1 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+            className="mt-1 rounded-sm px-2.5 py-1 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
           >
             Retry
           </button>
@@ -80,7 +80,7 @@ export default function FundamentalsPanel({
           {showCurrency && (
             <span
               title={`Reported in ${currency}, converted to IDR`}
-              className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px]"
+              className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px]"
             >
               {currency} → IDR
             </span>
@@ -90,7 +90,7 @@ export default function FundamentalsPanel({
           <button
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="flex items-center gap-1 rounded px-2 py-1 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
+            className="flex items-center gap-1 rounded-sm px-2 py-1 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
           >
             <RefreshCw size={12} className={isRefreshing ? 'animate-spin' : ''} />
             Re-fetch
@@ -107,7 +107,7 @@ export default function FundamentalsPanel({
       </div>
 
       {/* Latest-year breakdown */}
-      <div className="overflow-x-auto rounded ring-1 ring-line">
+      <div className="overflow-x-auto rounded-sm ring-1 ring-line">
         <table className="w-full whitespace-nowrap text-left text-xs">
           <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
             <tr>
@@ -138,7 +138,7 @@ export default function FundamentalsPanel({
 
       {/* Multi-year trend */}
       {years.length > 1 && (
-        <div className="overflow-x-auto rounded ring-1 ring-line">
+        <div className="overflow-x-auto rounded-sm ring-1 ring-line">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
               <tr>
@@ -173,7 +173,7 @@ export default function FundamentalsPanel({
       )}
 
       {latest.source === 'summary' && (
-        <p className="rounded bg-panelalt/70 px-2.5 py-1.5 text-[11px] text-muted ring-1 ring-line">
+        <p className="rounded-sm bg-panelalt/70 px-2.5 py-1.5 text-[11px] text-muted ring-1 ring-line">
           Yahoo has no financial statements for this company, so these are its summary
           figures: book value from the latest quarter, revenue and net income over the
           trailing 12 months. Assets and liabilities aren’t available.

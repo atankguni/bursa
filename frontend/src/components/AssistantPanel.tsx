@@ -53,7 +53,7 @@ const PAGE_CONTEXT: Record<string, string> = {
 const MAX_TURNS = 40
 
 const iconBtn =
-  'rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink disabled:opacity-40'
+  'rounded-sm p-1.5 text-muted transition hover:bg-panelalt hover:text-ink disabled:opacity-40'
 
 const toMessages = (chat: ChatDetail): Message[] =>
   chat.messages.map((m) => ({
@@ -218,7 +218,7 @@ export default function AssistantPanel() {
         title="Ask the assistant"
         aria-label="Ask the assistant"
         aria-expanded={open}
-        className={`rounded p-2 ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink ${
+        className={`rounded-sm p-2 ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink ${
           open ? 'bg-panelalt text-ink' : 'text-muted'
         }`}
       >
@@ -273,7 +273,7 @@ export default function AssistantPanel() {
                 <button
                   onClick={() => setOpen(false)}
                   aria-label="Close assistant"
-                  className="rounded p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
+                  className="rounded-sm p-1.5 text-muted transition hover:bg-panelalt hover:text-ink"
                 >
                   <X size={17} />
                 </button>
@@ -301,7 +301,7 @@ export default function AssistantPanel() {
                       {g.chats.map((c) => (
                         <div
                           key={c.id}
-                          className={`group flex items-center gap-1 rounded ${
+                          className={`group flex items-center gap-1 rounded-sm ${
                             c.id === chatId ? 'bg-panelalt' : 'hover:bg-panelalt/60'
                           }`}
                         >
@@ -457,13 +457,13 @@ export default function AssistantPanel() {
                   }
                   disabled={!!notConfigured || !!outOfQuota}
                   aria-label="Your question"
-                  className="max-h-32 flex-1 resize-none bg-transparent text-xs text-ink outline-none placeholder:text-subtle"
+                  className="max-h-32 flex-1 resize-none bg-transparent text-xs text-ink outline-hidden placeholder:text-subtle"
                 />
                 <button
                   type="submit"
                   disabled={disabled || !draft.trim()}
                   aria-label="Send"
-                  className="rounded p-1.5 text-accent transition hover:bg-accent/10 disabled:text-subtle disabled:opacity-50"
+                  className="rounded-sm p-1.5 text-accent transition hover:bg-accent/10 disabled:text-subtle disabled:opacity-50"
                 >
                   <SendHorizontal size={16} />
                 </button>

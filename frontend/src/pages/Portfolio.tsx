@@ -113,7 +113,7 @@ export default function Portfolio() {
             onClick={() => update({ hidePortfolioValues: !hide })}
             aria-pressed={hide}
             title={hide ? 'Show amounts' : 'Hide amounts (for screen sharing)'}
-            className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
+            className={`inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
               hide
                 ? 'bg-panelalt text-ink ring-line-strong'
                 : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
@@ -124,7 +124,7 @@ export default function Portfolio() {
           </button>
           <button
             onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90"
+            className="inline-flex items-center gap-1.5 rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90"
           >
             <Plus size={14} /> Add transaction
           </button>
@@ -261,7 +261,7 @@ export default function Portfolio() {
                           {h.split_adjusted && (
                             <span
                               title="Adjusted for a stock split: shares × ratio and price ÷ ratio, so invested capital is unchanged."
-                              className="rounded-sm bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
+                              className="rounded-xs bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
                             >
                               split-adj.
                             </span>
@@ -325,7 +325,7 @@ export default function Portfolio() {
                 <div className="text-[10px] uppercase tracking-wider text-muted">
                   {chartMode === 'value' ? 'Portfolio value' : 'Your return vs IHSG'}
                 </div>
-                <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+                <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
                   {(['value', 'return'] as const).map((m) => (
                     <button
                       key={m}
@@ -364,7 +364,9 @@ export default function Portfolio() {
                 </p>
               )}
               <Suspense
-                fallback={<div className="h-[260px] animate-pulse rounded bg-panelalt" />}
+                fallback={
+                  <div className="h-[260px] animate-pulse rounded-sm bg-panelalt" />
+                }
               >
                 <PortfolioChart data={history} hideValues={hide} mode={chartMode} />
               </Suspense>
@@ -412,7 +414,7 @@ export default function Portfolio() {
                           <button
                             onClick={() => remove.mutate(t.id)}
                             title="Delete transaction"
-                            className="rounded p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
+                            className="rounded-sm p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
                           >
                             <Trash2 size={14} />
                           </button>

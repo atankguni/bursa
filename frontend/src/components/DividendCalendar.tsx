@@ -47,18 +47,18 @@ export default function DividendCalendar({ hideValues }: { hideValues: boolean }
                 </span>
                 <span className="font-semibold">{d.ticker}</span>
                 {d.in_portfolio && (
-                  <span className="rounded-sm bg-accent/10 px-1 py-0.5 text-[9px] text-accent">
+                  <span className="rounded-xs bg-accent/10 px-1 py-0.5 text-[9px] text-accent">
                     holding
                   </span>
                 )}
                 {!d.in_portfolio && d.in_watchlist && (
-                  <span className="rounded-sm bg-panelalt px-1 py-0.5 text-[9px] text-muted">
+                  <span className="rounded-xs bg-panelalt px-1 py-0.5 text-[9px] text-muted">
                     watchlist
                   </span>
                 )}
                 <span
                   title={`Last year's ex-date: ${fmtDay(d.based_on)}`}
-                  className="rounded-sm px-1 py-0.5 text-[9px] text-subtle ring-1 ring-line"
+                  className="rounded-xs px-1 py-0.5 text-[9px] text-subtle ring-1 ring-line"
                 >
                   {d.regular ? 'regular' : 'estimate'}
                 </span>

@@ -48,7 +48,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
           {r.warnings.map((w) => (
             <li
               key={w}
-              className="flex items-center gap-1.5 rounded bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 ring-1 ring-amber-500/25 dark:text-amber-300"
+              className="flex items-center gap-1.5 rounded-sm bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 ring-1 ring-amber-500/25 dark:text-amber-300"
             >
               <AlertTriangle size={12} aria-hidden /> {w}
             </li>
@@ -109,9 +109,9 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
                 <span className="w-44 shrink-0 truncate text-muted" title={s.sector}>
                   {s.sector}
                 </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-sm bg-panelalt">
+                <div className="h-2 flex-1 overflow-hidden rounded-xs bg-panelalt">
                   <div
-                    className={`h-full rounded-sm ${s.weight > 40 ? 'bg-amber-500' : 'bg-active'}`}
+                    className={`h-full rounded-xs ${s.weight > 40 ? 'bg-amber-500' : 'bg-active'}`}
                     style={{ width: `${Math.max(s.weight, 2)}%` }}
                   />
                 </div>

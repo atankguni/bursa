@@ -1,9 +1,9 @@
 import type { InputHTMLAttributes, ReactNode } from 'react'
 
 export const inputCls =
-  'w-full rounded bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
+  'w-full rounded-sm bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
 export const primaryBtn =
-  'w-full rounded bg-accent px-3 py-2 text-sm font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50'
+  'w-full rounded-sm bg-accent px-3 py-2 text-sm font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50'
 
 /** Centered card used by every signed-out screen. */
 export default function AuthLayout({

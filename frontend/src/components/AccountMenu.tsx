@@ -13,7 +13,7 @@ import { useAuth } from '../lib/auth'
 import { useSettings, type Theme } from '../lib/settings'
 
 const itemCls =
-  'flex w-full items-center gap-2 rounded px-2.5 py-1.5 text-left text-xs text-muted transition hover:bg-panelalt hover:text-ink'
+  'flex w-full items-center gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs text-muted transition hover:bg-panelalt hover:text-ink'
 
 const THEMES: { value: Theme; label: string; icon: typeof Sun }[] = [
   { value: 'light', label: 'Light', icon: Sun },
@@ -77,7 +77,7 @@ export default function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={attention ? `Account (${attention})` : 'Account'}
         aria-expanded={open}
-        className="relative flex h-8 w-8 items-center justify-center rounded bg-accent/15 text-xs font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/25"
+        className="relative flex h-8 w-8 items-center justify-center rounded-sm bg-accent/15 text-xs font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/25"
       >
         {initial}
         {attention && (
@@ -92,7 +92,7 @@ export default function AccountMenu() {
                 {user.name}
               </p>
               {isAdmin && (
-                <span className="rounded bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
                   Admin
                 </span>
               )}
@@ -117,7 +117,7 @@ export default function AccountMenu() {
                     aria-label={t.label}
                     title={t.label}
                     onClick={() => update({ theme: t.value })}
-                    className={`rounded p-1.5 transition ${
+                    className={`rounded-sm p-1.5 transition ${
                       active
                         ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
                         : 'text-muted hover:text-ink'
@@ -133,14 +133,14 @@ export default function AccountMenu() {
           <div className="border-b border-line py-1">
             <Link to="/settings" onClick={close} className={itemCls}>
               <SettingsIcon size={14} /> Settings
-              <kbd className="ml-auto rounded bg-panelalt px-1.5 font-mono text-[10px] text-subtle ring-1 ring-line">
+              <kbd className="ml-auto rounded-sm bg-panelalt px-1.5 font-mono text-[10px] text-subtle ring-1 ring-line">
                 ,
               </kbd>
             </Link>
             <Link to="/settings/security" onClick={close} className={itemCls}>
               <ShieldCheck size={14} /> Security
               {attention && (
-                <span className="ml-auto rounded bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <span className="ml-auto rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
                   {user.password_weak ? 'Weak password' : '2FA off'}
                 </span>
               )}

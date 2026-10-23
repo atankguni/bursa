@@ -42,7 +42,7 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded bg-panelalt/70 py-1 pl-3 pr-2 text-xs font-medium text-ink ring-1 ring-line-strong transition hover:bg-panelalt"
+        className="flex items-center gap-2 rounded-sm bg-panelalt/70 py-1 pl-3 pr-2 text-xs font-medium text-ink ring-1 ring-line-strong transition hover:bg-panelalt"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -60,7 +60,7 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
             return (
               <label
                 key={opt}
-                className="flex cursor-pointer items-center gap-2 rounded px-2.5 py-1.5 text-xs transition hover:bg-panelalt"
+                className="flex cursor-pointer items-center gap-2 rounded-sm px-2.5 py-1.5 text-xs transition hover:bg-panelalt"
               >
                 <input
                   type="checkbox"

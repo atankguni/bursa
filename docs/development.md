@@ -188,3 +188,10 @@ npm run format          # prettier --write .
 
 `openapi-typescript` needs the TypeScript 5 API, so `make api-types` runs it via
 `npx` with its own pinned TypeScript instead of adding it to `package.json`.
+
+Styling is Tailwind CSS 4 through its Vite plugin, with no `tailwind.config.js`:
+the theme lives in `src/index.css`. Semantic colours (`bg-panel`, `text-muted`,
+`ring-line`, `text-accent`...) are `--color-*` entries in `@theme` that point at
+the `--c-*` variables, which change with the theme, high contrast and the
+accent. Add a colour there, not as a hex value in a component. Radius scale:
+`rounded-xs` tags and bars, `rounded-sm` controls, `rounded-md` surfaces.

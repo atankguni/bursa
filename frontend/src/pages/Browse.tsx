@@ -62,13 +62,13 @@ export default function Browse() {
               : `${from}–${to} of ${total}${isFetching ? ' · updating…' : ''} · track a stock for live prices`}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 rounded bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
+        <div className="flex items-center gap-1.5 rounded-sm bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
           <Search size={13} className="text-muted" />
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
             placeholder="Search ticker or name…"
-            className="w-56 bg-transparent text-ink outline-none placeholder:text-subtle"
+            className="w-56 bg-transparent text-ink outline-hidden placeholder:text-subtle"
           />
         </div>
       </div>
@@ -133,7 +133,7 @@ export default function Browse() {
                       }
                     }}
                     tabIndex={0}
-                    className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60 focus-visible:bg-panelalt/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
+                    className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60 focus-visible:bg-panelalt/60 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent"
                   >
                     <td className="px-4 py-2 font-semibold">
                       <span className="inline-flex items-center gap-1.5">
@@ -149,7 +149,7 @@ export default function Browse() {
                         {r.indices.map((idx) => (
                           <span
                             key={idx}
-                            className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
+                            className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
                           >
                             {idx}
                           </span>
@@ -181,7 +181,7 @@ export default function Browse() {
                               : 'Track for live prices'
                         }
                         aria-pressed={r.tracked}
-                        className={`inline-flex items-center justify-center rounded p-2 transition ${
+                        className={`inline-flex items-center justify-center rounded-sm p-2 transition ${
                           r.tracked
                             ? 'text-bull'
                             : 'text-muted ring-1 ring-line-strong enabled:hover:bg-active enabled:hover:text-ink'
@@ -207,7 +207,7 @@ export default function Browse() {
               setPageSize(Number(e.target.value))
               goTo(0)
             }}
-            className="rounded bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
+            className="rounded-sm bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
           >
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>

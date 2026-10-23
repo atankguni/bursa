@@ -26,11 +26,11 @@ import { ME_KEY } from '../lib/auth'
 export const TWO_FACTOR_KEY = ['auth', '2fa'] as const
 
 const inputCls =
-  'w-full rounded bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
+  'w-full rounded-sm bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
 const primaryBtn =
-  'rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50'
+  'rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50'
 const secondaryBtn =
-  'rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
+  'rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 
 function Card({
   icon,
@@ -337,13 +337,13 @@ export default function TwoFactorSettings() {
             <div className="flex flex-wrap items-center gap-4">
               {/* Server-made SVG (segno): no image is fetched from elsewhere. */}
               <div
-                className="rounded bg-white p-1 [&>svg]:h-40 [&>svg]:w-40"
+                className="rounded-sm bg-white p-1 [&>svg]:h-40 [&>svg]:w-40"
                 aria-label="QR code for your authenticator app"
                 dangerouslySetInnerHTML={{ __html: totpSetup.qr_svg }}
               />
               <div className="min-w-0 space-y-1">
                 <p>Key (if you can&apos;t scan):</p>
-                <code className="block select-all break-all rounded bg-panel px-2 py-1 font-mono text-[11px] text-ink ring-1 ring-line">
+                <code className="block select-all break-all rounded-sm bg-panel px-2 py-1 font-mono text-[11px] text-ink ring-1 ring-line">
                   {totpSetup.secret.match(/.{1,4}/g)?.join(' ')}
                 </code>
                 <a

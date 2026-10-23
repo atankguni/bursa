@@ -78,7 +78,7 @@ export default function ChartTab({
   return (
     <>
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+        <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
           {(['1d', '1m'] as const).map((i) => (
             <button key={i} onClick={() => setRange(i)} className={seg(range === i)}>
               {i === '1d' ? 'Daily' : '1-Min'}
@@ -87,7 +87,7 @@ export default function ChartTab({
         </div>
         {range === '1d' && (
           <div
-            className="flex overflow-hidden rounded ring-1 ring-line-strong"
+            className="flex overflow-hidden rounded-sm ring-1 ring-line-strong"
             role="group"
             aria-label="Time span"
           >
@@ -103,7 +103,7 @@ export default function ChartTab({
             ))}
           </div>
         )}
-        <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+        <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
           <button
             onClick={() => setChartType('line')}
             className={`flex items-center gap-1 ${seg(chartType === 'line')}`}
@@ -130,7 +130,7 @@ export default function ChartTab({
             <button
               key={key}
               onClick={() => setInd((s) => ({ ...s, [key]: !s[key] }))}
-              className={`rounded px-2 py-1 text-[11px] font-medium ring-1 transition ${
+              className={`rounded-sm px-2 py-1 text-[11px] font-medium ring-1 transition ${
                 ind[key]
                   ? 'bg-accent/15 text-accent ring-accent/30'
                   : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
@@ -144,7 +144,7 @@ export default function ChartTab({
               onClick={() => setVsIhsg((v) => !v)}
               aria-pressed={vsIhsg}
               title="Compare with IHSG: both lines in % change from the left edge of the chart"
-              className={`rounded px-2 py-1 text-[11px] font-medium ring-1 transition ${
+              className={`rounded-sm px-2 py-1 text-[11px] font-medium ring-1 transition ${
                 vsIhsg
                   ? 'bg-accent/15 text-accent ring-accent/30'
                   : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'

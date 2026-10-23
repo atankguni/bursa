@@ -18,7 +18,7 @@ const TYPES: { value: AlertType; label: string }[] = [
 const THRESHOLD_TYPES: AlertType[] = ['price_above', 'price_below', 'pct_change']
 
 const inputCls =
-  'rounded bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
+  'rounded-sm bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
 
 export default function Alerts() {
   const qc = useQueryClient()
@@ -125,7 +125,7 @@ export default function Alerts() {
           <button
             onClick={() => add.mutate()}
             disabled={add.isPending || !ticker || (needsThreshold && !threshold)}
-            className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+            className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
           >
             {add.isPending ? 'Adding…' : 'Add alert'}
           </button>
@@ -177,7 +177,7 @@ export default function Alerts() {
                     <td className="px-4 py-2">
                       <button
                         onClick={() => toggle.mutate(a.id)}
-                        className={`rounded px-2 py-0.5 text-[10px] font-medium ring-1 transition ${
+                        className={`rounded-sm px-2 py-0.5 text-[10px] font-medium ring-1 transition ${
                           a.active
                             ? 'bg-accent/15 text-accent ring-accent/30'
                             : 'text-subtle ring-line-strong'
@@ -190,7 +190,7 @@ export default function Alerts() {
                       <button
                         onClick={() => remove.mutate(a.id)}
                         title="Delete"
-                        className="rounded p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
+                        className="rounded-sm p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
                       >
                         <Trash2 size={14} />
                       </button>

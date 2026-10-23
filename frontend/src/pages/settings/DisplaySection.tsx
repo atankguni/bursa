@@ -42,7 +42,7 @@ export default function DisplaySection() {
             value={settings.refreshSeconds}
             disabled={!settings.autoRefresh}
             onChange={(e) => update({ refreshSeconds: Number(e.target.value) })}
-            className="rounded bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line-strong disabled:opacity-40"
+            className="rounded-sm bg-panel px-2 py-1 text-xs text-ink ring-1 ring-line-strong disabled:opacity-40"
           >
             {[30, 60, 120, 300].map((s) => (
               <option key={s} value={s}>

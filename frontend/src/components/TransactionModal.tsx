@@ -49,7 +49,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
   }
 
   const inputCls =
-    'w-full rounded bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
+    'w-full rounded-sm bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
 
   return (
     <Modal
@@ -62,14 +62,14 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="rounded px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+              className="rounded-sm px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
             >
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={add.isPending || !ticker || !quantity || !price}
-              className="rounded bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+              className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
             >
               {add.isPending ? 'Saving…' : 'Add'}
             </button>
@@ -98,7 +98,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
 
         <div className="flex items-center gap-2">
           <span className="text-xs text-muted">Side</span>
-          <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+          <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
             {(['buy', 'sell'] as const).map((s) => (
               <button
                 key={s}
@@ -117,7 +117,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
           <div>
             <div className="mb-1 flex items-center justify-between">
               <label className="text-xs text-muted">Quantity</label>
-              <div className="flex overflow-hidden rounded ring-1 ring-line-strong">
+              <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
                 {(['lots', 'shares'] as const).map((u) => (
                   <button
                     key={u}
