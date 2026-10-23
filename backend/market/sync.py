@@ -21,11 +21,11 @@ from clock import day_key, local_today
 from config import settings
 from database import AsyncSessionLocal
 from db.upsert import upsert
+from market.models import DailyBar, IntradayBar
 from market.providers.base import MarketDataProvider, PriceBar
 from market.providers.governor import governor
 from market.providers.registry import price_provider
 from market.quotes import refresh_quotes
-from models import DailyBar, IntradayBar
 
 log = logging.getLogger("bursa.market.sync")
 

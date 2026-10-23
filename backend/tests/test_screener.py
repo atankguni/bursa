@@ -1,8 +1,8 @@
 """Tests for screener filtering and sector aggregation (pure functions)."""
 
-from schemas import ScreenerRow
-from services.market_overview import aggregate_sectors
-from services.screener import filter_rows
+from market.overview import aggregate_sectors
+from signals.schemas import ScreenerRow
+from signals.screener import filter_rows
 
 ROWS = [
     ScreenerRow(ticker="A", name="A", score=80, pbv=1.0, roe=0.20, rating="Strong Buy",

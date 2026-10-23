@@ -1,6 +1,6 @@
 """Unit tests for alert rule evaluation (pure)."""
 
-from services.alerts import evaluate_alert
+from alerts.service import evaluate_alert
 
 
 def test_price_above():

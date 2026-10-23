@@ -1,6 +1,6 @@
 """Tests for the cached symbol search."""
 
-import services.search as search_mod
+import market.search as search_mod
 from config import settings
 
 

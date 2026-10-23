@@ -9,8 +9,9 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from database import AsyncSessionLocal
 from db.migrate import OutdatedDatabase, migrate
+from market.models import StockQuote
 from market.quotes import refresh_quotes
-from models import StockQuote, Transaction
+from portfolio.models import Transaction
 from schemas import stock_code
 from tests.conftest import add_daily_bars
 

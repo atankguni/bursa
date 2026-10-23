@@ -15,15 +15,17 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant.providers import ToolSpec
-from models import DailyBar, Fundamental, Stock, Watchlist
-from schemas import InvestingStyle, RatingRecordOut, ScreenerRow, stock_code
-from services.market_overview import overview
-from services.metrics import derive_metrics
-from services.portfolio import build_portfolio
-from services.prices import latest_daily
-from services.recommendation import compute_universe_cached, rating_code, rating_label
-from services.screener import build_rows, filter_rows
-from services.track_record import HORIZON, live_record, load_backtest
+from market.metrics import derive_metrics
+from market.models import DailyBar, Fundamental, Stock
+from market.overview import overview
+from market.prices import latest_daily
+from portfolio.holdings import build_portfolio
+from portfolio.models import Watchlist
+from schemas import InvestingStyle, stock_code
+from signals.recommendation import compute_universe_cached, rating_code, rating_label
+from signals.schemas import RatingRecordOut, ScreenerRow
+from signals.screener import build_rows, filter_rows
+from signals.track_record import HORIZON, live_record, load_backtest
 
 
 @dataclass(frozen=True)

@@ -2,8 +2,9 @@
 scripts/check_schema.py
 -----------------------
 Schema drift check (run by `make check`): migrate an empty database to the
-latest revision and compare it with models.py. Any difference means a model
-change without a migration (or a migration that doesn't match the models).
+latest revision and compare it with the models (every feature's models.py).
+Any difference means a model change without a migration (or a migration
+that doesn't match the models).
 
     python scripts/check_schema.py                      # a temporary SQLite file
     python scripts/check_schema.py postgresql+asyncpg://...   # an EMPTY database
@@ -22,13 +23,13 @@ from alembic.migration import MigrationContext  # noqa: E402
 from sqlalchemy import Connection  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
+import models  # noqa: E402
 from db.migrate import migrate  # noqa: E402
-from models import Base  # noqa: E402  (importing models registers every table)
 
 
 def _diff(conn: Connection) -> list[Any]:
     ctx = MigrationContext.configure(conn, opts={"compare_type": True})
-    return list(compare_metadata(ctx, Base.metadata))
+    return list(compare_metadata(ctx, models.metadata))
 
 
 async def drift(url: str) -> list[Any]:
@@ -51,7 +52,7 @@ def main() -> None:
             found = asyncio.run(drift(url))
     dialect = url.split(":", 1)[0]
     if found:
-        print(f"Schema drift on {dialect}: models.py and the migrations disagree:")
+        print(f"Schema drift on {dialect}: the models and the migrations disagree:")
         for item in found:
             print(f"  {item}")
         print("Generate a migration: alembic revision --autogenerate -m '...'")

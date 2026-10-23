@@ -1,7 +1,7 @@
 """Unit tests for the PBV / RoE metric math."""
 
-from models import Fundamental
-from services.metrics import derive_metrics
+from market.metrics import derive_metrics
+from market.models import Fundamental
 
 
 def _f(**overrides) -> Fundamental:
@@ -63,8 +63,8 @@ def test_none_fundamentals_is_all_none():
 
 
 def test_roe_blank_on_negative_equity():
-    from models import Fundamental
-    from services.metrics import derive_metrics
+    from market.metrics import derive_metrics
+    from market.models import Fundamental
 
     f = Fundamental(
         ticker="X", fiscal_year=2025, total_shares=1000.0, net_income=-500.0,

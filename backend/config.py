@@ -4,7 +4,7 @@ import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-from schemas import Rating
+from signals.schemas import Rating
 
 # BURSA_ENV_FILE="" reads no file (the tests use this so a local .env with real
 # keys or a mail provider never leaks into them).
@@ -18,7 +18,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bursa.db"
-    # Nightly SQLite backups (services/backup.py): kept next to the database, so
+    # Nightly SQLite backups (system/backup.py): kept next to the database, so
     # also copy them elsewhere. PostgreSQL uses its own tools (pg_dump).
     backup_enabled: bool = True
     backup_dir: str = "./data/backups"
@@ -82,7 +82,7 @@ class Settings(BaseSettings):
     invite_days: int = 7
     password_reset_hours: int = 2
     password_min_length: int = 12
-    # Strength (services/passwords.py): zxcvbn guessability score 0-4 required.
+    # Strength (accounts/passwords.py): zxcvbn guessability score 0-4 required.
     password_min_score: int = 3
     # Refuse passwords found in data breaches (Have I Been Pwned range API: only the
     # first 5 characters of the password's SHA-1 leave the server). If the service
@@ -93,7 +93,7 @@ class Settings(BaseSettings):
     login_max_failures: int = 10
     login_window_minutes: int = 15
 
-    # Two-factor authentication (services/two_factor.py). Required for admins.
+    # Two-factor authentication (accounts/two_factor.py). Required for admins.
     # Server secret that encrypts authenticator-app secrets and keys the hashes of
     # recovery / email codes. Unset: generated once into `secret_key_file` (back it
     # up with the database; without it, 2FA has to be reset for every user).

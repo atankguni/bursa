@@ -129,8 +129,8 @@ async def test_preferences_default_and_switch(client):
 async def test_switching_style_resets_rating_alert_baselines(client):
     from sqlalchemy import func, select
 
+    from alerts.models import RatingState
     from database import AsyncSessionLocal
-    from models import RatingState
 
     async with AsyncSessionLocal() as s:
         s.add(RatingState(user_id=client.user_id, ticker="BBCA", rating="Buy",
@@ -166,7 +166,7 @@ async def _insert_daily_bars(ticker: str, days: int) -> None:
 
     from database import AsyncSessionLocal
     from db.upsert import upsert
-    from models import DailyBar
+    from market.models import DailyBar
 
     today = local_today()
     rows = [
@@ -180,7 +180,7 @@ async def _insert_daily_bars(ticker: str, days: int) -> None:
 
 
 async def test_history_ranges_fetch_full_history_once(client, monkeypatch):
-    import services.history as history
+    import market.history as history
 
     await _insert_daily_bars("BBCA", 400)  # ~1y+ like the regular sync stores
     calls: list[tuple] = []

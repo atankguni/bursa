@@ -1,6 +1,6 @@
 """Unit tests for the recommendation engine (pure functions, no DB/network)."""
 
-from services.recommendation import percentile, raw_factors, score_universe
+from signals.recommendation import percentile, raw_factors, score_universe
 
 
 def _raw(**kw) -> dict:
@@ -65,7 +65,7 @@ def test_sparse_data_lowers_coverage_and_strength():
 
 
 def test_raw_factors_from_fundamentals_and_prices():
-    from models import Fundamental
+    from market.models import Fundamental
 
     f = Fundamental(
         ticker="X", fiscal_year=2024, financial_currency="IDR",
@@ -84,7 +84,7 @@ def test_raw_factors_from_fundamentals_and_prices():
 
 
 def _fund(**kw):
-    from models import Fundamental
+    from market.models import Fundamental
 
     base = {
         "ticker": "X", "fiscal_year": 2024, "financial_currency": "IDR",
@@ -121,7 +121,7 @@ def test_thinly_traded_buy_is_capped_at_hold():
 
 
 def test_financials_skip_leverage_health_factors():
-    from models import StockProfile
+    from market.models import StockProfile
 
     bank = StockProfile(sector="Financial Services")
     f = _fund(total_liabilities=8_000.0, equity=1_000.0)  # bank-like leverage
@@ -155,13 +155,13 @@ def test_negative_equity_ranks_worst_not_missing():
     assert cat("BROKE", "Valuation") < cat("OK", "Valuation")
     assert cat("BROKE", "Health") < cat("OK", "Health")
 
-    from services.recommendation import _fmt
+    from signals.recommendation import _fmt
 
     assert "negative equity" in _fmt(math.inf, "ratio")  # shown instead of "inf"
 
 
 def test_trader_factors_from_closes():
-    from services.recommendation import trader_factors
+    from signals.recommendation import trader_factors
 
     closes = [100.0] * 21 + [100.0 + i for i in range(1, 20)]  # steady climb to 119
     raw = trader_factors(closes)
@@ -173,7 +173,7 @@ def test_trader_factors_from_closes():
 
 
 def test_trader_style_rates_liquid_price_only_stocks():
-    from services.recommendation import trader_factors
+    from signals.recommendation import trader_factors
 
     calm = [100.0 + (i % 2) * 0.5 for i in range(40)]
     wild = [100.0 * (1.08 if i % 2 else 0.93) for i in range(40)]
@@ -191,7 +191,7 @@ def test_trader_style_rates_liquid_price_only_stocks():
 
 
 def test_52_week_position_ignores_older_history():
-    from services.recommendation import _momentum
+    from signals.recommendation import _momentum
 
     last_year = [50.0 + (i % 51) for i in range(251)] + [75.0]  # range 50..100, ends at 75
     deep = [1000.0] * 3000 + last_year  # an old all-time high far above
@@ -199,7 +199,7 @@ def test_52_week_position_ignores_older_history():
 
 
 def test_investor_style_has_no_top_rating():
-    from services.recommendation import _rating
+    from signals.recommendation import _rating
 
     assert _rating(95, "investor") == "Buy"
     assert _rating(95, "trader") == "Strong Buy"

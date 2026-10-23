@@ -3,8 +3,8 @@
 from datetime import date
 
 from clock import local_today
-from services.corporate_actions import AdjustedTx
-from services.portfolio import apply_transactions
+from market.corporate_actions import AdjustedTx
+from portfolio.holdings import apply_transactions
 from tests.conftest import add_daily_bars
 
 
@@ -65,10 +65,11 @@ async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
 
     from sqlalchemy import insert
 
-    import services.indices as indices
+    import market.index_quotes as indices
     from database import AsyncSessionLocal
-    from models import IndexBar, Transaction
-    from services.portfolio import equity_curve
+    from market.models import IndexBar
+    from portfolio.holdings import equity_curve
+    from portfolio.models import Transaction
 
     async def no_fetch(session, code):  # IHSG bars are inserted below
         return None
@@ -109,7 +110,7 @@ async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
 def test_beta_and_drawdown_math():
     from datetime import date, timedelta
 
-    from services.portfolio_risk import beta, max_drawdown
+    from portfolio.risk import beta, max_drawdown
 
     days = [date(2026, 1, 1) + timedelta(days=i) for i in range(60)]
     market, stock, calm = [], [], []
@@ -134,9 +135,9 @@ def test_beta_and_drawdown_math():
 async def test_risk_endpoint_concentration_and_warnings(client, monkeypatch):
     from datetime import date
 
-    import services.indices as indices
+    import market.index_quotes as indices
     from database import AsyncSessionLocal
-    from models import Transaction
+    from portfolio.models import Transaction
 
     async def no_fetch(session, code):
         return None
@@ -161,7 +162,7 @@ async def test_risk_endpoint_concentration_and_warnings(client, monkeypatch):
 def test_dividend_projection():
     from datetime import date
 
-    from services.dividend_calendar import project
+    from portfolio.dividend_calendar import project
 
     today = date(2026, 10, 17)
     history = [
@@ -183,9 +184,10 @@ def test_dividend_projection():
 async def test_dividend_calendar_endpoint(client, monkeypatch):
     from datetime import date, timedelta
 
-    import services.dividend_calendar as cal
+    import portfolio.dividend_calendar as cal
     from database import AsyncSessionLocal
-    from models import Dividend, Transaction, Watchlist
+    from market.models import Dividend
+    from portfolio.models import Transaction, Watchlist
 
     async def no_sync(ticker):
         return 0
@@ -209,7 +211,7 @@ async def test_dividend_calendar_endpoint(client, monkeypatch):
 def test_dividends_need_the_shares_before_the_ex_date():
     from datetime import date
 
-    from services.portfolio import dividend_income
+    from portfolio.holdings import dividend_income
 
     txs = [
         T("buy", 100, 0.0, day=date(2026, 1, 5)),
@@ -225,7 +227,8 @@ async def test_portfolio_counts_costs_and_dividends(client):
     from datetime import date
 
     from database import AsyncSessionLocal
-    from models import Dividend, Transaction
+    from market.models import Dividend
+    from portfolio.models import Transaction
 
     async with AsyncSessionLocal() as s:
         await add_daily_bars(s, [

@@ -3,7 +3,7 @@ clock.py
 --------
 The current time. Points in time are always timezone-aware UTC in the app and
 stored as UTC (`db.types.UTCDateTime`); market-local dates and times use
-`settings.timezone` (services/market_clock).
+`settings.timezone` (market/trading_clock).
 """
 
 from datetime import UTC, date, datetime, time

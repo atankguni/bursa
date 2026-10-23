@@ -29,18 +29,24 @@ from httpx import ASGITransport, AsyncClient  # noqa: E402
 from sqlalchemy import insert, text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
+from accounts import auth, crypto  # noqa: E402
+from accounts.models import User  # noqa: E402
 from config import settings  # noqa: E402
-from database import AsyncSessionLocal, engine, init_db  # noqa: E402
+from database import (  # noqa: E402
+    AsyncSessionLocal,
+    Base,  # noqa: E402
+    engine,
+    init_db,
+)
 from main import app  # noqa: E402
+from market.bootstrap import seed  # noqa: E402
+from market.models import DailyBar  # noqa: E402
 from market.quotes import refresh_quotes  # noqa: E402
-from models import Base, DailyBar, User  # noqa: E402
-from services import auth, crypto  # noqa: E402
-from services.bootstrap import seed  # noqa: E402
 
 ADMIN_EMAIL = "admin@example.com"
 PASSWORD = "correct horse battery"
 # Authenticator secret of users made with totp=True (admins by default: 2FA is
-# required for them). services.two_factor.totp_code(TOTP_SECRET) gives a code.
+# required for them). accounts.two_factor.totp_code(TOTP_SECRET) gives a code.
 TOTP_SECRET = "JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP"
 
 

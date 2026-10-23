@@ -33,13 +33,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine  # noqa: E402
 
+from accounts.models import UserSettings  # noqa: E402
 from clock import as_utc  # noqa: E402
 from database import Base  # noqa: E402
 from db.migrate import migrate  # noqa: E402
 from db.upsert import upsert  # noqa: E402
 from market.indices import INDICES  # noqa: E402
+from market.models import Stock  # noqa: E402
 from market.quotes import refresh_quotes  # noqa: E402
-from models import Stock, UserSettings  # noqa: E402
 
 # A stock code as stored now (every old code had the suffix; this is safe either way).
 CODE = "CASE WHEN {c} LIKE '%.JK' THEN substr({c}, 1, length({c}) - 3) ELSE {c} END"

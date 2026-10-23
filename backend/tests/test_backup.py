@@ -7,7 +7,7 @@ import stat
 import pytest
 
 from config import settings
-from services import backup
+from system import backup
 
 
 def _make_db(path):

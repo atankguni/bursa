@@ -1,7 +1,7 @@
 """
 Schema migrations (Alembic), run on startup by `database.init_db()`.
 
-Migration scripts live in `migrations/versions/`. After changing `models.py`,
+Migration scripts live in `migrations/versions/`. After changing a feature's `models.py`,
 create one with `alembic revision --autogenerate -m "..."` (from `backend/`),
 review it, and commit it; every database is upgraded on its next start.
 

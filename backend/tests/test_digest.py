@@ -5,15 +5,19 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 
+import alerts.routes as alerts_router
 import mail
-import routers.alerts as alerts_router
+from accounts.models import User
+from alerts import digest
+from alerts.models import AlertEvent
+from alerts.service import dividend_due, evaluate_alerts
 from config import settings
 from database import AsyncSessionLocal
-from models import AlertEvent, Dividend, RatingSnapshot, User, Watchlist
-from services import digest
-from services.alerts import dividend_due, evaluate_alerts
-from services.dividend_calendar import UpcomingDividend, cum_date
-from services.market_clock import is_trading_day
+from market.models import Dividend
+from market.trading_clock import is_trading_day
+from portfolio.dividend_calendar import UpcomingDividend, cum_date
+from portfolio.models import Watchlist
+from signals.models import RatingSnapshot
 from tests.conftest import add_daily_bars
 
 

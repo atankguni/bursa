@@ -18,7 +18,7 @@ Jobs:
   * backup_db                     -> compressed SQLite backup, newest BACKUP_KEEP kept (nightly)
 
 The heavy lifting lives in `market.sync` (batched downloads) and
-`services.fundamentals` (per-ticker statements).
+`market.fundamentals` (per-ticker statements).
 """
 
 import asyncio
@@ -35,11 +35,12 @@ from clock import utcnow
 from config import settings
 from database import AsyncSessionLocal, engine
 from db import maintenance
+from market.models import IntradayBar, Stock, StockIndex
 from market.sync import DAILY_INTERVAL, INTRADAY_INTERVAL, sync_batch
 from market.tickers import all_tickers
-from models import IntradayBar, Stock, StockIndex, Transaction, Watchlist
-from services import worker_state
-from services.market_clock import is_open
+from market.trading_clock import is_open
+from portfolio.models import Transaction, Watchlist
+from system import worker_state
 
 log = logging.getLogger("bursa.scheduler")
 
@@ -89,7 +90,7 @@ async def backfill_daily() -> None:
 
 async def backfill_history() -> None:
     """DAILY_HISTORY_YEARS of daily bars for stocks that don't have them yet."""
-    from services.history import backfill_history as run
+    from market.history import backfill_history as run
 
     await run()
 
@@ -106,14 +107,14 @@ async def sync_intraday() -> None:
         return
     await sync_batch(await active_tickers(), period="1d", interval=INTRADAY_INTERVAL)
     # Evaluate alert rules against the freshly synced prices.
-    from services.alerts import evaluate_alerts
+    from alerts.service import evaluate_alerts
 
     await evaluate_alerts()
 
 
 async def refresh_index_quotes() -> None:
     """Latest value of every IDX index (see market/indices.py)."""
-    from services.indices import refresh_quotes
+    from market.index_quotes import refresh_quotes
 
     await refresh_quotes()
 
@@ -129,14 +130,14 @@ async def catch_up_intraday(period: str = "1d") -> None:
 
 async def sync_idx_listing() -> None:
     """Listing boards, dates, official shares and new IPOs from the IDX site."""
-    from services.idx_listing import sync_listing
+    from market.idx_listing import sync_listing
 
     await sync_listing()
 
 
 async def sync_splits_active() -> None:
     """Stock splits for the active set, re-checked weekly per stock."""
-    from services.corporate_actions import sync_due
+    from market.corporate_actions import sync_due
 
     await sync_due(await active_tickers())
 
@@ -145,7 +146,7 @@ async def sync_watchlist_fundamentals() -> None:
     """Refresh yearly fundamentals and dividends for every ticker on anyone's
     watchlist or in anyone's portfolio (dividend reminders and the daily summary
     project from the stored dividend history)."""
-    from services.fundamentals import sync_many
+    from market.fundamentals import sync_many
 
     async with AsyncSessionLocal() as session:
         watched = (await session.execute(select(Watchlist.ticker).distinct())).scalars().all()
@@ -182,7 +183,7 @@ async def compact_db() -> None:
 
 async def record_ratings() -> None:
     """Store the day's ratings (live track record)."""
-    from services.track_record import record_ratings as record
+    from signals.track_record import record_ratings as record
 
     async with AsyncSessionLocal() as session:
         await record(session)
@@ -190,7 +191,7 @@ async def record_ratings() -> None:
 
 async def send_digests() -> None:
     """Daily summary emails (after the ratings are recorded)."""
-    from services.digest import send_digests as send
+    from alerts.digest import send_digests as send
 
     async with AsyncSessionLocal() as session:
         await send(session)
@@ -198,14 +199,14 @@ async def send_digests() -> None:
 
 async def backup_db() -> None:
     """Nightly database backup (SQLite)."""
-    from services.backup import run_backup
+    from system.backup import run_backup
 
     await run_backup()
 
 
 async def purge_auth() -> None:
     """Delete expired sessions and stale invite / password-reset links."""
-    from services.auth import purge_expired
+    from accounts.auth import purge_expired
 
     removed = await purge_expired()
     if removed:
@@ -214,7 +215,7 @@ async def purge_auth() -> None:
 
 async def purge_chats() -> None:
     """Delete saved assistant chats older than ASSISTANT_CHAT_DAYS."""
-    from services.assistant_chats import purge_expired_chats
+    from assistant.chats import purge_expired_chats
 
     removed = await purge_expired_chats()
     if removed:
@@ -251,7 +252,7 @@ _recording: set[asyncio.Task[None]] = set()
 
 def _record_job(event: JobExecutionEvent) -> None:
     """Store a job's outcome for the data-health page (the API reads it from the
-    database: services/worker_state.py). Listeners are plain functions, so the
+    database: system/worker_state.py). Listeners are plain functions, so the
     write runs as a task."""
     job = scheduler.get_job(event.job_id)
     error = str(event.exception) if event.exception else None

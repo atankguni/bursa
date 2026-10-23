@@ -3,7 +3,7 @@
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from services.market_clock import is_open, session, status
+from market.trading_clock import is_open, session, status
 
 WIB = ZoneInfo("Asia/Jakarta")
 

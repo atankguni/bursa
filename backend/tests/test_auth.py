@@ -5,10 +5,10 @@ from datetime import timedelta
 from sqlalchemy import func, select
 
 import mail
+from accounts import auth
+from accounts.models import Invite, User, UserSession
 from config import settings
 from database import AsyncSessionLocal
-from models import Invite, User, UserSession
-from services import auth
 from tests.conftest import ADMIN_EMAIL, PASSWORD, make_user, signed_in
 
 

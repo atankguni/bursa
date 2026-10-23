@@ -1226,7 +1226,7 @@ export interface paths {
      *
      *     Works for ANY tracked stock, not just watchlist members: if nothing is
      *     cached (or the cache is stale, or ``refresh=true``) the data is fetched
-     *     from yfinance on demand and cached for subsequent requests.
+     *     from the data provider on demand and cached for subsequent requests.
      */
     get: operations['stock_fundamentals_api_stocks__ticker__fundamentals_get']
     put?: never
@@ -5276,7 +5276,7 @@ export interface operations {
   stock_fundamentals_api_stocks__ticker__fundamentals_get: {
     parameters: {
       query?: {
-        /** @description Force a re-fetch from yfinance */
+        /** @description Force a re-fetch from the provider */
         refresh?: boolean
       }
       header?: never

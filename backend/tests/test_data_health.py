@@ -5,7 +5,7 @@ from sqlalchemy import select
 
 from clock import utcnow
 from database import AsyncSessionLocal
-from models import Fundamental, Stock
+from market.models import Fundamental, Stock
 
 
 async def test_report_sections_and_share_mismatch(client):
@@ -33,7 +33,7 @@ async def test_report_sections_and_share_mismatch(client):
 
 async def test_job_outcomes_and_the_worker_are_reported(client):
     from clock import utcnow
-    from services import worker_state
+    from system import worker_state
 
     await worker_state.record_jobs([
         ("backfill_daily", "Daily bars", None), ("old_job", "Gone", None),
@@ -51,7 +51,7 @@ async def test_job_outcomes_and_the_worker_are_reported(client):
 
 
 async def test_reconcile_shares_uses_idx_register(client):
-    from services.fundamentals import reconcile_shares
+    from market.fundamentals import reconcile_shares
 
     async with AsyncSessionLocal() as s:
         for t, idx, yahoo in [("AISA", 9.3118e9, 3.8057e9), ("BBCA", 1.2328e11, 1.228e11)]:
@@ -79,7 +79,7 @@ async def test_reconcile_shares_uses_idx_register(client):
 
 
 async def test_a_restarting_worker_keeps_job_history(client):
-    from services import worker_state
+    from system import worker_state
 
     await worker_state.record_jobs([("backfill_daily", "Daily bars", None)])
     await worker_state.record_run("backfill_daily", None, None)

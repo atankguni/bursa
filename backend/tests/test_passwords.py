@@ -4,11 +4,11 @@ import hashlib
 
 import pytest
 
-import services.passwords as passwords
+import accounts.passwords as passwords
+from accounts import auth
+from accounts.models import User
 from config import settings
 from database import AsyncSessionLocal
-from models import User
-from services import auth
 from tests.conftest import ADMIN_EMAIL, PASSWORD, make_user, signed_in
 
 STRONG = "tropical lantern quietly misplaced"

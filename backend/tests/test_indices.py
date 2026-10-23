@@ -3,9 +3,9 @@
 from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
-import services.indices as indices
+import market.index_quotes as indices
 from market.indices import GROUPS, INDICES
-from services.market_clock import last_trading_day
+from market.trading_clock import last_trading_day
 
 WIB = ZoneInfo("Asia/Jakarta")
 
@@ -92,7 +92,7 @@ async def test_index_api_validation(client):
 
 
 def test_last_closed_trading_day():
-    from services.market_clock import last_closed_trading_day
+    from market.trading_clock import last_closed_trading_day
 
     fri = datetime(2026, 10, 16, 10, 0, tzinfo=WIB)
     assert last_closed_trading_day(fri) == date(2026, 10, 15)  # today still trading

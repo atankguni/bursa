@@ -2,10 +2,10 @@
 
 from datetime import date
 
-import services.notify as notify
+import alerts.notify as notify
+from alerts.models import Alert
 from config import settings
 from database import AsyncSessionLocal
-from models import Alert
 from tests.conftest import add_daily_bars
 
 
@@ -42,7 +42,7 @@ async def test_telegram_errors_are_explained(client, monkeypatch):
 
 
 async def test_triggered_alert_is_sent(client, monkeypatch):
-    from services.alerts import evaluate_alerts
+    from alerts.service import evaluate_alerts
 
     sent: list[str] = []
     _configure(monkeypatch, sent)

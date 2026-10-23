@@ -2,11 +2,12 @@
 
 import asyncio
 
-import services.fundamentals as fundamentals
-import services.sync_job as sync_job
+import market.fundamentals as fundamentals
+import signals.sync_job as sync_job
 from clock import utcnow
 from database import AsyncSessionLocal
-from services import sync_state, worker_state
+from market import sync_state
+from system import worker_state
 
 
 async def test_status_shape(client):
@@ -83,7 +84,7 @@ async def test_statements_supersede_summary_rows(client, monkeypatch):
 
     from config import settings
     from database import AsyncSessionLocal
-    from models import Fundamental
+    from market.models import Fundamental
 
     monkeypatch.setattr(settings, "provider_min_interval_ms", 0)
 
@@ -148,7 +149,7 @@ async def test_catch_up_intraday_ignores_market_hours(monkeypatch):
 async def _fake_sync_factory(monkeypatch, gives_data):
     """sync_ticker stand-in: writes a profile when `gives_data(ticker)` is true."""
     from database import AsyncSessionLocal
-    from models import StockProfile
+    from market.models import StockProfile
 
     calls: list[str] = []
 
@@ -253,10 +254,10 @@ async def test_a_run_interrupted_by_a_worker_restart_is_resumed(client, monkeypa
 async def test_history_backfill_marks_done_and_resumes(client, monkeypatch):
     from sqlalchemy import func, select
 
-    import services.history as history
+    import market.history as history
     from config import settings
     from database import AsyncSessionLocal
-    from models import Stock
+    from market.models import Stock
 
     monkeypatch.setattr(settings, "provider_chunk_size", 400)
     calls = []

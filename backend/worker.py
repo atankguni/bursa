@@ -3,14 +3,14 @@ worker.py
 ---------
 The worker process: the scheduler and every background job (price and
 fundamentals syncs, history backfill, alerts, digests, backups), plus the long
-jobs the API asks for (Sync all, services/sync_job.py). The API (main.py)
+jobs the API asks for (Sync all, signals/sync_job.py). The API (main.py)
 only serves requests, so a slow provider or a failing job never slows a page,
 and restarting the API doesn't stop a sync.
 
     python worker.py        # after prepare.py; docker compose runs it as `worker`
 
 Only one worker may run: the scheduled jobs would otherwise run twice.
-The worker talks to the API only through the database (services/worker_state.py).
+The worker talks to the API only through the database (system/worker_state.py).
 """
 
 import asyncio
@@ -21,10 +21,13 @@ from datetime import datetime
 
 from sqlalchemy import func, select
 
+from accounts.crypto import ensure_secret
 from clock import utcnow
 from database import AsyncSessionLocal, engine
 from db.migrate import wait_until_current
-from models import Stock, StockQuote
+from market.idx_listing import sync_if_stale as sync_idx_listing_if_stale
+from market.models import Stock, StockQuote
+from market.trading_clock import last_closed_trading_day
 from scheduler import (
     TICKERS,
     backfill_active,
@@ -37,10 +40,8 @@ from scheduler import (
     sync_splits_active,
     sync_watchlist_fundamentals,
 )
-from services import sync_job, worker_state
-from services.crypto import ensure_secret
-from services.idx_listing import sync_if_stale as sync_idx_listing_if_stale
-from services.market_clock import last_closed_trading_day
+from signals import sync_job
+from system import worker_state
 
 log = logging.getLogger("bursa.worker")
 

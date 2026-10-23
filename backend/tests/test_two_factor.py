@@ -5,12 +5,12 @@ import re
 import pytest
 from sqlalchemy import select
 
+import accounts.two_factor as tf
 import mail
-import services.two_factor as tf
+from accounts import crypto
+from accounts.models import User
 from config import settings
 from database import AsyncSessionLocal
-from models import User
-from services import crypto
 from tests.conftest import ADMIN_EMAIL, PASSWORD, TOTP_SECRET, make_user, signed_in
 
 

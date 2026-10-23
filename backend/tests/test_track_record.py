@@ -3,10 +3,10 @@
 from datetime import date, timedelta
 
 from database import AsyncSessionLocal
-from models import RatingSnapshot
-from schemas import RatingRecordOut
-from services import track_record
-from services.recommendation import rating_code, rating_label
+from signals import track_record
+from signals.models import RatingSnapshot
+from signals.recommendation import rating_code, rating_label
+from signals.schemas import RatingRecordOut
 from tests.conftest import add_daily_bars
 
 

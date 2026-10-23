@@ -71,7 +71,7 @@ database can't read anyone's 2FA). The newest 7 are kept, readable by the owner 
 
 They sit on the same disk as the database, so they protect against mistakes and
 corruption, not a lost disk: copy `backend/data/backups/` somewhere else now and then
-(another drive or cloud storage). Back up now: `docker compose exec backend python -m services.backup`.
+(another drive or cloud storage). Back up now: `docker compose exec backend python -m system.backup`.
 
 To restore one, stop the backend, unpack the backup into a new file (the restore
 command checks it and never overwrites a file), then swap it in:
@@ -79,7 +79,7 @@ command checks it and never overwrites a file), then swap it in:
 ```bash
 docker compose stop backend worker
 docker compose run --rm --no-deps backend \
-  python -m services.backup restore data/backups/bursa-2026-10-22_0230.db.gz data/bursa.restored.db
+  python -m system.backup restore data/backups/bursa-2026-10-22_0230.db.gz data/bursa.restored.db
 mv backend/data/bursa.db backend/data/bursa.before-restore.db   # keep until all is well
 rm -f backend/data/bursa.db-wal backend/data/bursa.db-shm
 mv backend/data/bursa.restored.db backend/data/bursa.db

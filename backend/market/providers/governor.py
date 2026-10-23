@@ -13,7 +13,7 @@ All provider calls go through `governor.call(...)`, so bursts are impossible no
 matter how many endpoints or jobs trigger them. The governor is per process:
 the worker makes nearly all calls (syncs); an API process only makes the few
 a user's click needs (search, a chart's full history, adding a stock). Its
-counters reach the API through services/worker_state.py.
+counters reach the API through system/worker_state.py.
 """
 
 import asyncio
@@ -24,7 +24,7 @@ from typing import Any
 
 from clock import local_today
 from config import settings
-from schemas import ProviderStat
+from market.schemas import ProviderStat
 
 log = logging.getLogger("bursa.governor")
 

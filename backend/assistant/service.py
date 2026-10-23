@@ -22,6 +22,8 @@ from pydantic_core import to_jsonable_python
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from accounts.preferences import get_assistant_personal_data, get_investing_style
+from assistant.models import AssistantUsage
 from assistant.providers import (
     AssistantMessage,
     ChatProvider,
@@ -39,8 +41,6 @@ from clock import local_today
 from config import settings
 from database import AsyncSessionLocal
 from db.upsert import upsert
-from models import AssistantUsage
-from services.preferences import get_assistant_personal_data, get_investing_style
 
 log = logging.getLogger("bursa.assistant")
 

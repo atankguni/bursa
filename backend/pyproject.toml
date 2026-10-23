@@ -6,30 +6,37 @@ target-version = "py313"
 extend-exclude = ["data", "__pycache__"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "UP", "B", "C4", "ANN"]
+select = ["E", "F", "I", "UP", "B", "C4", "ANN", "TID251"]
 ignore = [
   "B008",   # FastAPI Depends() in defaults is idiomatic
 ]
 
+# Yahoo's data (pandas frames, loosely typed dicts) is turned into the typed rows
+# of market/providers/base.py inside the adapter; nothing else touches it.
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"yfinance".msg = "Only market/providers/yahoo.py talks to Yahoo; use the provider registry."
+"pandas".msg = "pandas stays inside market/providers/yahoo.py; use the typed rows."
+
 [tool.ruff.lint.per-file-ignores]
-"tests/**" = ["ANN"] # fixtures/test doubles don't need annotations
+"tests/**" = ["ANN", "TID251"] # fixtures/test doubles don't need annotations
 # `Any` (ANN401) only at the boundaries, where outside data arrives untyped and
 # gets parsed into typed values: Yahoo/pandas, LLM wire formats, DB-API hooks.
-"market/providers/yahoo.py" = ["ANN401"]
+"market/providers/yahoo.py" = ["ANN401", "TID251"]
+"typings/**" = ["TID251"]  # the stubs describe them
 "assistant/providers/*.py" = ["ANN401"]
 "db/maintenance.py" = ["ANN401"]
 "migrations/**" = ["ANN401"]  # Alembic hook signatures
 "migrations/versions/*.py" = ["E501"]  # generated; long constraint strings
 
 [tool.ruff.lint.isort]
-known-first-party = ["assistant", "clock", "config", "database", "db", "deps", "mail", "market", "models", "routers", "schemas", "scheduler", "services"]
+known-first-party = ["accounts", "alerts", "assistant", "clock", "config", "database", "db", "deps", "mail", "market", "models", "portfolio", "schemas", "scheduler", "signals", "system"]
 
 [tool.pyright]
 pythonVersion = "3.14"
 # App code is checked strictly: every value has a known type. Tests (partial
 # doubles on purpose) and migrations (generated) use the standard level.
 typeCheckingMode = "standard"
-strict = ["*.py", "assistant", "db", "mail", "market", "routers", "scripts", "services"]
+strict = ["*.py", "accounts", "alerts", "assistant", "db", "mail", "market", "portfolio", "scripts", "signals", "system"]
 include = ["."]
 exclude = ["data", "**/__pycache__", ".venv"]
 # Local stubs for untyped libraries (only the parts Bursa uses).

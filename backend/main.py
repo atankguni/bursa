@@ -6,8 +6,9 @@ FastAPI application entrypoint for "Bursa" — personal IDX stock monitor.
 This module only wires things together: settings, middleware, the lifespan
 and the routers. The API only serves requests: prepare.py migrates and seeds
 the database before it starts, and the worker process (worker.py) runs the
-scheduler and every background job. Business logic lives in `services/` and
-market integration in `market/`.
+scheduler and every background job. The code is organized by feature
+(accounts, market, signals, portfolio, alerts, assistant, mail, system), each
+with its own models, schemas, logic and routes.
 
 Every /api route needs a signed-in user (session cookie) except /api/health
 and the sign-in flow under /api/auth. Admin-only routes say so in their router.
@@ -15,13 +16,13 @@ and the sign-in flow under /api/auth. Admin-only routes say so in their router.
 Endpoints
 ~~~~~~~~~
 GET    /api/health
-POST   /api/auth/login                      (routers/auth.py)
-GET    /api/admin/users                     (routers/admin.py, admins only)
-GET    /api/indexes                         (routers/meta.py)
-GET    /api/stocks?index=LQ45               (routers/stocks.py)
+POST   /api/auth/login                      (accounts/routes/auth.py)
+GET    /api/admin/users                     (accounts/routes/admin.py, admins only)
+GET    /api/indexes                         (system/routes/meta.py)
+GET    /api/stocks?index=LQ45               (market/routes/stocks.py)
 GET    /api/stocks/{ticker}/history
 GET    /api/stocks/{ticker}/fundamentals
-GET    /api/watchlist                       (routers/watchlist.py)
+GET    /api/watchlist                       (portfolio/routes/watchlist.py)
 POST   /api/watchlist/{ticker}
 DELETE /api/watchlist/{ticker}
 POST   /api/watchlist/refresh
@@ -38,26 +39,17 @@ from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
 
 import mail as mail_service
+from accounts.crypto import ensure_secret
+from accounts.routes import admin, auth, preferences, two_factor
+from alerts import routes as alert_routes
+from assistant import routes as assistant_routes
 from config import settings
 from deps import current_user, require_admin
-from routers import (
-    admin,
-    alerts,
-    assistant,
-    auth,
-    data_health,
-    indices,
-    mail,
-    market,
-    meta,
-    portfolio,
-    preferences,
-    screener,
-    stocks,
-    two_factor,
-    watchlist,
-)
-from services.crypto import ensure_secret
+from mail import routes as mail_routes
+from market.routes import indices, overview, stocks
+from portfolio.routes import portfolio, watchlist
+from signals import routes as screener_routes
+from system.routes import data_health, meta
 
 logging.basicConfig(
     level=logging.INFO,
@@ -136,11 +128,11 @@ app.include_router(meta.router, dependencies=signed_in)
 app.include_router(stocks.router, dependencies=signed_in)
 app.include_router(watchlist.router, dependencies=signed_in)
 app.include_router(portfolio.router, dependencies=signed_in)
-app.include_router(screener.router, dependencies=signed_in)
-app.include_router(market.router, dependencies=signed_in)
-app.include_router(alerts.router, dependencies=signed_in)
+app.include_router(screener_routes.router, dependencies=signed_in)
+app.include_router(overview.router, dependencies=signed_in)
+app.include_router(alert_routes.router, dependencies=signed_in)
 app.include_router(preferences.router, dependencies=signed_in)
-app.include_router(assistant.router, dependencies=signed_in)
+app.include_router(assistant_routes.router, dependencies=signed_in)
 app.include_router(indices.router, dependencies=signed_in)
 app.include_router(data_health.router, dependencies=admins)  # server internals
-app.include_router(mail.router, dependencies=admins)  # server-wide email setup
+app.include_router(mail_routes.router, dependencies=admins)  # server-wide email setup

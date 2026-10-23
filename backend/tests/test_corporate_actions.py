@@ -2,11 +2,12 @@
 
 from datetime import UTC, date, datetime
 
-import services.corporate_actions as ca
+import market.corporate_actions as ca
 from config import settings
 from database import AsyncSessionLocal
-from models import Split, Transaction
-from services import sync_state
+from market import sync_state
+from market.models import Split
+from portfolio.models import Transaction
 from tests.conftest import add_daily_bars
 
 

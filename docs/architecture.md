@@ -22,13 +22,18 @@ bursa/
 │   ├── database.py        # async engine + session factory, init_db()
 │   ├── db/                # database adapter: portable upsert, maintenance, migration runner
 │   ├── migrations/        # Alembic migration scripts (+ alembic.ini)
-│   ├── models.py          # ORM models
-│   ├── schemas.py         # Pydantic response models
-│   ├── routers/           # HTTP endpoints (auth, admin, stocks, screener, portfolio, alerts, …)
-│   ├── services/          # business logic (auth, recommendation, portfolio, risk, sync jobs, …)
-│   ├── market/            # tickers, holidays, IDX site/listing, indices, providers + sync
-│   ├── assistant/         # AI assistant: provider adapters, read-only tools, service
+│   ├── models.py          # registry: every feature's tables (+ the model conventions)
+│   ├── schemas.py         # shared API base: Schema, StockCode, InvestingStyle
+│   │                      # features, each with models.py, schemas.py, logic and routes:
+│   ├── accounts/          # users, sign-in, sessions, 2FA, invites, admin, preferences
+│   ├── market/            # stocks, prices, fundamentals, indices, trading clock, search;
+│   │                      #   providers + sync, tickers, holidays, IDX site/listing
+│   ├── signals/           # recommendation ratings, screener (+ Sync all), track record, valuation
+│   ├── portfolio/         # transactions, holdings, risk, dividend calendar, watchlist
+│   ├── alerts/            # alerts, rating changes, Telegram, the email digest
+│   ├── assistant/         # AI assistant: provider adapters, read-only tools, chats
 │   ├── mail/              # email: provider adapters (SMTP, Resend), service, HTML layout
+│   ├── system/            # worker state, cache versions, data health, backups, status
 │   ├── scheduler.py       # APScheduler jobs (prices, fundamentals, indices, retention); worker only
 │   ├── scripts/           # evaluate_signals.py (backtest), gen_idx_list.py
 │   ├── tests/             # pytest
@@ -74,6 +79,21 @@ The app uses **tiered sync** so the free Yahoo API is never hammered:
 - **Sleep/wake**: jobs have a misfire grace window, so jobs missed while the host slept
   run on wake.
 
+## Code layout
+
+The backend is organized **by feature**. A feature package holds everything about
+one part of the app: its tables (`models.py`), its API shapes (`schemas.py`), its
+logic (plain modules) and its HTTP endpoints (`routes.py`, or `routes/` when there
+are several routers). Features use each other's modules directly where a page
+or job needs another feature's data (the stock page shows ratings from `signals`,
+alerts read portfolios, data health reads the market tables); modules never
+import each other in a circle.
+
+What every feature shares sits at the top: `schemas.py` (the `Schema` base and the
+stock-code type), `db/` (column helpers, types, upsert), `database.py`, `config.py`,
+`deps.py`. The root `models.py` only imports every feature's models, so Alembic and
+the schema check see all tables.
+
 ## Database layer
 
 All data access goes through **SQLAlchemy** on SQLite or PostgreSQL. The few things
@@ -85,7 +105,7 @@ contain database-specific code:
 | `db/upsert.py` | Insert-or-update (`ON CONFLICT`), chunked under each database's parameter limit. |
 | `db/maintenance.py` | SQLite pragmas (WAL, busy timeout, foreign keys), WAL checkpoints and the weekly `VACUUM`. PostgreSQL gets `VACUUM (ANALYZE)`. |
 | `db/migrate.py` | Runs **Alembic** migrations on startup. Refuses a database from before the 2026-10-23 squash (convert it: `scripts/convert_db.py`). |
-| `db/types.py` | `UTCDateTime` (timezone-aware UTC only) and `one_of()`, a CHECK constraint built from a `Literal` in `schemas.py`. |
+| `db/types.py` | `UTCDateTime` (timezone-aware UTC only) and `one_of()`, a CHECK constraint built from a `Literal` in a feature's `schemas.py`. `db/columns.py`: the shared stock / user reference and timestamp columns. |
 
 **Schema.** The main tables and their keys:
 
@@ -123,7 +143,7 @@ layer over every query.
 
 ## Accounts & security
 
-Invite-only accounts (`services/auth.py`, `routers/auth.py`, `routers/admin.py`):
+Invite-only accounts (`accounts/auth.py`, `accounts/routes/auth.py`, `accounts/routes/admin.py`):
 
 - **Passwords** are hashed with Argon2id (`argon2-cffi`). Sign-in takes the same time
   whether or not the email exists, and failures are throttled per email and per IP
@@ -136,11 +156,11 @@ Invite-only accounts (`services/auth.py`, `routers/auth.py`, `routers/admin.py`)
   whose `Origin` isn't the app's own host, `PUBLIC_URL` or `CORS_ORIGINS`.
 - **Invite and reset links** are one-time tokens, also stored hashed, that expire
   (`INVITE_DAYS`, `PASSWORD_RESET_HOURS`). A daily job deletes expired sessions and links.
-- **Two-factor** (`services/two_factor.py`, `routers/two_factor.py`): after the
+- **Two-factor** (`accounts/two_factor.py`, `accounts/routes/two_factor.py`): after the
   password, `/api/auth/login` returns a short-lived challenge instead of a session.
   TOTP is RFC 6238 (standard library, ±1 step, each code accepted once). Secrets are
   encrypted with Fernet and recovery / emailed codes stored as HMAC-SHA256, both
-  keyed by the server secret (`services/crypto.py`). Each challenge allows
+  keyed by the server secret (`accounts/crypto.py`). Each challenge allows
   `MFA_MAX_ATTEMPTS` wrong codes, which also count toward sign-in throttling.
   "Remember this device" is a separate HttpOnly cookie limited to `/api/auth`.
   `deps.current_user` holds admins without 2FA at the setup (403); `signed_in_user`
@@ -196,7 +216,7 @@ The backend image runs as two services (`docker-compose.yml`):
 
 So a slow Yahoo call or a crashing job never slows a page, and restarting the API
 doesn't stop a sync. The two share **nothing but the database**
-(`services/worker_state.py`, `services/sync_job.py`, `services/data_version.py`):
+(`system/worker_state.py`, `signals/sync_job.py`, `system/data_version.py`):
 
 - **Heartbeat:** the worker writes `worker_status` every 30 s (with its provider call
   counters and last price sync). Data health shows "Worker not running" when it is

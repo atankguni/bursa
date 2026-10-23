@@ -20,11 +20,10 @@ from alembic.runtime.migration import MigrationContext
 from sqlalchemy import Connection
 from sqlalchemy.ext.asyncio import create_async_engine
 
-import models  # noqa: F401  (registers tables on Base.metadata)
+import models
 from config import settings
-from database import Base
 
-target_metadata = Base.metadata
+target_metadata = models.metadata  # every feature's tables
 
 
 def _compare_type(

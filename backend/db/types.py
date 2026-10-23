@@ -7,7 +7,7 @@ timezone-aware datetimes (tzinfo=UTC); the column itself stays a plain
 naive datetime is an error: it would be ambiguous (UTC? Jakarta?), which is
 exactly the bug class this type exists to prevent.
 
-`one_of`: a CHECK constraint generated from a `Literal` alias in `schemas.py`,
+`one_of`: a CHECK constraint generated from a `Literal` alias in a feature's `schemas.py`,
 so the database, the Python types and the generated TypeScript types share one
 list of allowed values.
 """

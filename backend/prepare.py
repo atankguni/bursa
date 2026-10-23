@@ -12,10 +12,10 @@ Dockerfile), so several API processes never migrate at the same time.
 import asyncio
 import logging
 
+from accounts.auth import ensure_setup_invite
+from accounts.crypto import ensure_secret
 from database import init_db
-from services.auth import ensure_setup_invite
-from services.bootstrap import seed
-from services.crypto import ensure_secret
+from market.bootstrap import seed
 
 log = logging.getLogger("bursa.prepare")
 

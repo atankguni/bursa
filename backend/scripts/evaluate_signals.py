@@ -25,7 +25,7 @@ Usage (inside the backend environment):
                                        [--write-summary]
 
 `--write-summary` also stores the main-horizon result per rating in
-services/backtest_summary.json: the track record the app shows next to ratings.
+signals/backtest_summary.json: the track record the app shows next to ratings.
 Re-run it (for both styles) after changing the model, and commit the file.
 
 `--db` is a SQLite file; `--url` any SQLAlchemy async URL. Default: DATABASE_URL.
@@ -51,9 +51,9 @@ from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 from clock import local_today
 from config import settings  # noqa: E402
-from models import DailyBar, Fundamental, StockProfile  # noqa: E402
-from schemas import InvestingStyle, Rating  # noqa: E402
-from services.recommendation import (  # noqa: E402
+from market.models import DailyBar, Fundamental, StockProfile  # noqa: E402
+from schemas import InvestingStyle  # noqa: E402
+from signals.recommendation import (
     CATEGORY_ORDER,
     TRADER_CATEGORY_ORDER,
     RawFactors,
@@ -61,7 +61,8 @@ from services.recommendation import (  # noqa: E402
     score_universe,
     trader_factors,
 )
-from services.track_record import HORIZON, SUMMARY_FILE, beat_rates  # noqa: E402
+from signals.schemas import Rating  # noqa: E402
+from signals.track_record import HORIZON, SUMMARY_FILE, beat_rates  # noqa: E402
 
 RATINGS: list[Rating] = ["Strong Buy", "Buy", "Hold", "Reduce", "Avoid"]
 CATEGORIES: dict[InvestingStyle, list[str]] = {
@@ -356,7 +357,7 @@ def report_by(
 def write_summary(
     samples: list[Sample], style: InvestingStyle, keep: Callable[[Sample], bool], universe: str
 ) -> None:
-    """Store the main-horizon track record for the app (services/track_record)."""
+    """Store the main-horizon track record for the app (signals/track_record)."""
     horizon = HORIZON[style][0]
     sel = [s for s in samples if s["forward"][horizon] is not None and keep(s)]
     by_year: dict[str, list[Sample]] = collections.defaultdict(list)

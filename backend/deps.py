@@ -5,9 +5,9 @@ from collections.abc import AsyncGenerator
 from fastapi import Depends, HTTPException, Request, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from accounts.models import User
 from config import settings
 from database import AsyncSessionLocal
-from models import User
 from schemas import InvestingStyle
 
 
@@ -32,7 +32,7 @@ async def signed_in_user(
 ) -> User:
     """The signed-in user, or 401, without the admin policies below (for /me,
     2FA setup and changing the password)."""
-    from services.auth import user_for_token
+    from accounts.auth import user_for_token
 
     raw = session_token(request)
     user = await user_for_token(session, raw) if raw else None
@@ -65,6 +65,6 @@ async def user_style(
     user: User = Depends(current_user), session: AsyncSession = Depends(get_session)
 ) -> InvestingStyle:
     """The signed-in user's investing style (scores and signals depend on it)."""
-    from services.preferences import get_investing_style
+    from accounts.preferences import get_investing_style
 
     return await get_investing_style(session, user.id)

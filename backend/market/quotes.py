@@ -14,7 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clock import local_today
 from db.upsert import upsert
-from models import DailyBar, StockQuote
+from market.models import DailyBar, StockQuote
 
 # How far back the two newest bars are looked for. A stock without a bar this
 # recent keeps its old quote; readers ignore quotes older than a year.

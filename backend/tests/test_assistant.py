@@ -325,9 +325,9 @@ async def test_chats_expire_after_last_message(client, monkeypatch):
 
     from sqlalchemy import func, select, update
 
+    from assistant.chats import purge_expired_chats
+    from assistant.models import AssistantChat, ChatMessage
     from database import AsyncSessionLocal
-    from models import AssistantChat, ChatMessage
-    from services.assistant_chats import purge_expired_chats
 
     monkeypatch.setattr(settings, "assistant_chat_days", 7)
     _chain(monkeypatch, (_Scripted([AssistantMessage(text="a"), AssistantMessage(text="b"),
@@ -373,7 +373,7 @@ async def test_trimmed_history_starts_with_user_turn(client, monkeypatch):
 
 
 def test_chat_title_is_first_question_shortened():
-    from services.assistant_chats import title_for
+    from assistant.chats import title_for
 
     assert title_for("  Is\nBBCA   cheap? ") == "Is BBCA cheap?"
     long = title_for("x" * 200)
@@ -383,7 +383,7 @@ def test_chat_title_is_first_question_shortened():
 def test_tool_output_is_plain_json():
     from datetime import date
 
-    from schemas import EquityPoint
+    from portfolio.schemas import EquityPoint
 
     out = service._jsonable({"curve": [EquityPoint(date=date(2026, 3, 10), value=1.5)]})
     assert out == {"curve": [{"date": "2026-03-10", "value": 1.5,

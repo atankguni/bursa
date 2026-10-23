@@ -23,8 +23,8 @@ make api-types    # after changing a response/request model in backend/schemas.p
   `assistant/providers/`, `db/maintenance.py`, migrations), and is turned into
   typed values there. Untyped libraries get small local stubs in
   `backend/typings/` (only what Bursa uses).
-- **One definition per shape:** API shapes are the Pydantic models in
-  `schemas.py`, and services return them directly (no TypedDict copies).
+- **One definition per shape:** API shapes are the Pydantic models in each
+  feature's `schemas.py`, and its logic returns them directly (no TypedDict copies).
   Value sets are `Literal` aliases there too (`TradeSide`, `MarketSession`,
   `AlertType`, ...), shared with the database models.
 - **Frontend types come from the backend:** `make api-types` exports the
@@ -92,17 +92,17 @@ docker run --rm --network bursa-dbtest \
 
 ### Schema changes (migrations)
 
-After changing `models.py`, generate a migration, review it, and commit it:
+After changing a feature's `models.py`, generate a migration, review it, and commit it:
 
 ```bash
 cd backend
 alembic revision --autogenerate -m "add foo column"
-alembic upgrade head      # or just restart the app; it migrates on startup
-alembic check             # verifies models.py and the database agree
+alembic upgrade head      # or restart the API: prepare.py migrates before it starts
+alembic check             # verifies the models and the database agree
 ```
 
 `make check` also catches a forgotten migration: `scripts/check_schema.py` migrates an
-empty database (SQLite and PostgreSQL) and fails if it differs from `models.py`.
+empty database (SQLite and PostgreSQL) and fails if it differs from the models.
 
 Migrations live in `backend/migrations/versions/`, named by creation time (Jakarta):
 `20261023_0735_baseline_schema.py`. New ones get that name and a matching revision id
@@ -155,14 +155,14 @@ years, not just in the months it was tuned on. The history comes from
 `backfill_history` job, and the ~5 fiscal years of fundamentals.
 
 `--write-summary` also saves the main-horizon result (how often each rating beat
-the median stock) to `services/backtest_summary.json`. The app shows it as the
+the median stock) to `signals/backtest_summary.json`. The app shows it as the
 **track record** next to each rating, so re-run it for both styles after changing
 the model and commit the file:
 
 ```bash
 docker compose exec backend python scripts/evaluate_signals.py --write-summary
 docker compose exec backend python scripts/evaluate_signals.py --style trader --write-summary
-docker compose cp backend:/app/services/backtest_summary.json backend/services/
+docker compose cp backend:/app/signals/backtest_summary.json backend/signals/
 ```
 
 Findings so far (5 years, 2026-10): for **investor**, only Valuation had an edge in

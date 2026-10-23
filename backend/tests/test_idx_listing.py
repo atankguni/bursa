@@ -2,7 +2,7 @@
 
 from datetime import date
 
-import services.idx_listing as idx_listing
+import market.idx_listing as idx_listing
 from config import settings
 
 
@@ -49,7 +49,7 @@ async def test_fetch_failure_is_swallowed(client, monkeypatch):
 
 
 def test_special_monitoring_caps_buy_at_hold():
-    from services.recommendation import score_universe
+    from signals.recommendation import score_universe
 
     keys = ["roe", "net_margin", "pbv", "per", "revenue_yoy", "earnings_yoy",
             "ret_3m", "price_vs_sma50", "pos_52w", "der", "equity_ratio"]
