@@ -51,7 +51,7 @@ async def list_events(
 async def _ensure_dividends(session: AsyncSession, ticker: str) -> None:
     """Dividend reminders project from stored history: fetch it once if missing."""
     have = (
-        await session.execute(select(Dividend.id).where(Dividend.ticker == ticker).limit(1))
+        await session.execute(select(Dividend.ex_date).where(Dividend.ticker == ticker).limit(1))
     ).first()
     if have is None:
         try:

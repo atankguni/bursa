@@ -6,15 +6,16 @@ provider calls, price freshness, fundamentals coverage, index/listing freshness,
 and suspicious values (including Yahoo vs IDX share-count mismatches).
 """
 
-from datetime import datetime, timedelta
-from typing import cast
+from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
-from sqlalchemy import func, literal_column, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clock import utcnow
+from clock import local_today, utcnow
+from config import settings
 from market.providers.governor import governor
-from models import Fundamental, IndexQuote, Stock, StockPrice
+from models import Fundamental, IntradayBar, MarketIndex, Stock, StockQuote
 from schemas import (
     DataHealthOut,
     FundamentalsHealth,
@@ -34,6 +35,7 @@ from services.fundamentals import SHARES_TOLERANCE  # the same rule the fix appl
 from services.market_clock import WIB, last_closed_trading_day
 from services.prices import latest_fundamentals
 from services.screener import build_rows
+from services.sync_state import is_done, last_done
 
 STALE_DAYS = 7  # no daily bar in this many days -> likely suspended/delisted
 
@@ -49,41 +51,36 @@ async def report(session: AsyncSession, jobs: list[JobHealth]) -> DataHealthOut:
 
     # --- prices ---------------------------------------------------------------
     last_bar = dict(
-        (await session.execute(
-            select(StockPrice.ticker, func.max(StockPrice.timestamp))
-            .where(StockPrice.interval == "1d").group_by(StockPrice.ticker)
-        )).all()
+        (await session.execute(select(StockQuote.ticker, StockQuote.day))).tuples().all()
     )
-    current = sum(1 for ts in last_bar.values() if ts.date() >= trading_day)
+    today = local_today()
+    current = sum(1 for day in last_bar.values() if day >= trading_day)
     stale = sorted(
-        t for t, ts in last_bar.items() if (now - ts) > timedelta(days=STALE_DAYS)
+        t for t, day in last_bar.items() if (today - day) > timedelta(days=STALE_DAYS)
     )
     no_prices = total - len(last_bar)
-    # 1m bars are stored in UTC; the WIB trading day starts 7h earlier in UTC.
-    day_start_utc = datetime.combine(trading_day, datetime.min.time()) - timedelta(hours=7)
+    # Intraday bars since the start of the trading day, exchange time.
+    day_start = datetime.combine(trading_day, time(), ZoneInfo(settings.timezone))
     intraday_tickers, intraday_last = (
         await session.execute(
-            select(func.count(func.distinct(StockPrice.ticker)), func.max(StockPrice.timestamp))
-            .where(StockPrice.interval == "1m", StockPrice.timestamp >= day_start_utc)
+            select(func.count(func.distinct(IntradayBar.ticker)), func.max(IntradayBar.timestamp))
+            .where(IntradayBar.timestamp >= day_start)
         )
     ).one()
     coverage = current / total if total else 0.0
 
     # --- fundamentals ---------------------------------------------------------
-    # The default is inlined, not a bound parameter: PostgreSQL/MySQL only accept
-    # GROUP BY on an expression identical to the selected one, and two binds differ.
-    source = func.coalesce(Fundamental.source, literal_column("'statements'"))
     by_source = dict(
         (await session.execute(
-            select(source, func.count(func.distinct(Fundamental.ticker)))
-            .group_by(source)
-        )).all()
+            select(Fundamental.source, func.count(func.distinct(Fundamental.ticker)))
+            .group_by(Fundamental.source)
+        )).tuples().all()
     )
     with_funds = sum(by_source.values())
     never_tried = (
         await session.execute(
             select(func.count()).select_from(Stock).where(
-                Stock.fundamentals_checked_at.is_(None),
+                ~is_done("fundamentals"),
                 ~Stock.ticker.in_(select(Fundamental.ticker).distinct()),
             )
         )
@@ -92,15 +89,16 @@ async def report(session: AsyncSession, jobs: list[JobHealth]) -> DataHealthOut:
     # --- indices & listing ----------------------------------------------------
     idx_row = (
         await session.execute(
-            select(func.min(IndexQuote.updated_at), func.max(IndexQuote.updated_at),
+            select(func.min(MarketIndex.updated_at), func.max(MarketIndex.updated_at),
                    func.count())
+            .where(MarketIndex.updated_at.is_not(None))
         )
     ).one()
-    # min/max are None on an empty table.
-    idx_oldest = cast(datetime | None, idx_row[0])
-    idx_newest = cast(datetime | None, idx_row[1])
+    # min/max are None when no index has a quote yet.
+    idx_oldest = idx_row[0]
+    idx_newest = idx_row[1]
     idx_count: int = idx_row[2]
-    listing_at = (await session.execute(select(func.max(Stock.idx_synced_at)))).scalar_one()
+    listing_at = await last_done(session, "listing")
     boards = dict(
         (await session.execute(
             select(Stock.listing_board, func.count()).group_by(Stock.listing_board)

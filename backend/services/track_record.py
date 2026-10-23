@@ -28,14 +28,20 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
-from models import RatingSnapshot, StockPrice
-from schemas import BacktestRecordOut, InvestingStyle, LiveRecordOut, RatingRecordOut
+from models import DailyBar, RatingSnapshot, StockQuote
+from schemas import (
+    BacktestRecordOut,
+    InvestingStyle,
+    LiveRecordOut,
+    Rating,
+    RatingRecordOut,
+)
 from services.prices import median_traded_value
 from services.recommendation import RATING_LABELS, compute_universe
 
 log = logging.getLogger("bursa.track_record")
 
-RATINGS = list(RATING_LABELS)
+RATINGS: list[Rating] = list(RATING_LABELS)
 # Main horizon per style, in trading days (the backtest's longest horizon).
 HORIZON: dict[InvestingStyle, tuple[str, int]] = {
     "investor": ("3m", 63),
@@ -82,14 +88,9 @@ class _BacktestSummary(RootModel[dict[InvestingStyle, BacktestRecordOut]]):
 async def record_ratings(session: AsyncSession) -> int:
     """Store today's ratings (both styles) under the latest daily bar's date.
     Re-running on the same day replaces that day's rows."""
-    latest = (
-        await session.execute(
-            select(func.max(StockPrice.timestamp)).where(StockPrice.interval == "1d")
-        )
-    ).scalar()
-    if latest is None:
+    day = (await session.execute(select(func.max(StockQuote.day)))).scalar()
+    if day is None:
         return 0
-    day = latest.date()
     written = 0
     for style in HORIZON:
         recs = await compute_universe(session, style)
@@ -156,17 +157,16 @@ async def _daily_bars(
 ) -> dict[str, tuple[list[date], list[float]]]:
     out: dict[str, tuple[list[date], list[float]]] = {}
     rows = await session.execute(
-        select(StockPrice.ticker, StockPrice.timestamp, StockPrice.close)
+        select(DailyBar.ticker, DailyBar.day, DailyBar.close)
         .where(
-            StockPrice.interval == "1d",
-            StockPrice.ticker.in_(tickers),
-            StockPrice.timestamp >= since - timedelta(days=7),
+            DailyBar.ticker.in_(tickers),
+            DailyBar.day >= since - timedelta(days=7),
         )
-        .order_by(StockPrice.ticker, StockPrice.timestamp)
+        .order_by(DailyBar.ticker, DailyBar.day)
     )
-    for ticker, ts, close in rows:
+    for ticker, day, close in rows:
         if close:
             dates, closes = out.setdefault(ticker, ([], []))
-            dates.append(ts.date())
+            dates.append(day)
             closes.append(close)
     return out

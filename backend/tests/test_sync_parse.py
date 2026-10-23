@@ -5,6 +5,7 @@ from typing import cast
 import numpy as np
 import pandas as pd
 
+from clock import as_utc
 from market.providers.base import MarketDataProvider, PriceBar
 from market.providers.yahoo import _frame_for_ticker, _to_rows
 
@@ -57,7 +58,7 @@ def _bar(ticker, utc, open_, high, low, close, volume) -> PriceBar:
 
     return {
         "ticker": ticker,
-        "timestamp": datetime.fromisoformat(utc),
+        "timestamp": as_utc(datetime.fromisoformat(utc)),
         "interval": "1m",
         "open": open_,
         "high": high,
@@ -68,7 +69,7 @@ def _bar(ticker, utc, open_, high, low, close, volume) -> PriceBar:
 
 
 def test_rollup_daily_aggregates_todays_minutes():
-    from datetime import date, datetime
+    from datetime import UTC, date, datetime
 
     from market.sync import rollup_daily
 
@@ -83,7 +84,7 @@ def test_rollup_daily_aggregates_todays_minutes():
 
     bbca = out["BBCA.JK"]
     # Same key shape as provider daily bars -> upsert hits today's row.
-    assert bbca["timestamp"] == datetime(2026, 10, 16)
+    assert bbca["timestamp"] == datetime(2026, 10, 16, tzinfo=UTC)
     assert bbca["interval"] == "1d"
     assert (bbca["open"], bbca["high"], bbca["low"], bbca["close"]) == (6050, 6100, 6020, 6030)
     assert bbca["volume"] == 450

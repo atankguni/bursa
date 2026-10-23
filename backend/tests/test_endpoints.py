@@ -1,9 +1,8 @@
 """Smoke tests for the HTTP API (no network, in-process ASGI)."""
 
-from clock import utcnow
+from clock import local_today
 
 EXPECTED_STOCK_KEYS = {
-    "id",
     "ticker",
     "name",
     "indices",
@@ -46,7 +45,7 @@ async def test_stocks_index_filter_is_intersection(client):
 
 
 async def test_unknown_ticker_history_404(client):
-    r = await client.get("/api/stocks/NOPE.JK/history")
+    r = await client.get("/api/stocks/NOPE/history")
     assert r.status_code == 404
 
 
@@ -57,20 +56,20 @@ async def test_watchlist_empty(client):
 
 
 async def test_add_unknown_ticker_404(client):
-    r = await client.post("/api/watchlist/NOPE.JK")
+    r = await client.post("/api/watchlist/NOPE")
     assert r.status_code == 404
 
 
 async def test_get_single_stock(client):
-    r = await client.get("/api/stocks/BBCA.JK")
+    r = await client.get("/api/stocks/BBCA")
     assert r.status_code == 200
     body = r.json()
-    assert body["ticker"] == "BBCA.JK"
+    assert body["ticker"] == "BBCA"
     assert "last_price" in body and "indices" in body
 
 
 async def test_get_unknown_stock_404(client):
-    r = await client.get("/api/stocks/NOPE.JK")
+    r = await client.get("/api/stocks/NOPE")
     assert r.status_code == 404
 
 
@@ -134,7 +133,7 @@ async def test_switching_style_resets_rating_alert_baselines(client):
     from models import RatingState
 
     async with AsyncSessionLocal() as s:
-        s.add(RatingState(user_id=client.user_id, ticker="BBCA.JK", rating="Buy",
+        s.add(RatingState(user_id=client.user_id, ticker="BBCA", rating="Buy",
                           strength="Strong"))
         await s.commit()
 
@@ -167,48 +166,48 @@ async def _insert_daily_bars(ticker: str, days: int) -> None:
 
     from database import AsyncSessionLocal
     from db.upsert import upsert
-    from models import StockPrice
+    from models import DailyBar
 
-    today = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    today = local_today()
     rows = [
-        {"ticker": ticker, "timestamp": today - timedelta(days=d), "interval": "1d",
+        {"ticker": ticker, "day": today - timedelta(days=d),
          "open": 100.0, "high": 101.0, "low": 99.0, "close": 100.0 + d, "volume": 1000}
         for d in range(days)
     ]
     async with AsyncSessionLocal() as s:
-        await upsert(s, StockPrice, rows, keys=["ticker", "timestamp", "interval"], update=[])
+        await upsert(s, DailyBar, rows, keys=["ticker", "day"], update=[])
         await s.commit()
 
 
 async def test_history_ranges_fetch_full_history_once(client, monkeypatch):
     import services.history as history
 
-    await _insert_daily_bars("BBCA.JK", 400)  # ~1y+ like the regular sync stores
+    await _insert_daily_bars("BBCA", 400)  # ~1y+ like the regular sync stores
     calls: list[tuple] = []
 
     async def fake_sync(tickers, period, interval):
         calls.append((tuple(tickers), period, interval))
-        await _insert_daily_bars("BBCA.JK", 3000)  # "since listing"
+        await _insert_daily_bars("BBCA", 3000)  # "since listing"
         return 3000
 
     monkeypatch.setattr(history, "sync_batch", fake_sync)
 
-    short = (await client.get("/api/stocks/BBCA.JK/history", params={"range": "1m"})).json()
+    short = (await client.get("/api/stocks/BBCA/history", params={"range": "1m"})).json()
     assert 28 <= len(short["points"]) <= 32 and calls == []  # stored data, no provider call
     pts = [p["timestamp"] for p in short["points"]]
     assert pts == sorted(pts)  # ascending for the chart
 
-    full = (await client.get("/api/stocks/BBCA.JK/history", params={"range": "max"})).json()
+    full = (await client.get("/api/stocks/BBCA/history", params={"range": "max"})).json()
     assert len(full["points"]) == 3000
-    assert calls == [(("BBCA.JK",), "max", "1d")]
+    assert calls == [(("BBCA",), "max", "1d")]
 
-    five = (await client.get("/api/stocks/BBCA.JK/history", params={"range": "5y"})).json()
+    five = (await client.get("/api/stocks/BBCA/history", params={"range": "5y"})).json()
     assert 1820 <= len(five["points"]) <= 1832
     assert len(calls) == 1  # full history is fetched once, then kept
 
 
 async def test_history_range_is_validated(client):
-    r = await client.get("/api/stocks/BBCA.JK/history", params={"range": "10y"})
+    r = await client.get("/api/stocks/BBCA/history", params={"range": "10y"})
     assert r.status_code == 422
 
 
@@ -254,9 +253,10 @@ async def test_display_settings_are_saved_per_user(client):
 
 async def test_alerts_seen_marker_only_moves_forward(client):
     put = lambda t: client.put("/api/preferences", json={"alerts_seen_at": t})  # noqa: E731
-    assert (await put("2026-10-17T10:00:00")).json()["alerts_seen_at"] == "2026-10-17T10:00:00"
+    # A time without an offset (an old client) is taken as UTC; replies always carry "Z".
+    assert (await put("2026-10-17T10:00:00")).json()["alerts_seen_at"] == "2026-10-17T10:00:00Z"
     # An older device can't mark alerts unread again.
-    assert (await put("2026-10-16T09:00:00")).json()["alerts_seen_at"] == "2026-10-17T10:00:00"
+    assert (await put("2026-10-16T09:00:00Z")).json()["alerts_seen_at"] == "2026-10-17T10:00:00Z"
     # Offsets are converted to UTC (how event times are stored).
     p = (await put("2026-10-17T19:00:00+07:00")).json()
-    assert p["alerts_seen_at"] == "2026-10-17T12:00:00"
+    assert p["alerts_seen_at"] == "2026-10-17T12:00:00Z"

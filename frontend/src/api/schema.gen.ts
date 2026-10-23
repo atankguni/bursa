@@ -1144,7 +1144,7 @@ export interface paths {
     put?: never
     /**
      * Track Stock
-     * @description Add an arbitrary ticker (e.g. a new .JK symbol) to the tracked universe.
+     * @description Add an IDX stock that isn't in the catalog yet (e.g. a new listing).
      */
     post: operations['track_stock_api_stocks_post']
     delete?: never
@@ -2666,8 +2666,11 @@ export interface components {
       beat: number
       /** N */
       n: number
-      /** Rating */
-      rating: string
+      /**
+       * Rating
+       * @enum {string}
+       */
+      rating: 'Strong Buy' | 'Buy' | 'Hold' | 'Reduce' | 'Avoid'
     }
     /**
      * RecommendationOut
@@ -2686,8 +2689,11 @@ export interface components {
        * @default
        */
       disclaimer: string
-      /** Rating */
-      rating: string
+      /**
+       * Rating
+       * @enum {string}
+       */
+      rating: 'Strong Buy' | 'Buy' | 'Hold' | 'Reduce' | 'Avoid'
       /**
        * Reasons
        * @default []
@@ -2695,8 +2701,11 @@ export interface components {
       reasons: string[]
       /** Score */
       score: number
-      /** Strength */
-      strength: string
+      /**
+       * Strength
+       * @enum {string}
+       */
+      strength: 'Weak' | 'Moderate' | 'Strong' | 'Very Strong'
       /**
        * Style
        * @default investor
@@ -2711,12 +2720,18 @@ export interface components {
      * @description Compact recommendation, attached to stock + watchlist rows.
      */
     RecommendationSummary: {
-      /** Rating */
-      rating: string
+      /**
+       * Rating
+       * @enum {string}
+       */
+      rating: 'Strong Buy' | 'Buy' | 'Hold' | 'Reduce' | 'Avoid'
       /** Score */
       score: number
-      /** Strength */
-      strength: string
+      /**
+       * Strength
+       * @enum {string}
+       */
+      strength: 'Weak' | 'Moderate' | 'Strong' | 'Very Strong'
     }
     /**
      * RecoveryCodesOut
@@ -2773,7 +2788,7 @@ export interface components {
       /** Price */
       price: number | null
       /** Rating */
-      rating: string | null
+      rating: ('Strong Buy' | 'Buy' | 'Hold' | 'Reduce' | 'Avoid') | null
       /** Roe */
       roe: number | null
       /** Score */
@@ -2781,7 +2796,7 @@ export interface components {
       /** Sector */
       sector: string | null
       /** Strength */
-      strength: string | null
+      strength: ('Weak' | 'Moderate' | 'Strong' | 'Very Strong') | null
       /** Ticker */
       ticker: string
     }
@@ -2904,8 +2919,6 @@ export interface components {
       change: number | null
       /** Change Percent */
       change_percent: number | null
-      /** Id */
-      id: number
       /**
        * Indices
        * @default []
@@ -3091,7 +3104,7 @@ export interface components {
     }
     /**
      * TransactionIn
-     * @description Payload for recording a buy/sell.
+     * @description Payload for recording a buy/sell (whole shares, as traded).
      */
     TransactionIn: {
       /**
@@ -3278,8 +3291,6 @@ export interface components {
       /** Change Percent */
       change_percent: number | null
       fundamental: components['schemas']['FundamentalOut'] | null
-      /** Id */
-      id: number
       /**
        * Indices
        * @default []

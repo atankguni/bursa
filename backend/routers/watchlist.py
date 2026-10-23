@@ -7,7 +7,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from deps import current_user, get_session, require_admin, user_style
 from models import Stock, User, Watchlist
-from schemas import FundamentalOut, InvestingStyle, RecommendationSummary, WatchlistItemOut
+from schemas import (
+    FundamentalOut,
+    InvestingStyle,
+    RecommendationSummary,
+    StockCode,
+    WatchlistItemOut,
+)
 from services.fundamentals import sync_many, sync_ticker
 from services.metrics import derive_metrics
 from services.prices import indices_map, latest_daily, latest_fundamentals
@@ -55,7 +61,6 @@ async def _build_watchlist(
         rec = rec_map.get(link.ticker)
         items.append(
             WatchlistItemOut(
-                id=stock.id,
                 ticker=stock.ticker,
                 name=stock.name,
                 board=stock.listing_board,
@@ -106,7 +111,7 @@ async def refresh_watchlist(
     status_code=status.HTTP_201_CREATED,
 )
 async def add_to_watchlist(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_user),
     style: InvestingStyle = Depends(user_style),
@@ -142,7 +147,7 @@ async def add_to_watchlist(
 
 @router.delete("/{ticker}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_from_watchlist(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_user),
 ) -> Response:

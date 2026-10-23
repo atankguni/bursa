@@ -13,7 +13,7 @@ from statistics import fmean
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import IndexBar, IndexQuote, StockPrice, StockProfile
+from models import DailyBar, IndexBar, MarketIndex, StockProfile
 from schemas import HoldingRiskOut, PortfolioRiskOut, SectorWeightOut
 from services.portfolio import build_portfolio, equity_curve
 
@@ -73,11 +73,11 @@ async def portfolio_risk(session: AsyncSession, user_id: int) -> PortfolioRiskOu
         )).all()
     ]
     prices: dict[str, list[tuple[date, float]]] = {t: [] for t in tickers}
-    for t, ts, close in (await session.execute(
-        select(StockPrice.ticker, StockPrice.timestamp, StockPrice.close)
-        .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
+    for t, day, close in (await session.execute(
+        select(DailyBar.ticker, DailyBar.day, DailyBar.close)
+        .where(DailyBar.ticker.in_(tickers))
     )).all():
-        prices[t].append((ts.date(), close))
+        prices[t].append((day, close))
 
     rows: list[HoldingRiskOut] = [
         HoldingRiskOut(
@@ -102,10 +102,10 @@ async def portfolio_risk(session: AsyncSession, user_id: int) -> PortfolioRiskOu
     port_beta = (
         round(sum(w * b for w, b in with_beta) / covered, 2) if covered > 0 else None
     )
-    ihsg = await session.get(IndexQuote, "COMPOSITE")
+    ihsg = await session.get(MarketIndex, "COMPOSITE")
     ihsg_day = (
         round((ihsg.last / ihsg.previous_close - 1) * 100, 2)
-        if ihsg and ihsg.previous_close else None
+        if ihsg and ihsg.last is not None and ihsg.previous_close else None
     )
     curve = await equity_curve(session, user_id)
     ranked = sorted((r.weight for r in rows), reverse=True)
@@ -114,7 +114,7 @@ async def portfolio_risk(session: AsyncSession, user_id: int) -> PortfolioRiskOu
     for r in rows:
         if r.weight > MAX_STOCK_WEIGHT:
             warnings.append(
-                f"{r.ticker.removesuffix('.JK')} is {r.weight:.0f}% of your portfolio "
+                f"{r.ticker} is {r.weight:.0f}% of your portfolio "
                 f"(above {MAX_STOCK_WEIGHT:.0f}%)"
             )
     for s in sector_rows:

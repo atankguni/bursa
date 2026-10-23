@@ -1,8 +1,10 @@
-"""Nightly SQLite backups: consistent, compressed, private, pruned."""
+"""Nightly SQLite backups: consistent, checked, compressed, private, pruned, restorable."""
 
 import gzip
 import sqlite3
 import stat
+
+import pytest
 
 from config import settings
 from services import backup
@@ -40,8 +42,28 @@ def test_backup_is_restorable_private_and_pruned(tmp_path, monkeypatch):
     assert stat.S_IMODE(dest.stat().st_mode) == 0o700
 
     restored = tmp_path / "restored.db"
-    restored.write_bytes(gzip.decompress(target.read_bytes()))
+    backup.restore_sqlite(target, restored)
     assert sqlite3.connect(restored).execute("select count(*) from t").fetchone()[0] == 1000
+    assert stat.S_IMODE(restored.stat().st_mode) == 0o600
+    with pytest.raises(FileExistsError):  # never overwrites a database
+        backup.restore_sqlite(target, restored)
+
+
+def test_damaged_files_are_refused(tmp_path):
+    db = tmp_path / "bursa.db"
+    _make_db(db)
+    raw = bytearray(db.read_bytes())
+    raw[4096:8192] = b"\xff" * 4096  # wipe the table's first page
+    broken = tmp_path / "broken.db"
+    broken.write_bytes(bytes(raw))
+    with pytest.raises(backup.BadBackup):
+        backup.check_integrity(broken)
+
+    packed = tmp_path / "broken.db.gz"
+    packed.write_bytes(gzip.compress(bytes(raw)))
+    with pytest.raises(backup.BadBackup):
+        backup.restore_sqlite(packed, tmp_path / "restored.db")
+    assert not list(tmp_path.glob("restored.db*"))  # nothing left behind
 
 
 def test_no_key_copy_when_secret_comes_from_env(tmp_path, monkeypatch):

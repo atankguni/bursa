@@ -76,7 +76,7 @@ export default function Alerts() {
               list="alert-tickers"
               value={ticker}
               onChange={(e) => setTicker(e.target.value)}
-              placeholder="BBCA.JK"
+              placeholder="BBCA"
               className={`${inputCls} w-36`}
             />
             <datalist id="alert-tickers">
@@ -165,9 +165,7 @@ export default function Alerts() {
                 )}
                 {alerts.map((a) => (
                   <tr key={a.id} className="bg-panel">
-                    <td className="px-4 py-2 font-semibold">
-                      {a.ticker.replace('.JK', '')}
-                    </td>
+                    <td className="px-4 py-2 font-semibold">{a.ticker}</td>
                     <td className="px-4 py-2 text-muted">
                       {TYPES.find((t) => t.value === a.type)?.label ?? a.type}
                     </td>

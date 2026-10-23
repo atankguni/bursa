@@ -29,7 +29,7 @@ SPECIAL_MONITORING = "Watchlist"
 
 
 class ListingRow(TypedDict):
-    ticker: str  # Yahoo-style, e.g. BBCA.JK
+    ticker: str  # IDX code, e.g. BBCA
     name: str
     board: str | None
     listed_on: date | None
@@ -76,7 +76,7 @@ def fetch_listing(timeout: float = 40.0) -> list[ListingRow]:
         if not code:
             continue
         rows.append({
-            "ticker": f"{code}.JK",
+            "ticker": code,
             "name": (x.name or "").strip() or code,
             "board": (x.listing_board or "").strip() or None,
             "listed_on": _date(x.listing_date),

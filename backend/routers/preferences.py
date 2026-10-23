@@ -1,14 +1,12 @@
 """Preference endpoints: the signed-in user's investing style, assistant access,
 display settings and which alerts they have seen."""
 
-from datetime import datetime
-from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import mail
-from config import settings
+from clock import local_today
 from deps import current_user, get_session
 from models import User
 from schemas import PreferencesIn, PreferencesOut
@@ -84,7 +82,7 @@ async def send_digest_now(
     """Email today's summary now (to check how it looks)."""
     if not mail.configured():
         raise HTTPException(status_code=409, detail="Email isn't set up on this server")
-    day = datetime.now(ZoneInfo(settings.timezone)).date()
+    day = local_today()
     if not await send_digest(session, user, day):
         raise HTTPException(
             status_code=409,

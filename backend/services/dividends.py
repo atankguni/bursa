@@ -2,11 +2,12 @@
 
 import logging
 from collections import defaultdict
-from datetime import date, timedelta
+from datetime import timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import local_today
 from database import AsyncSessionLocal
 from db.upsert import upsert
 from market.providers.governor import governor
@@ -52,7 +53,7 @@ async def trailing_dps(
     """Sum of dividends per share over the trailing window, per ticker."""
     if not tickers:
         return {}
-    cutoff = date.today() - timedelta(days=days)
+    cutoff = local_today() - timedelta(days=days)
     rows = (
         await session.execute(
             select(Dividend.ticker, Dividend.amount).where(

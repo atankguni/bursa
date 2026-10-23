@@ -8,13 +8,14 @@ current (weekly), and add newly listed companies (IPOs) to the catalog.
 import logging
 from datetime import timedelta
 
-from sqlalchemy import func, select
+from sqlalchemy import select
 
 from clock import utcnow
 from database import AsyncSessionLocal
 from market.idx_site import fetch_listing
 from market.providers.governor import governor
 from models import Stock
+from services.sync_state import last_done, mark_done
 
 log = logging.getLogger("bursa.idx_listing")
 
@@ -25,7 +26,7 @@ MIN_ROWS = 500
 
 async def is_stale() -> bool:
     async with AsyncSessionLocal() as session:
-        last = (await session.execute(select(func.max(Stock.idx_synced_at)))).scalar_one()
+        last = await last_done(session, "listing")
     return last is None or utcnow() - last > STALE_AFTER
 
 
@@ -53,7 +54,8 @@ async def sync_listing() -> int:
             stock.listing_board = r["board"]
             stock.listed_on = r["listed_on"]
             stock.idx_shares = r["shares"]
-            stock.idx_synced_at = now
+        await session.flush()
+        await mark_done(session, "listing", [r["ticker"] for r in rows], at=now)
         await session.commit()
     log.info("IDX listing applied: %d stocks (%d new listings)", len(rows), added)
     from services.fundamentals import reconcile_shares

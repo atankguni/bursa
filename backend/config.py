@@ -4,6 +4,8 @@ import os
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+from schemas import Rating
+
 # BURSA_ENV_FILE="" reads no file (the tests use this so a local .env with real
 # keys or a mail provider never leaks into them).
 _ENV_FILE = os.environ.get("BURSA_ENV_FILE", ".env") or None
@@ -17,7 +19,7 @@ class Settings(BaseSettings):
     # Database
     database_url: str = "sqlite+aiosqlite:///./data/bursa.db"
     # Nightly SQLite backups (services/backup.py): kept next to the database, so
-    # also copy them elsewhere. PostgreSQL / MySQL use their own tools.
+    # also copy them elsewhere. PostgreSQL uses its own tools (pg_dump).
     backup_enabled: bool = True
     backup_dir: str = "./data/backups"
     backup_keep: int = 7
@@ -166,7 +168,7 @@ class Settings(BaseSettings):
         "health": 0.15,
     }
     # Composite score (0-100) -> rating label. Highest threshold that is met wins.
-    recommendation_ratings: list[tuple[str, int]] = [
+    recommendation_ratings: list[tuple[Rating, int]] = [
         ("Strong Buy", 80),
         ("Buy", 65),
         ("Hold", 45),
@@ -176,7 +178,7 @@ class Settings(BaseSettings):
     # Investor style has no top rating: in the 5-year backtest the highest scores
     # (often the very cheapest stocks: value traps) did no better than the next
     # band, so "Strong Buy" (Very positive) would overstate the evidence.
-    recommendation_investor_ratings: list[tuple[str, int]] = [
+    recommendation_investor_ratings: list[tuple[Rating, int]] = [
         ("Buy", 65),
         ("Hold", 45),
         ("Reduce", 30),

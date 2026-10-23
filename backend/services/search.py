@@ -18,7 +18,7 @@ async def search(q: str, idf_only: bool = True) -> list[SymbolHit]:
     """
     Resolve a query to symbols, reusing a short-lived cache.
 
-    `idf_only` (default) keeps only IDX (`.JK`) symbols. The raw provider result
+    `idf_only` (default) keeps only IDX stocks. The raw provider result
     is cached, so switching the filter doesn't trigger another provider call.
     """
     query = q.strip().lower()
@@ -37,5 +37,5 @@ async def search(q: str, idf_only: bool = True) -> list[SymbolHit]:
         _cache[query] = (now, results)
 
     if idf_only:
-        return [r for r in results if r["symbol"].upper().endswith(".JK")]
+        return [r for r in results if r["idx"]]
     return results

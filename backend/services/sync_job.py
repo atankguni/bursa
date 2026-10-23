@@ -7,7 +7,7 @@ Only one run at a time; fundamentals-only (no dividends) to halve provider
 calls; paced by the shared governor. Progress is tracked in memory (this app
 runs as a single process).
 
-Each attempt is stamped on `Stock.fundamentals_checked_at` and the queue is
+Each attempt is stamped in `sync_state` ("fundamentals") and the queue is
 ordered never-tried first, then least-recently tried. Without that, tickers the
 provider has no statements for stay "missing" forever and, being first
 alphabetically, would fill every capped run.
@@ -18,7 +18,7 @@ import logging
 from datetime import datetime
 from typing import TypedDict
 
-from sqlalchemy import ColumnElement, func, select, update
+from sqlalchemy import ColumnElement, func, select
 
 from clock import utcnow
 from config import settings
@@ -27,6 +27,7 @@ from models import Fundamental, Stock, StockProfile
 from schemas import SyncMode, SyncStatusOut
 from services.fundamentals import sync_ticker
 from services.recommendation import invalidate_cache
+from services.sync_state import done_column, is_done, mark_done
 
 log = logging.getLogger("bursa.sync_job")
 
@@ -65,18 +66,15 @@ def _missing_clause() -> ColumnElement[bool]:
 
 async def missing_tickers() -> list[str]:
     """Stocks without fundamentals, never-tried first, then least-recently tried."""
+    tried = done_column("fundamentals")
     async with AsyncSessionLocal() as session:
         rows = (
             await session.execute(
                 select(Stock.ticker)
                 .where(_missing_clause())
                 # Never-tried (NULL) lead the queue. Databases disagree on where
-                # NULL sorts (and MySQL has no NULLS FIRST), so sort on IS NOT NULL.
-                .order_by(
-                    Stock.fundamentals_checked_at.is_not(None),
-                    Stock.fundamentals_checked_at,
-                    Stock.ticker,
-                )
+                # NULL sorts, so sort on IS NOT NULL first.
+                .order_by(tried.is_not(None), tried, Stock.ticker)
             )
         ).scalars().all()
     return list(rows)
@@ -91,11 +89,7 @@ async def missing_count() -> int:
 
 async def _mark_checked(ticker: str) -> None:
     async with AsyncSessionLocal() as session:
-        await session.execute(
-            update(Stock)
-            .where(Stock.ticker == ticker)
-            .values(fundamentals_checked_at=utcnow())
-        )
+        await mark_done(session, "fundamentals", [ticker])
         await session.commit()
 
 
@@ -105,7 +99,7 @@ async def never_tried() -> list[str]:
         rows = (
             await session.execute(
                 select(Stock.ticker)
-                .where(_missing_clause(), Stock.fundamentals_checked_at.is_(None))
+                .where(_missing_clause(), ~is_done("fundamentals"))
                 .order_by(Stock.ticker)
             )
         ).scalars().all()

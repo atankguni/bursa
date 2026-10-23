@@ -26,12 +26,14 @@ os.environ["PASSWORD_BREACH_CHECK"] = "false"  # no network in tests
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
-from sqlalchemy import text  # noqa: E402
+from sqlalchemy import insert, text  # noqa: E402
+from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from config import settings  # noqa: E402
 from database import AsyncSessionLocal, engine, init_db  # noqa: E402
 from main import app  # noqa: E402
-from models import Base, User  # noqa: E402
+from market.quotes import refresh_quotes  # noqa: E402
+from models import Base, DailyBar, User  # noqa: E402
 from services import auth, crypto  # noqa: E402
 from services.bootstrap import seed  # noqa: E402
 
@@ -53,6 +55,13 @@ async def make_user(
         s.add(user)
         await s.commit()
         return user.id
+
+
+async def add_daily_bars(session: AsyncSession, bars: list[dict[str, object]]) -> None:
+    """Insert daily bars ({ticker, day, open, high, low, close, volume}) and update
+    the latest quotes, as the price sync does. Doesn't commit."""
+    await session.execute(insert(DailyBar).values(bars))
+    await refresh_quotes(session, sorted({str(b["ticker"]) for b in bars}))
 
 
 async def signed_in(email: str) -> AsyncClient:

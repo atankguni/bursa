@@ -1,16 +1,16 @@
 """Read queries over price + fundamental data (shared by the routers)."""
 
 from collections import defaultdict
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from statistics import median
 from typing import TypedDict
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clock import utcnow
+from clock import day_key, local_today
 from market.tickers import INDEX_ORDER
-from models import Fundamental, StockIndex, StockPrice, StockProfile
+from models import DailyBar, Fundamental, StockIndex, StockProfile, StockQuote
 
 
 class LatestQuote(TypedDict, total=False):
@@ -19,7 +19,7 @@ class LatestQuote(TypedDict, total=False):
     close: float
     prev_close: float
     volume: int
-    updated_at: datetime
+    updated_at: datetime  # the bar's trading day (`clock.day_key`)
 
 
 async def indices_map(
@@ -30,7 +30,7 @@ async def indices_map(
         return {}
     rows = (
         await session.execute(
-            select(StockIndex.ticker, StockIndex.index_name).where(
+            select(StockIndex.ticker, StockIndex.index_code).where(
                 StockIndex.ticker.in_(tickers)
             )
         )
@@ -49,56 +49,34 @@ async def indices_map(
 TRADING_YEAR = 252
 
 
-def _since(bars: int) -> datetime:
-    """A lower time bound that surely holds the last `bars` daily bars (with room
+def _since(bars: int) -> date:
+    """A lower date bound that surely holds the last `bars` daily bars (with room
     for holidays and short suspensions). Keeps the "last N bars" queries fast
     however much history is stored."""
-    return utcnow() - timedelta(days=bars * 2 + 30)
+    return local_today() - timedelta(days=bars * 2 + 30)
 
 
 async def latest_daily(
     session: AsyncSession, tickers: list[str]
 ) -> dict[str, LatestQuote]:
-    """Map each ticker to its latest daily close (+ prev close, volume, time).
-    Looks back a year (`_since`), so a stock suspended for longer has none."""
+    """Each ticker's latest daily close (+ prev close, volume, day), from
+    `stock_quotes`. A stock without a bar in about a year has none."""
     if not tickers:
         return {}
-    rn = (
-        func.row_number()
-        .over(
-            partition_by=StockPrice.ticker,
-            order_by=StockPrice.timestamp.desc(),
+    rows = (
+        await session.execute(
+            select(StockQuote).where(
+                StockQuote.ticker.in_(tickers),
+                StockQuote.day >= _since(TRADING_YEAR // 2 + 40),  # ~1 year
+            )
         )
-        .label("rn")
-    )
-    ranked = (
-        select(
-            StockPrice.ticker, StockPrice.close, StockPrice.volume,
-            StockPrice.timestamp, rn,
-        )
-        .where(
-            StockPrice.interval == "1d",
-            StockPrice.ticker.in_(tickers),
-            StockPrice.timestamp >= _since(TRADING_YEAR // 2 + 40),  # ~1 year
-        )
-        .subquery()
-    )
-    recent = (
-        select(ranked)
-        .where(ranked.c.rn <= 2)
-        .order_by(ranked.c.ticker, ranked.c.rn)
-    )
-    rows = (await session.execute(recent)).all()
-
+    ).scalars()
     latest: dict[str, LatestQuote] = {}
-    for ticker, close, volume, ts, rank in rows:
-        entry = latest.setdefault(ticker, {})
-        if rank == 1:
-            entry["close"] = close
-            entry["volume"] = volume
-            entry["updated_at"] = ts
-        else:
-            entry["prev_close"] = close
+    for q in rows:
+        entry: LatestQuote = {"close": q.close, "volume": q.volume, "updated_at": day_key(q.day)}
+        if q.prev_close is not None:
+            entry["prev_close"] = q.prev_close
+        latest[q.ticker] = entry
     return latest
 
 
@@ -127,26 +105,26 @@ async def daily_closes(
     """Ascending daily closes per ticker: the most recent `last` (None = all)."""
     if not tickers:
         return {}
-    base = select(StockPrice.ticker, StockPrice.close, StockPrice.timestamp).where(
-        StockPrice.interval == "1d", StockPrice.ticker.in_(tickers)
+    base = select(DailyBar.ticker, DailyBar.close, DailyBar.day).where(
+        DailyBar.ticker.in_(tickers)
     )
     if last is not None:
         rn = (
             func.row_number()
-            .over(partition_by=StockPrice.ticker, order_by=StockPrice.timestamp.desc())
+            .over(partition_by=DailyBar.ticker, order_by=DailyBar.day.desc())
             .label("rn")
         )
-        ranked = base.where(StockPrice.timestamp >= _since(last)).add_columns(rn).subquery()
+        ranked = base.where(DailyBar.day >= _since(last)).add_columns(rn).subquery()
         stmt = (
             select(ranked.c.ticker, ranked.c.close)
             .where(ranked.c.rn <= last)
-            .order_by(ranked.c.ticker, ranked.c.timestamp)
+            .order_by(ranked.c.ticker, ranked.c.day)
         )
     else:
         stmt = (
-            select(StockPrice.ticker, StockPrice.close)
-            .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
-            .order_by(StockPrice.ticker, StockPrice.timestamp)
+            select(DailyBar.ticker, DailyBar.close)
+            .where(DailyBar.ticker.in_(tickers))
+            .order_by(DailyBar.ticker, DailyBar.day)
         )
     rows = (await session.execute(stmt)).all()
     series: dict[str, list[float]] = {}
@@ -197,15 +175,14 @@ async def median_traded_value(
         return {}
     rn = (
         func.row_number()
-        .over(partition_by=StockPrice.ticker, order_by=StockPrice.timestamp.desc())
+        .over(partition_by=DailyBar.ticker, order_by=DailyBar.day.desc())
         .label("rn")
     )
     ranked = (
-        select(StockPrice.ticker, StockPrice.close, StockPrice.volume, rn)
+        select(DailyBar.ticker, DailyBar.close, DailyBar.volume, rn)
         .where(
-            StockPrice.interval == "1d",
-            StockPrice.ticker.in_(tickers),
-            StockPrice.timestamp >= _since(days),
+            DailyBar.ticker.in_(tickers),
+            DailyBar.day >= _since(days),
         )
         .subquery()
     )

@@ -16,6 +16,7 @@ from typing import TypedDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import local_today
 from models import Dividend, Stock, Watchlist
 from schemas import ExpectedDividendOut
 from services.dividends import sync_dividends
@@ -124,7 +125,7 @@ async def dividend_calendar(
     for t, d, a in (await session.execute(
         select(Dividend.ticker, Dividend.ex_date, Dividend.amount)
         .where(Dividend.ticker.in_(tickers),
-               Dividend.ex_date >= date.today() - timedelta(days=800))
+               Dividend.ex_date >= local_today() - timedelta(days=800))
         .order_by(Dividend.ex_date)
     )).all():
         history[t].append((d, a))
@@ -132,7 +133,7 @@ async def dividend_calendar(
         select(Stock.ticker, Stock.name).where(Stock.ticker.in_(tickers))
     )).all())
 
-    today = date.today()
+    today = local_today()
     out: list[ExpectedDividendOut] = []
     for t in tickers:
         for expected, based_on, amount, regular in project(history[t], today, days):

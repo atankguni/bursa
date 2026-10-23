@@ -18,14 +18,14 @@ and Docker-ignored, and is passed to the container via `env_file`.
 
 ## Database
 
-SQLite is the default and needs no setup. To use a server database, set
-`DATABASE_URL` and build the backend with that database's async driver:
+SQLite is the default and needs no setup. PostgreSQL is the supported server
+database (every check runs on both): set `DATABASE_URL` and build the backend with
+its async driver:
 
 | Database | `DATABASE_URL` | Build arg |
 |---|---|---|
 | SQLite (default) | `sqlite+aiosqlite:////app/data/bursa.db` | none |
 | PostgreSQL | `postgresql+asyncpg://user:pass@host:5432/bursa` | `DB_DRIVER=asyncpg` |
-| MySQL / MariaDB | `mysql+aiomysql://user:pass@host:3306/bursa` | `DB_DRIVER="aiomysql cryptography"` |
 
 For example, in `docker-compose.yml`:
 
@@ -46,8 +46,8 @@ Your portfolio, watchlist and alerts would need to be moved separately.
 ### Backups
 
 With SQLite, the backend backs up the database every night at 02:30 (Jakarta time):
-a consistent copy taken while the app runs, gzip-compressed (~46 MB for a 255 MB
-database), together with the 2FA server secret (`secret.key`; without it a restored
+a consistent copy taken while the app runs, checked with SQLite's integrity check
+(a damaged copy is never kept), gzip-compressed, together with the 2FA server secret (`secret.key`; without it a restored
 database can't read anyone's 2FA). The newest 7 are kept, readable by the owner only.
 
 | Setting | Default | Meaning |
@@ -60,17 +60,24 @@ They sit on the same disk as the database, so they protect against mistakes and
 corruption, not a lost disk: copy `backend/data/backups/` somewhere else now and then
 (another drive or cloud storage). Back up now: `docker compose exec backend python -m services.backup`.
 
-To restore one, stop the backend and put the copy back:
+To restore one, stop the backend, unpack the backup into a new file (the restore
+command checks it and never overwrites a file), then swap it in:
 
 ```bash
 docker compose stop backend
-gunzip -c backend/data/backups/bursa-2026-10-22_0230.db.gz > backend/data/bursa.db
+docker compose run --rm --no-deps backend \
+  python -m services.backup restore data/backups/bursa-2026-10-22_0230.db.gz data/bursa.restored.db
+mv backend/data/bursa.db backend/data/bursa.before-restore.db   # keep until all is well
 rm -f backend/data/bursa.db-wal backend/data/bursa.db-shm
+mv backend/data/bursa.restored.db backend/data/bursa.db
 cp backend/data/backups/bursa-2026-10-22_0230.secret.key backend/data/secret.key  # if present
 docker compose start backend
 ```
 
-PostgreSQL and MySQL are not covered: use `pg_dump` / `mysqldump`.
+A backup from before the 2026-10-23 schema change needs converting after the
+restore (see [Development → Converting an old database](development.md#converting-an-old-database)).
+
+PostgreSQL is not covered: use `pg_dump`.
 
 ## Accounts
 
@@ -84,8 +91,7 @@ first admin account:
 docker compose logs backend | grep "Create the admin"
 ```
 
-The link is regenerated on every start until it is used. Data recorded before accounts
-existed (watchlist, portfolio, alerts, preferences) is given to that first admin.
+The link is regenerated on every start until it is used.
 
 | Setting | Default | Meaning |
 |---|---|---|

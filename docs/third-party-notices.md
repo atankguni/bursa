@@ -59,7 +59,6 @@ Optional database drivers, installed only when building for that database
 | Package | Version | License |
 |---|---|---|
 | asyncpg (PostgreSQL) | 0.32.0 | Apache-2.0 |
-| aiomysql + PyMySQL (MySQL/MariaDB) | 0.3.2 / 1.2.3 | MIT |
 
 (Versions as pinned at the time of writing; transitive dependencies carry their
 own licenses.)

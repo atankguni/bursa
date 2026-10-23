@@ -45,7 +45,7 @@ export default function DividendCalendar({ hideValues }: { hideValues: boolean }
                 <span className="w-24 shrink-0 tabular-nums text-muted">
                   ~{fmtDay(d.expected_ex_date)}
                 </span>
-                <span className="font-semibold">{d.ticker.replace('.JK', '')}</span>
+                <span className="font-semibold">{d.ticker}</span>
                 {d.in_portfolio && (
                   <span className="rounded-sm bg-accent/10 px-1 py-0.5 text-[9px] text-accent">
                     holding

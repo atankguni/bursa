@@ -9,15 +9,15 @@ snapshots, scored with each user's own investing style.
 """
 
 import logging
-from datetime import date, datetime, timedelta
-from zoneinfo import ZoneInfo
+from datetime import date, timedelta
 
 from sqlalchemy import select
 
-from clock import utcnow
+from clock import local_today, utcnow
 from config import settings
 from database import AsyncSessionLocal
 from models import Alert, AlertEvent, RatingState, User
+from schemas import Rating
 from services.dividend_calendar import UpcomingDividend, next_expected
 from services.notify import send_quietly
 from services.preferences import styles_by_user
@@ -57,8 +57,8 @@ def evaluate_alert(
     threshold: float | None,
     price: float | None,
     prev_close: float | None,
-    rating: str | None,
-    prev_rating: str | None,
+    rating: Rating | None,
+    prev_rating: Rating | None,
 ) -> tuple[bool, float | None]:
     """Return (triggered, value) for a single rule."""
     if alert_type == "price_above":
@@ -79,7 +79,7 @@ def evaluate_alert(
 
 
 def _message(
-    alert: Alert, value: float | None, rating: str | None, prev_rating: str | None
+    alert: Alert, value: float | None, rating: Rating | None, prev_rating: Rating | None
 ) -> str:
     t = alert.ticker
     if alert.type == "price_above":
@@ -89,7 +89,9 @@ def _message(
     if alert.type == "pct_change":
         return f"{t} moved {value:+.2f}% today"
     if alert.type == "rating_change":
-        return f"{t} signal {rating_label(prev_rating or '')} → {rating_label(rating or '')}"
+        before = rating_label(prev_rating) if prev_rating else "no rating"
+        after = rating_label(rating) if rating else "no rating"
+        return f"{t} signal {before} → {after}"
     return f"{t} alert"
 
 
@@ -104,9 +106,9 @@ async def evaluate_alerts() -> int:
         if not alerts:
             return 0
 
-        user_ids = {a.user_id for a in alerts if a.user_id is not None}
+        user_ids = {a.user_id for a in alerts}
         tickers = sorted({a.ticker for a in alerts})
-        today = datetime.now(ZoneInfo(settings.timezone)).date()
+        today = local_today()
         upcoming = await next_expected(
             session, sorted({a.ticker for a in alerts if a.type == "dividend_soon"}), today
         )

@@ -89,10 +89,11 @@ class ProfileData(TypedDict):
 
 
 class SymbolHit(TypedDict):
-    symbol: str
+    symbol: str  # the IDX code for IDX stocks, else the provider's symbol
     name: str
     exchange: str
     type: str
+    idx: bool  # listed on the Indonesia Stock Exchange
 
 
 class IndexQuote(TypedDict):

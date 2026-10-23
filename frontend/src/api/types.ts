@@ -30,6 +30,10 @@ export type Category = Schemas['CategoryOut']
 export type RecommendationSummary = Schemas['RecommendationSummary']
 export type Recommendation = Schemas['RecommendationOut']
 export type RatingRecord = Schemas['RatingRecordOut']
+/** Rating code, best first: Strong Buy, Buy, Hold, Reduce, Avoid (labels: lib/ratings). */
+export type Rating = Recommendation['rating']
+/** How strongly the factors agree: Weak … Very Strong. */
+export type Conviction = Recommendation['strength']
 export type TrackRecord = Schemas['TrackRecordOut']
 /** Long-term fundamentals vs short-term (swing, 1-4 weeks) price action. */
 export type InvestingStyle = Schemas['PreferencesOut']['investing_style']

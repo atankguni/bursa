@@ -5,7 +5,7 @@ Async SQLAlchemy 2.0 engine + session factory.
 
 The database is chosen by `DATABASE_URL` (SQLite by default). Everything
 dialect-specific lives in the `db` package, so the rest of the app is the same
-on SQLite, PostgreSQL or MySQL:
+on SQLite or PostgreSQL:
 
 * `db.maintenance` -> connection setup (SQLite pragmas) and housekeeping;
 * `db.upsert`      -> portable insert-or-update;
@@ -14,6 +14,7 @@ on SQLite, PostgreSQL or MySQL:
 
 import os
 
+from sqlalchemy import MetaData
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -51,7 +52,16 @@ AsyncSessionLocal = async_sessionmaker(
 
 
 class Base(DeclarativeBase):
-    """Declarative base shared by all ORM models."""
+    """Declarative base shared by all ORM models. Constraints and indexes get
+    predictable names (Alembic needs a name to change or drop one later)."""
+
+    metadata = MetaData(naming_convention={
+        "pk": "pk_%(table_name)s",
+        "fk": "fk_%(table_name)s_%(column_0_name)s_%(referred_table_name)s",
+        "uq": "uq_%(table_name)s_%(column_0_N_name)s",
+        "ix": "ix_%(table_name)s_%(column_0_N_name)s",
+        "ck": "ck_%(table_name)s_%(constraint_name)s",
+    })
 
 
 async def init_db() -> None:

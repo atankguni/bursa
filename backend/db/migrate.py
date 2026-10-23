@@ -5,11 +5,8 @@ Migration scripts live in `migrations/versions/`. After changing `models.py`,
 create one with `alembic revision --autogenerate -m "..."` (from `backend/`),
 review it, and commit it; every database is upgraded on its next start.
 
-Databases created before Alembic was introduced (SQLite, via `create_all` plus
-the hand-written column additions below) have no `alembic_version` table. They
-first get those column additions; the baseline migration then creates only the
-tables that are still missing, so they converge on the same schema as a fresh
-database.
+The migrations were squashed into one baseline on 2026-10-23. A database from
+before that is converted (copied into a fresh one) with scripts/convert_db.py.
 """
 
 import logging
@@ -17,12 +14,17 @@ from pathlib import Path
 
 from alembic import command
 from alembic.config import Config
-from sqlalchemy import Connection, inspect
+from alembic.script import ScriptDirectory
+from sqlalchemy import Connection, inspect, text
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 log = logging.getLogger("bursa.db")
 
 _INI = Path(__file__).resolve().parents[1] / "alembic.ini"
+
+
+class OutdatedDatabase(RuntimeError):
+    """The database predates the migration squash; it needs converting."""
 
 
 def alembic_config(connection: Connection | None = None) -> Config:
@@ -39,55 +41,18 @@ async def migrate(engine: AsyncEngine) -> None:
 
 
 def _upgrade(conn: Connection) -> None:
+    cfg = alembic_config(conn)
     tables = set(inspect(conn).get_table_names())
-    if "alembic_version" not in tables and "stocks" in tables:
-        log.info("Pre-migration database found; bringing it to the baseline schema")
-        _pre_alembic_columns(conn)
-    command.upgrade(alembic_config(conn), "head")
-
-
-def _pre_alembic_columns(conn: Connection) -> None:
-    """
-    Columns added to existing tables before Alembic, when the schema was made by
-    `create_all` (which never alters an existing table). Only SQLite databases
-    predate Alembic, so this uses SQLite's PRAGMA. Frozen: new schema changes go
-    in a migration script instead.
-    """
-    if conn.dialect.name != "sqlite":
-        return
-
-    def columns(table: str) -> set[str]:
-        rows = conn.exec_driver_sql(f"PRAGMA table_info({table})").fetchall()
-        return {r[1] for r in rows}
-
-    added = {
-        "fundamentals": {"financial_currency": "VARCHAR(8)", "source": "VARCHAR(16)"},
-        "stocks": {
-            "tracked": "BOOLEAN NOT NULL DEFAULT 0",
-            "listing_board": "VARCHAR(24)",
-            "listed_on": "DATE",
-            "idx_shares": "FLOAT",
-            "idx_synced_at": "DATETIME",
-            "splits_checked_at": "DATETIME",
-            "full_history_at": "DATETIME",
-            "fundamentals_checked_at": "DATETIME",
-        },
-        "stock_profiles": {
-            "industry": "VARCHAR(96)",
-            "description": "TEXT",
-            "employees": "INTEGER",
-            "website": "VARCHAR(160)",
-            "country": "VARCHAR(64)",
-            "city": "VARCHAR(64)",
-            "address": "VARCHAR(200)",
-            "phone": "VARCHAR(48)",
-            "officers": "JSON",
-        },
-    }
-    for table, cols in added.items():
-        existing = columns(table)
-        if not existing:  # table not created yet; the baseline migration makes it
-            continue
-        for name, coltype in cols.items():
-            if name not in existing:
-                conn.exec_driver_sql(f"ALTER TABLE {table} ADD COLUMN {name} {coltype}")
+    known = {s.revision for s in ScriptDirectory.from_config(cfg).walk_revisions()}
+    current: list[str] = (
+        list(conn.execute(text("SELECT version_num FROM alembic_version")).scalars())
+        if "alembic_version" in tables
+        else []
+    )
+    if (tables - {"alembic_version"} and not current) or set(current) - known:
+        raise OutdatedDatabase(
+            "This database was made by an older Bursa version whose schema can't be "
+            "upgraded in place. Convert it first: "
+            "python scripts/convert_db.py <old.db> <new.db> (see docs/development.md)."
+        )
+    command.upgrade(cfg, "head")

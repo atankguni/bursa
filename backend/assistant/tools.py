@@ -15,8 +15,8 @@ from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant.providers import ToolSpec
-from models import Fundamental, Stock, StockPrice, Watchlist
-from schemas import InvestingStyle, RatingRecordOut, ScreenerRow
+from models import DailyBar, Fundamental, Stock, Watchlist
+from schemas import InvestingStyle, RatingRecordOut, ScreenerRow, stock_code
 from services.market_overview import overview
 from services.metrics import derive_metrics
 from services.portfolio import build_portfolio
@@ -48,9 +48,8 @@ class Tool:
 
 
 def _ticker(raw: object) -> str:
-    """Accept 'bbca', 'BBCA' or 'BBCA.JK' -> 'BBCA.JK'."""
-    t = str(raw or "").strip().upper()
-    return t if not t or "." in t else f"{t}.JK"
+    """Accept 'bbca', 'BBCA' or 'BBCA.JK' -> 'BBCA'."""
+    return stock_code(str(raw or ""))
 
 
 def _float(args: dict[str, Any], key: str) -> float | None:
@@ -201,9 +200,9 @@ async def get_price_history(ctx: ToolContext, args: dict[str, Any]) -> object:
     days = max(5, min(int(args.get("days", 30)), 250))
     bars = (
         await session.execute(
-            select(StockPrice.timestamp, StockPrice.close, StockPrice.volume)
-            .where(StockPrice.ticker == ticker, StockPrice.interval == "1d")
-            .order_by(StockPrice.timestamp.desc())
+            select(DailyBar.day, DailyBar.close, DailyBar.volume)
+            .where(DailyBar.ticker == ticker)
+            .order_by(DailyBar.day.desc())
             .limit(days)
         )
     ).all()[::-1]
@@ -213,12 +212,12 @@ async def get_price_history(ctx: ToolContext, args: dict[str, Any]) -> object:
     step = max(1, len(bars) // 30)  # at most ~30 points back to the model
     return {
         "ticker": ticker, "days": len(bars),
-        "first": {"date": bars[0][0].date().isoformat(), "close": closes[0]},
-        "last": {"date": bars[-1][0].date().isoformat(), "close": closes[-1]},
+        "first": {"date": bars[0][0].isoformat(), "close": closes[0]},
+        "last": {"date": bars[-1][0].isoformat(), "close": closes[-1]},
         "return_pct": _num((closes[-1] / closes[0] - 1) * 100, 2) if closes[0] else None,
         "high": max(closes), "low": min(closes),
         "avg_volume": int(sum(b[2] for b in bars) / len(bars)),
-        "closes": [{"date": b[0].date().isoformat(), "close": b[1]} for b in bars[::step]],
+        "closes": [{"date": b[0].isoformat(), "close": b[1]} for b in bars[::step]],
     }
 
 
@@ -253,7 +252,7 @@ async def get_portfolio(ctx: ToolContext, args: dict[str, Any]) -> object:
 # --------------------------------------------------------------------------- #
 # Registry
 # --------------------------------------------------------------------------- #
-_TICKER = {"type": "string", "description": "IDX code, e.g. BBCA (the .JK suffix is optional)"}
+_TICKER = {"type": "string", "description": "IDX code, e.g. BBCA"}
 
 TOOLS: list[Tool] = [
     Tool(ToolSpec("search_stocks", "Find IDX stocks by code or company name.",

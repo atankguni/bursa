@@ -82,7 +82,7 @@ async def test_chat_runs_tools_then_answers(client, monkeypatch):
     tool_msg = fake.seen[1][-1]
     assert isinstance(tool_msg, ToolResultsMessage)
     content = tool_msg.results[0].content
-    assert isinstance(content, dict) and content["ticker"] == "BBCA.JK"  # "bbca" normalised
+    assert isinstance(content, dict) and content["ticker"] == "BBCA"  # "bbca" normalised
     assert "get_portfolio" not in fake.tool_names  # personal data is off by default
 
 
@@ -213,7 +213,7 @@ def test_personal_tools_only_when_enabled():
 
 
 def test_ticker_normalisation():
-    assert _ticker("bbca") == "BBCA.JK" and _ticker("BBCA.JK") == "BBCA.JK"
+    assert _ticker("bbca") == "BBCA" and _ticker("BBCA.JK") == "BBCA"
 
 
 # --------------------------------------------------------------------------- #

@@ -1,6 +1,6 @@
 """IDX stock indices: catalog, trading-day dating, quote refresh, history, API."""
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
 import services.indices as indices
@@ -49,8 +49,8 @@ class _Provider:
     def fetch_price_rows(self, tickers, period, interval):
         self.history_calls += 1
         rows = [
-            {"ticker": tickers[0], "timestamp": datetime(2004, 6, 8 + d), "interval": "1d",
-             "open": 1.0, "high": 2.0, "low": 0.5, "close": 1.0 + d, "volume": 10}
+            {"ticker": tickers[0], "timestamp": datetime(2004, 6, 8 + d, tzinfo=UTC),
+             "interval": "1d", "open": 1.0, "high": 2.0, "low": 0.5, "close": 1.0 + d, "volume": 10}
             for d in range(3)
         ]
         return {tickers[0]: rows}

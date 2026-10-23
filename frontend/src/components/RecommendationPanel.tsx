@@ -1,7 +1,7 @@
 import { AlertCircle, Info } from 'lucide-react'
 import type { InvestingStyle, Recommendation } from '../api'
 import { usePreferences } from '../hooks'
-import { ratingLabel, ratingTone } from '../lib/ratings'
+import { CONVICTION_DOTS, ratingLabel, ratingTone } from '../lib/ratings'
 import TrackRecord from './TrackRecord'
 
 interface Props {
@@ -25,9 +25,6 @@ const NOT_RATED_HINT: Record<InvestingStyle, string> = {
     'Trader signals cover liquid stocks only (≥ Rp 1bn traded per day, 21+ days of prices).',
 }
 
-const strengthDots = (strength: string) =>
-  ({ Weak: 1, Moderate: 2, Strong: 3, 'Very Strong': 4 })[strength] ?? 0
-
 export default function RecommendationPanel({ data, isLoading, isError }: Props) {
   const { style } = usePreferences()
   if (isLoading) {
@@ -49,7 +46,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
     )
   }
 
-  const dots = strengthDots(data.strength)
+  const dots = CONVICTION_DOTS[data.strength]
 
   return (
     <div className="space-y-4">

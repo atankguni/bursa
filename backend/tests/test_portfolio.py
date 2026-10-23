@@ -2,8 +2,10 @@
 
 from datetime import date
 
+from clock import local_today
 from services.corporate_actions import AdjustedTx
 from services.portfolio import apply_transactions
+from tests.conftest import add_daily_bars
 
 
 def T(side, qty, price, fees=0.0, ticker="X", day=date(2026, 1, 5)):
@@ -59,13 +61,13 @@ def test_multiple_tickers_are_independent():
 
 async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
     """Doubling the position isn't profit: TWR stays at the price gain (+10%)."""
-    from datetime import date, datetime
+    from datetime import date
 
     from sqlalchemy import insert
 
     import services.indices as indices
     from database import AsyncSessionLocal
-    from models import IndexBar, StockPrice, Transaction
+    from models import IndexBar, Transaction
     from services.portfolio import equity_curve
 
     async def no_fetch(session, code):  # IHSG bars are inserted below
@@ -76,18 +78,18 @@ async def test_time_weighted_return_ignores_added_money(client, monkeypatch):
     ihsg = {1: 7000.0, 2: 7070.0, 3: 6930.0, 4: 7140.0}
     uid = client.user_id
     async with AsyncSessionLocal() as s:
-        await s.execute(insert(StockPrice).values([
-            {"ticker": "BBCA.JK", "timestamp": datetime(2026, 1, d), "interval": "1d",
+        await add_daily_bars(s, [
+            {"ticker": "BBCA", "day": date(2026, 1, d),
              "open": c, "high": c, "low": c, "close": c, "volume": 0} for d, c in closes.items()
-        ]))
+        ])
         await s.execute(insert(IndexBar).values([
             {"code": "COMPOSITE", "day": date(2026, 1, d), "close": c} for d, c in ihsg.items()
         ]))
         s.add_all([
-            Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=100, price=1000.0,
+            Transaction(user_id=uid, ticker="BBCA", side="buy", quantity=100, price=1000.0,
                         fees=0.0, trade_date=date(2026, 1, 1)),
             # Day 3: add as much money again at 1100 (a deposit, not a gain).
-            Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=100, price=1100.0,
+            Transaction(user_id=uid, ticker="BBCA", side="buy", quantity=100, price=1100.0,
                         fees=0.0, trade_date=date(2026, 1, 3)),
         ])
         await s.commit()
@@ -143,9 +145,9 @@ async def test_risk_endpoint_concentration_and_warnings(client, monkeypatch):
     uid = client.user_id
     async with AsyncSessionLocal() as s:
         s.add_all([
-            Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=900, price=100.0,
+            Transaction(user_id=uid, ticker="BBCA", side="buy", quantity=900, price=100.0,
                         fees=0.0, trade_date=date(2026, 1, 2)),
-            Transaction(user_id=uid, ticker="TLKM.JK", side="buy", quantity=100, price=100.0,
+            Transaction(user_id=uid, ticker="TLKM", side="buy", quantity=100, price=100.0,
                         fees=0.0, trade_date=date(2026, 1, 2)),
         ])
         await s.commit()
@@ -189,19 +191,19 @@ async def test_dividend_calendar_endpoint(client, monkeypatch):
         return 0
 
     monkeypatch.setattr(cal, "sync_dividends", no_sync)
-    last_year = date.today() - timedelta(days=340)  # -> expected in ~25 days
+    last_year = local_today() - timedelta(days=340)  # -> expected in ~25 days
     uid = client.user_id
     async with AsyncSessionLocal() as s:
-        s.add(Transaction(user_id=uid, ticker="BBCA.JK", side="buy", quantity=1000, price=9000.0,
+        s.add(Transaction(user_id=uid, ticker="BBCA", side="buy", quantity=1000, price=9000.0,
                           fees=0.0, trade_date=date(2026, 1, 2)))
-        s.add(Watchlist(user_id=uid, ticker="TLKM.JK"))
-        s.add_all([Dividend(ticker="BBCA.JK", ex_date=last_year, amount=50.0),
-                   Dividend(ticker="TLKM.JK", ex_date=last_year, amount=100.0)])
+        s.add(Watchlist(user_id=uid, ticker="TLKM"))
+        s.add_all([Dividend(ticker="BBCA", ex_date=last_year, amount=50.0),
+                   Dividend(ticker="TLKM", ex_date=last_year, amount=100.0)])
         await s.commit()
     rows = (await client.get("/api/portfolio/dividend-calendar")).json()
     by = {r["ticker"]: r for r in rows}
-    assert by["BBCA.JK"]["expected_income"] == 50_000.0 and by["BBCA.JK"]["in_portfolio"]
-    assert by["TLKM.JK"]["expected_income"] is None and by["TLKM.JK"]["in_watchlist"]
+    assert by["BBCA"]["expected_income"] == 50_000.0 and by["BBCA"]["in_portfolio"]
+    assert by["TLKM"]["expected_income"] is None and by["TLKM"]["in_watchlist"]
 
 
 def test_dividends_need_the_shares_before_the_ex_date():
@@ -220,22 +222,20 @@ def test_dividends_need_the_shares_before_the_ex_date():
 
 
 async def test_portfolio_counts_costs_and_dividends(client):
-    from datetime import date, datetime
-
-    from sqlalchemy import insert
+    from datetime import date
 
     from database import AsyncSessionLocal
-    from models import Dividend, StockPrice, Transaction
+    from models import Dividend, Transaction
 
     async with AsyncSessionLocal() as s:
-        await s.execute(insert(StockPrice).values([
-            {"ticker": "BBCA.JK", "timestamp": datetime(2026, 1, d), "interval": "1d",
+        await add_daily_bars(s, [
+            {"ticker": "BBCA", "day": date(2026, 1, d),
              "open": 1000.0, "high": 1000.0, "low": 1000.0, "close": 1100.0, "volume": 0}
             for d in (5, 6)
-        ]))
-        s.add(Transaction(user_id=client.user_id, ticker="BBCA.JK", side="buy", quantity=1000,
+        ])
+        s.add(Transaction(user_id=client.user_id, ticker="BBCA", side="buy", quantity=1000,
                           price=1000.0, fees=1_500.0, trade_date=date(2025, 1, 2)))
-        s.add(Dividend(ticker="BBCA.JK", ex_date=date(2025, 6, 1), amount=100.0))
+        s.add(Dividend(ticker="BBCA", ex_date=date(2025, 6, 1), amount=100.0))
         await s.commit()
 
     await client.put("/api/preferences", json={"trading_costs": {

@@ -256,13 +256,13 @@ export default function Home() {
                 const watched = watchSet.has(s.ticker)
                 return (
                   <tr
-                    key={s.id}
+                    key={s.ticker}
                     onClick={() => openDetail(s, 'chart')}
                     className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60"
                   >
                     <td className="px-4 py-2 font-semibold tracking-tight">
                       <span className="inline-flex items-center gap-1.5">
-                        {s.ticker.replace('.JK', '')}
+                        {s.ticker}
                         <BoardBadge board={s.board} compact />
                       </span>
                     </td>

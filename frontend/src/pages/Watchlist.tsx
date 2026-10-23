@@ -223,13 +223,13 @@ export default function Watchlist() {
                       : 'text-bear'
                 return (
                   <tr
-                    key={it.id}
+                    key={it.ticker}
                     onClick={() => setSelected(it)}
                     className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60"
                   >
                     <td className="px-4 py-2 font-semibold tracking-tight">
                       <span className="inline-flex items-center gap-1.5">
-                        {it.ticker.replace('.JK', '')}
+                        {it.ticker}
                         <BoardBadge board={it.board} compact />
                         {f?.financial_currency && f.financial_currency !== 'IDR' && (
                           <span

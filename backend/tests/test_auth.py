@@ -7,7 +7,7 @@ from sqlalchemy import func, select
 import mail
 from config import settings
 from database import AsyncSessionLocal
-from models import Invite, User, UserSession, Watchlist
+from models import Invite, User, UserSession
 from services import auth
 from tests.conftest import ADMIN_EMAIL, PASSWORD, make_user, signed_in
 
@@ -32,7 +32,7 @@ async def test_admin_only_routes(client):
         for method, path in (
             ("get", "/api/admin/users"), ("get", "/api/data-health"),
             ("get", "/api/mail/status"), ("post", "/api/screener/sync"),
-            ("post", "/api/stocks/BBCA.JK/track"), ("post", "/api/watchlist/refresh"),
+            ("post", "/api/stocks/BBCA/track"), ("post", "/api/watchlist/refresh"),
             ("post", "/api/alerts/notifications/test"),
         ):
             assert (await getattr(bob, method)(path)).status_code == 403, path
@@ -41,11 +41,11 @@ async def test_admin_only_routes(client):
 
 async def test_cross_site_writes_are_refused(client):
     evil = {"origin": "https://evil.example"}
-    r = await client.post("/api/watchlist/BBCA.JK", headers=evil)
+    r = await client.post("/api/watchlist/BBCA", headers=evil)
     assert r.status_code == 403
-    r = await client.post("/api/watchlist/BBCA.JK", headers={"origin": "null"})
+    r = await client.post("/api/watchlist/BBCA", headers={"origin": "null"})
     assert r.status_code == 403
-    ok = await client.delete("/api/watchlist/BBCA.JK", headers={"origin": "http://test"})
+    ok = await client.delete("/api/watchlist/BBCA", headers={"origin": "http://test"})
     assert ok.status_code == 404  # same host passes the check (and isn't on the list)
     assert (await client.get("/api/stocks", headers=evil)).status_code == 200  # reads pass
 
@@ -90,7 +90,7 @@ async def test_disabled_user_is_signed_out(client):
 async def test_expired_session_is_rejected(client):
     async with AsyncSessionLocal() as s:
         sess = (await s.execute(select(UserSession))).scalar_one()
-        sess.expires_at = sess.created_at - timedelta(days=1)  # MySQL rounds seconds
+        sess.expires_at = sess.created_at - timedelta(days=1)
         await s.commit()
     assert (await client.get("/api/auth/me")).status_code == 401
 
@@ -111,10 +111,7 @@ async def test_change_password_signs_out_other_browsers(client):
 
 
 # --- invites -------------------------------------------------------------------
-async def test_setup_invite_creates_first_admin_and_claims_old_data(anon):
-    async with AsyncSessionLocal() as s:
-        s.add(Watchlist(ticker="BBCA.JK"))  # from before accounts existed
-        await s.commit()
+async def test_setup_invite_creates_first_admin(anon):
     await auth.ensure_setup_invite()
     async with AsyncSessionLocal() as s:
         invite = (await s.execute(select(Invite))).scalar_one()
@@ -133,10 +130,6 @@ async def test_setup_invite_creates_first_admin_and_claims_old_data(anon):
     blocked = await anon.get("/api/watchlist")
     assert blocked.status_code == 403 and blocked.json()["detail"] == "two_factor_setup_required"
     assert (await anon.get("/api/auth/2fa")).json()["required"] is True
-    async with AsyncSessionLocal() as s:
-        owner = (await s.execute(select(User.id).where(User.email == "owner@example.com"))).scalar()
-        claimed = (await s.execute(select(Watchlist.user_id))).scalars().all()
-    assert claimed == [owner]
     # Used once only; and no new setup link once an account exists.
     again = await anon.post(f"/api/auth/invites/{raw}/accept",
                             json={"name": "X", "email": "x@example.com", "password": PASSWORD})
@@ -226,19 +219,19 @@ async def test_users_have_separate_data(client):
         await bob.put("/api/preferences", json={"investing_style": "trader"})
         assert (await client.get("/api/preferences")).json()["investing_style"] == "investor"
 
-        assert (await client.post("/api/watchlist/BBCA.JK")).status_code == 201
-        assert (await bob.post("/api/watchlist/BBCA.JK")).status_code == 201  # own list
-        assert (await bob.delete("/api/watchlist/BBCA.JK")).status_code == 204
-        assert [w["ticker"] for w in (await client.get("/api/watchlist")).json()] == ["BBCA.JK"]
+        assert (await client.post("/api/watchlist/BBCA")).status_code == 201
+        assert (await bob.post("/api/watchlist/BBCA")).status_code == 201  # own list
+        assert (await bob.delete("/api/watchlist/BBCA")).status_code == 204
+        assert [w["ticker"] for w in (await client.get("/api/watchlist")).json()] == ["BBCA"]
         assert (await bob.get("/api/watchlist")).json() == []
 
-        tx = {"ticker": "BBCA.JK", "side": "buy", "quantity": 100, "price": 9000,
+        tx = {"ticker": "BBCA", "side": "buy", "quantity": 100, "price": 9000,
               "trade_date": "2026-01-02"}
         tx_id = (await client.post("/api/portfolio/transactions", json=tx)).json()["id"]
         assert (await bob.get("/api/portfolio/transactions")).json() == []
         assert (await bob.delete(f"/api/portfolio/transactions/{tx_id}")).status_code == 404
 
-        alert = {"ticker": "BBCA.JK", "type": "price_above", "threshold": 1}
+        alert = {"ticker": "BBCA", "type": "price_above", "threshold": 1}
         alert_id = (await client.post("/api/alerts", json=alert)).json()["id"]
         assert (await bob.get("/api/alerts")).json() == []
         assert (await bob.post(f"/api/alerts/{alert_id}/toggle")).status_code == 404
@@ -247,7 +240,7 @@ async def test_users_have_separate_data(client):
 async def test_purge_expired(client):
     async with AsyncSessionLocal() as s:
         sess = (await s.execute(select(UserSession))).scalar_one()
-        sess.expires_at = sess.created_at - timedelta(days=1)  # MySQL rounds seconds
+        sess.expires_at = sess.created_at - timedelta(days=1)
         await s.commit()
     assert await auth.purge_expired() == 1
 

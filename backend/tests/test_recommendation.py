@@ -20,17 +20,17 @@ def test_percentile_bounds_and_ordering():
 
 def test_ranking_and_ratings():
     raw = {
-        "GOOD.JK": _raw(
+        "GOOD": _raw(
             roe=0.25, net_margin=0.30, pbv=1.0, per=8, revenue_yoy=0.20,
             earnings_yoy=0.25, ret_3m=0.15, price_vs_sma50=0.08, pos_52w=0.9,
             der=0.3, equity_ratio=0.7,
         ),
-        "MID.JK": _raw(
+        "MID": _raw(
             roe=0.15, net_margin=0.15, pbv=2.0, per=15, revenue_yoy=0.08,
             earnings_yoy=0.10, ret_3m=0.03, price_vs_sma50=0.01, pos_52w=0.5,
             der=0.6, equity_ratio=0.5,
         ),
-        "BAD.JK": _raw(
+        "BAD": _raw(
             roe=0.03, net_margin=0.02, pbv=4.0, per=30, revenue_yoy=-0.05,
             earnings_yoy=-0.10, ret_3m=-0.10, price_vs_sma50=-0.05, pos_52w=0.1,
             der=1.5, equity_ratio=0.25,
@@ -38,28 +38,28 @@ def test_ranking_and_ratings():
     }
     rec = score_universe(raw)
 
-    assert rec["GOOD.JK"].score > rec["MID.JK"].score > rec["BAD.JK"].score
-    assert rec["GOOD.JK"].rating == "Buy"  # investor style has no Strong Buy
-    assert rec["BAD.JK"].rating in ("Reduce", "Avoid")
-    assert rec["GOOD.JK"].coverage == 1.0
-    assert rec["GOOD.JK"].disclaimer  # non-empty
+    assert rec["GOOD"].score > rec["MID"].score > rec["BAD"].score
+    assert rec["GOOD"].rating == "Buy"  # investor style has no Strong Buy
+    assert rec["BAD"].rating in ("Reduce", "Avoid")
+    assert rec["GOOD"].coverage == 1.0
+    assert rec["GOOD"].disclaimer  # non-empty
 
 
 def test_lower_is_better_for_valuation():
     # Identical except PBV: the cheaper stock must score higher on valuation.
     raw = {
-        "CHEAP.JK": _raw(pbv=1.0),
-        "PRICEY.JK": _raw(pbv=5.0),
+        "CHEAP": _raw(pbv=1.0),
+        "PRICEY": _raw(pbv=5.0),
     }
     rec = score_universe(raw)
-    cheap_val = next(c for c in rec["CHEAP.JK"].categories if c.name == "Valuation")
-    pricey_val = next(c for c in rec["PRICEY.JK"].categories if c.name == "Valuation")
+    cheap_val = next(c for c in rec["CHEAP"].categories if c.name == "Valuation")
+    pricey_val = next(c for c in rec["PRICEY"].categories if c.name == "Valuation")
     assert (cheap_val.score or 0) > (pricey_val.score or 0)
 
 
 def test_sparse_data_lowers_coverage_and_strength():
-    raw = {"THIN.JK": _raw(roe=0.2)}  # only 1 of 11 factors
-    rec = score_universe(raw)["THIN.JK"]
+    raw = {"THIN": _raw(roe=0.2)}  # only 1 of 11 factors
+    rec = score_universe(raw)["THIN"]
     assert rec.coverage is not None and rec.coverage < 0.2
     assert rec.strength in ("Weak", "Moderate")
 
@@ -68,7 +68,7 @@ def test_raw_factors_from_fundamentals_and_prices():
     from models import Fundamental
 
     f = Fundamental(
-        ticker="X.JK", fiscal_year=2024, financial_currency="IDR",
+        ticker="X", fiscal_year=2024, financial_currency="IDR",
         total_shares=1000.0, revenue=10_000.0, net_income=2_000.0,
         total_assets=9_000.0, total_liabilities=4_000.0, equity=5_000.0,
     )
@@ -87,7 +87,7 @@ def _fund(**kw):
     from models import Fundamental
 
     base = {
-        "ticker": "X.JK", "fiscal_year": 2024, "financial_currency": "IDR",
+        "ticker": "X", "fiscal_year": 2024, "financial_currency": "IDR",
         "total_shares": 1000.0, "revenue": 10_000.0, "net_income": 2_000.0,
         "total_assets": 9_000.0, "total_liabilities": 4_000.0, "equity": 5_000.0,
     }
@@ -97,27 +97,27 @@ def _fund(**kw):
 def test_price_only_stocks_are_not_rated():
     # Momentum alone backtested as noise -> no rating without fundamentals.
     raw = {
-        "FUND.JK": _raw(roe=0.2, pbv=1.5, ret_3m=0.01),
-        "MOMO.JK": _raw(ret_3m=0.9, price_vs_sma50=0.5, pos_52w=1.0),
+        "FUND": _raw(roe=0.2, pbv=1.5, ret_3m=0.01),
+        "MOMO": _raw(ret_3m=0.9, price_vs_sma50=0.5, pos_52w=1.0),
     }
     rec = score_universe(raw)
-    assert "FUND.JK" in rec
-    assert "MOMO.JK" not in rec
+    assert "FUND" in rec
+    assert "MOMO" not in rec
 
 
 def test_thinly_traded_buy_is_capped_at_hold():
     good = {"roe": 0.3, "net_margin": 0.3, "pbv": 0.8, "per": 6, "revenue_yoy": 0.2}
     bad = {"roe": 0.01, "net_margin": 0.01, "pbv": 5.0, "per": 40, "revenue_yoy": -0.2}
-    raw = {"LIQ.JK": _raw(**good), "THIN.JK": _raw(**good), "BAD.JK": _raw(**bad)}
-    traded = {"LIQ.JK": 50e9, "THIN.JK": 0.2e9, "BAD.JK": 50e9}
+    raw = {"LIQ": _raw(**good), "THIN": _raw(**good), "BAD": _raw(**bad)}
+    traded = {"LIQ": 50e9, "THIN": 0.2e9, "BAD": 50e9}
 
     rec = score_universe(raw, traded)
-    assert rec["LIQ.JK"].rating == "Buy"
-    assert rec["THIN.JK"].rating == "Hold"
-    assert rec["THIN.JK"].score == rec["LIQ.JK"].score  # score itself unchanged
-    assert any("Thinly traded" in r for r in rec["THIN.JK"].reasons)
+    assert rec["LIQ"].rating == "Buy"
+    assert rec["THIN"].rating == "Hold"
+    assert rec["THIN"].score == rec["LIQ"].score  # score itself unchanged
+    assert any("Thinly traded" in r for r in rec["THIN"].reasons)
     # Without liquidity data (e.g. pure scoring) nothing is capped.
-    assert score_universe(raw)["THIN.JK"].rating == "Buy"
+    assert score_universe(raw)["THIN"].rating == "Buy"
 
 
 def test_financials_skip_leverage_health_factors():
@@ -145,15 +145,15 @@ def test_negative_equity_ranks_worst_not_missing():
     assert raw["roe"] == -math.inf
 
     rec = score_universe({
-        "BROKE.JK": raw,
-        "OK.JK": _raw(roe=0.05, net_margin=0.02, pbv=3.0, der=2.0, equity_ratio=0.3),
+        "BROKE": raw,
+        "OK": _raw(roe=0.05, net_margin=0.02, pbv=3.0, der=2.0, equity_ratio=0.3),
     })
     def cat(t: str, name: str) -> float:
         score = next(c.score for c in rec[t].categories if c.name == name)
         assert score is not None
         return score
-    assert cat("BROKE.JK", "Valuation") < cat("OK.JK", "Valuation")
-    assert cat("BROKE.JK", "Health") < cat("OK.JK", "Health")
+    assert cat("BROKE", "Valuation") < cat("OK", "Valuation")
+    assert cat("BROKE", "Health") < cat("OK", "Health")
 
     from services.recommendation import _fmt
 
@@ -177,17 +177,17 @@ def test_trader_style_rates_liquid_price_only_stocks():
 
     calm = [100.0 + (i % 2) * 0.5 for i in range(40)]
     wild = [100.0 * (1.08 if i % 2 else 0.93) for i in range(40)]
-    raw = {"CALM.JK": trader_factors(calm), "WILD.JK": trader_factors(wild),
-           "THIN.JK": trader_factors(calm)}
-    traded = {"CALM.JK": 5e9, "WILD.JK": 5e9, "THIN.JK": 0.1e9}
+    raw = {"CALM": trader_factors(calm), "WILD": trader_factors(wild),
+           "THIN": trader_factors(calm)}
+    traded = {"CALM": 5e9, "WILD": 5e9, "THIN": 0.1e9}
 
     rec = score_universe(raw, traded, "trader")
-    assert set(rec) == {"CALM.JK", "WILD.JK"}  # illiquid names are not rated for traders
-    assert rec["CALM.JK"].score > rec["WILD.JK"].score  # stability is rewarded
-    assert rec["CALM.JK"].style == "trader"
-    assert [c.name for c in rec["CALM.JK"].categories] == ["Stability", "Setup"]
+    assert set(rec) == {"CALM", "WILD"}  # illiquid names are not rated for traders
+    assert rec["CALM"].score > rec["WILD"].score  # stability is rewarded
+    assert rec["CALM"].style == "trader"
+    assert [c.name for c in rec["CALM"].categories] == ["Stability", "Setup"]
     # Investor style still refuses price-only data.
-    assert score_universe({"CALM.JK": _raw(ret_3m=0.1)}, traded, "investor") == {}
+    assert score_universe({"CALM": _raw(ret_3m=0.1)}, traded, "investor") == {}
 
 
 def test_52_week_position_ignores_older_history():

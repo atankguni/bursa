@@ -17,9 +17,9 @@ import asyncio
 import logging
 import time
 from collections.abc import Callable
-from datetime import date
 from typing import Any
 
+from clock import local_today
 from config import settings
 from schemas import ProviderStat
 
@@ -34,7 +34,7 @@ class Governor:
         self._inflight: dict[str, asyncio.Future[Any]] = {}
         self._metrics: dict[str, ProviderStat] = {}
         self._daily: dict[str, int] = {}
-        self._day = date.today()
+        self._day = local_today()
 
     # -- metrics --------------------------------------------------------------
     def _stat(self, provider: str) -> ProviderStat:
@@ -44,7 +44,7 @@ class Governor:
         )
 
     def _roll(self) -> None:
-        today = date.today()
+        today = local_today()
         if today != self._day:
             self._day = today
             self._daily = {}

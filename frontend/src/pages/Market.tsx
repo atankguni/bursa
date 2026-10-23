@@ -28,7 +28,7 @@ function MoverList({
             className="flex items-center justify-between gap-3 px-4 py-2"
           >
             <div className="min-w-0">
-              <div className="text-xs font-semibold">{m.ticker.replace('.JK', '')}</div>
+              <div className="text-xs font-semibold">{m.ticker}</div>
               <div className="truncate text-[10px] text-subtle">{m.name}</div>
             </div>
             <div className="shrink-0 text-right">

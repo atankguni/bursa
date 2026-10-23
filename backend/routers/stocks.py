@@ -4,8 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from clock import day_key
 from deps import get_session, require_admin, user_style
-from models import Fundamental, Stock, StockIndex, StockPrice, StockProfile
+from models import DailyBar, Fundamental, IntradayBar, Stock, StockIndex, StockProfile
 from schemas import (
     CatalogPage,
     CatalogRow,
@@ -21,6 +22,7 @@ from schemas import (
     RecommendationSummary,
     SearchResultOut,
     SplitOut,
+    StockCode,
     StockHistory,
     StockOut,
     TrackRecordOut,
@@ -47,7 +49,11 @@ async def search_symbols(
     all_exchanges: bool = Query(False, alias="all"),
 ) -> list[SearchResultOut]:
     """Resolve a free-text query to candidate symbols (IDX-only unless `all`)."""
-    return [SearchResultOut(**r) for r in await search(q, idf_only=not all_exchanges)]
+    hits = await search(q, idf_only=not all_exchanges)
+    return [
+        SearchResultOut(symbol=h["symbol"], name=h["name"], exchange=h["exchange"], type=h["type"])
+        for h in hits
+    ]
 
 
 @router.post(
@@ -60,8 +66,8 @@ async def track_stock(
     payload: TrackStockIn,
     session: AsyncSession = Depends(get_session),
 ) -> StockOut:
-    """Add an arbitrary ticker (e.g. a new .JK symbol) to the tracked universe."""
-    ticker = payload.ticker.strip().upper()
+    """Add an IDX stock that isn't in the catalog yet (e.g. a new listing)."""
+    ticker = payload.ticker
     if not ticker:
         raise HTTPException(status_code=400, detail="ticker is required")
 
@@ -71,11 +77,10 @@ async def track_stock(
     if existing is not None:
         raise HTTPException(status_code=409, detail="Already tracked")
 
-    stock = Stock(ticker=ticker, name=payload.name or ticker.replace(".JK", ""))
+    stock = Stock(ticker=ticker, name=payload.name or ticker)
     session.add(stock)
     await session.commit()
-    await session.refresh(stock)
-    return StockOut(id=stock.id, ticker=stock.ticker, name=stock.name)
+    return StockOut(ticker=stock.ticker, name=stock.name)
 
 
 @router.get("/stocks", response_model=list[StockOut])
@@ -98,10 +103,10 @@ async def list_stocks(
         # Intersection: keep only stocks that belong to EVERY selected index.
         stmt = (
             stmt.join(StockIndex, StockIndex.ticker == Stock.ticker)
-            .where(StockIndex.index_name.in_(wanted))
-            .group_by(Stock.id)
+            .where(StockIndex.index_code.in_(wanted))
+            .group_by(Stock.ticker)
             .having(
-                func.count(func.distinct(StockIndex.index_name)) == len(wanted)
+                func.count(func.distinct(StockIndex.index_code)) == len(wanted)
             )
         )
     stocks = (await session.execute(stmt)).scalars().all()
@@ -124,7 +129,6 @@ async def list_stocks(
         rec = rec_map.get(stock.ticker)
         result.append(
             StockOut(
-                id=stock.id,
                 ticker=stock.ticker,
                 name=stock.name,
                 board=stock.listing_board,
@@ -149,7 +153,7 @@ async def list_stocks(
 
 @router.get("/stocks/{ticker}", response_model=StockOut)
 async def get_stock(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
     style: InvestingStyle = Depends(user_style),
 ) -> StockOut:
@@ -173,7 +177,6 @@ async def get_stock(
     rec = (await compute_universe_cached(session, style)).get(ticker)
 
     return StockOut(
-        id=stock.id,
         ticker=stock.ticker,
         name=stock.name,
         board=stock.listing_board,
@@ -196,7 +199,7 @@ async def get_stock(
 
 @router.get("/stocks/{ticker}/history", response_model=StockHistory)
 async def stock_history(
-    ticker: str,
+    ticker: StockCode,
     interval: str = Query("1d", pattern="^(1d|1m)$"),
     limit: int = Query(365, ge=1, le=2000),
     range_: str | None = Query(
@@ -215,27 +218,35 @@ async def stock_history(
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {ticker}")
 
-    if interval == "1d" and range_ is not None:
-        if range_ in DEEP_RANGES:
-            await ensure_full_history(session, stock, range_)
-        stmt = select(StockPrice).where(
-            StockPrice.ticker == ticker, StockPrice.interval == interval
-        )
-        start = range_start(range_)
-        if start is not None:
-            stmt = stmt.where(StockPrice.timestamp >= start)
-        prices = (await session.execute(stmt.order_by(StockPrice.timestamp))).scalars().all()
-        points = [PricePoint.model_validate(p) for p in prices]
+    if interval == "1d":
+        stmt = select(DailyBar).where(DailyBar.ticker == ticker)
+        if range_ is not None:
+            if range_ in DEEP_RANGES:
+                await ensure_full_history(session, stock, range_)
+            start = range_start(range_)
+            if start is not None:
+                stmt = stmt.where(DailyBar.day >= start.date())
+            bars = (await session.execute(stmt.order_by(DailyBar.day))).scalars().all()
+        else:
+            # The newest `limit` bars, in chronological order.
+            newest = stmt.order_by(DailyBar.day.desc()).limit(limit)
+            bars = list(reversed((await session.execute(newest)).scalars().all()))
+        points = [
+            PricePoint(
+                timestamp=day_key(b.day), open=b.open, high=b.high, low=b.low,
+                close=b.close, volume=b.volume,
+            )
+            for b in bars
+        ]
     else:
-        # Grab the newest `limit` bars, then reverse to chronological order.
         stmt = (
-            select(StockPrice)
-            .where(StockPrice.ticker == ticker, StockPrice.interval == interval)
-            .order_by(StockPrice.timestamp.desc())
+            select(IntradayBar)
+            .where(IntradayBar.ticker == ticker)
+            .order_by(IntradayBar.timestamp.desc())
             .limit(limit)
         )
-        prices = (await session.execute(stmt)).scalars().all()
-        points = [PricePoint.model_validate(p) for p in reversed(prices)]
+        minutes = (await session.execute(stmt)).scalars().all()
+        points = [PricePoint.model_validate(p) for p in reversed(minutes)]
 
     index_map = await indices_map(session, [ticker])
     splits = (await load_splits(session, [ticker]))[ticker]
@@ -254,7 +265,7 @@ async def stock_history(
     response_model=FundamentalsResponse,
 )
 async def stock_fundamentals(
-    ticker: str,
+    ticker: StockCode,
     refresh: bool = Query(False, description="Force a re-fetch from yfinance"),
     session: AsyncSession = Depends(get_session),
 ) -> FundamentalsResponse:
@@ -303,7 +314,7 @@ async def stock_fundamentals(
 
 @router.get("/stocks/{ticker}/recommendation", response_model=RecommendationOut)
 async def stock_recommendation(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
     style: InvestingStyle = Depends(user_style),
 ) -> RecommendationOut:
@@ -348,7 +359,7 @@ async def track_record(
 
 @router.get("/stocks/{ticker}/valuation", response_model=ValuationOut)
 async def stock_valuation(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
 ) -> ValuationOut:
     """Where the current PBV/RoE sit within the stock's own history."""
@@ -362,7 +373,7 @@ async def stock_valuation(
 
 @router.get("/stocks/{ticker}/dividends", response_model=DividendSummary)
 async def stock_dividends(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
 ) -> DividendSummary:
     """Dividend history + trailing yield for one ticker."""
@@ -386,7 +397,7 @@ async def stock_dividends(
 
 @router.get("/stocks/{ticker}/company", response_model=CompanyOut)
 async def stock_company(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
 ) -> CompanyOut:
     """Company profile + board/management (fetched on demand, cached)."""
@@ -486,7 +497,7 @@ async def catalog(
     "/stocks/{ticker}/track", response_model=CatalogRow, dependencies=[Depends(require_admin)]
 )
 async def track_symbol(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
 ) -> CatalogRow:
     """Add a symbol to the high-frequency (intraday) sync set."""
@@ -504,7 +515,7 @@ async def track_symbol(
     "/stocks/{ticker}/track", response_model=CatalogRow, dependencies=[Depends(require_admin)]
 )
 async def untrack_symbol(
-    ticker: str,
+    ticker: StockCode,
     session: AsyncSession = Depends(get_session),
 ) -> CatalogRow:
     """Remove a symbol from the high-frequency sync set."""

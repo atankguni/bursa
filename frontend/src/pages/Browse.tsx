@@ -137,7 +137,7 @@ export default function Browse() {
                   >
                     <td className="px-4 py-2 font-semibold">
                       <span className="inline-flex items-center gap-1.5">
-                        {r.ticker.replace('.JK', '')}
+                        {r.ticker}
                         <BoardBadge board={r.board} compact />
                       </span>
                     </td>

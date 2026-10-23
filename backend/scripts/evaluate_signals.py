@@ -41,7 +41,6 @@ import json
 import statistics as st
 import sys
 from collections.abc import Callable, Sequence
-from datetime import date
 from pathlib import Path
 from typing import TypedDict
 
@@ -50,9 +49,10 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from sqlalchemy import select  # noqa: E402
 from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
+from clock import local_today
 from config import settings  # noqa: E402
-from models import Fundamental, StockPrice, StockProfile  # noqa: E402
-from schemas import InvestingStyle  # noqa: E402
+from models import DailyBar, Fundamental, StockProfile  # noqa: E402
+from schemas import InvestingStyle, Rating  # noqa: E402
 from services.recommendation import (  # noqa: E402
     CATEGORY_ORDER,
     TRADER_CATEGORY_ORDER,
@@ -63,7 +63,7 @@ from services.recommendation import (  # noqa: E402
 )
 from services.track_record import HORIZON, SUMMARY_FILE, beat_rates  # noqa: E402
 
-RATINGS = ["Strong Buy", "Buy", "Hold", "Reduce", "Avoid"]
+RATINGS: list[Rating] = ["Strong Buy", "Buy", "Hold", "Reduce", "Avoid"]
 CATEGORIES: dict[InvestingStyle, list[str]] = {
     "investor": CATEGORY_ORDER,
     "trader": TRADER_CATEGORY_ORDER,
@@ -86,7 +86,7 @@ class Sample(TypedDict):
     ticker: str
     sector: str
     score: float
-    rating: str
+    rating: Rating
     liquidity: float
     categories: dict[str, float | None]
     forward: dict[str, float | None]
@@ -107,15 +107,11 @@ async def _load(url: str) -> Loaded:
     try:
         async with engine.connect() as con:
             prices: dict[str, list[Bar]] = collections.defaultdict(list)
-            for ticker, ts, close, volume in await con.execute(
-                select(StockPrice.ticker, StockPrice.timestamp, StockPrice.close,
-                       StockPrice.volume)
-                .where(StockPrice.interval == "1d")
-                .order_by(StockPrice.ticker, StockPrice.timestamp)
+            for ticker, day, close, volume in await con.execute(
+                select(DailyBar.ticker, DailyBar.day, DailyBar.close, DailyBar.volume)
+                .order_by(DailyBar.ticker, DailyBar.day)
             ):
-                prices[ticker].append(
-                    Bar(day=ts.date().isoformat(), close=close, volume=volume or 0)
-                )
+                prices[ticker].append(Bar(day=day.isoformat(), close=close, volume=volume or 0))
 
             # Unsaved Fundamental objects carrying just what raw_factors reads.
             funds: dict[str, list[Fundamental]] = collections.defaultdict(list)
@@ -377,7 +373,7 @@ def write_summary(
             r.model_dump()
             for r in beat_rates((s["asof"], s["rating"], s["forward"][horizon] or 0.0) for s in sel)
         ],
-        "generated": date.today().isoformat(),
+        "generated": local_today().isoformat(),
     }
     try:
         data = json.loads(SUMMARY_FILE.read_text())

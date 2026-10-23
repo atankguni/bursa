@@ -17,7 +17,7 @@ from typing import Any, cast
 import pandas as pd
 import yfinance as yf
 
-from clock import utcnow
+from clock import as_utc, utcnow
 from config import settings
 from market.providers.base import (
     DIVIDENDS,
@@ -71,6 +71,20 @@ _BS_SHARES = ["Ordinary Shares Number", "Share Issued"]
 # --------------------------------------------------------------------------- #
 # Price parsing helpers (module-level so they are easy to unit-test)
 # --------------------------------------------------------------------------- #
+# Yahoo lists IDX stocks as "<code>.JK"; the app uses the bare IDX code.
+# Symbols that already name a Yahoo instrument ("^JKSE", "IDX30.JK") pass through.
+_SUFFIX = ".JK"
+
+
+def yahoo_symbol(code: str) -> str:
+    return code if code.startswith("^") or "." in code else f"{code}{_SUFFIX}"
+
+
+def idx_code(symbol: str) -> str | None:
+    """The IDX code of a Yahoo stock symbol ("BBCA.JK" -> "BBCA"); None if not IDX."""
+    return symbol.removesuffix(_SUFFIX) if symbol.endswith(_SUFFIX) else None
+
+
 def _download_batch(tickers: list[str], period: str, interval: str) -> pd.DataFrame | None:
     """
     Blocking grouped download. NOTE: yfinance still issues ~one HTTP request per
@@ -111,9 +125,9 @@ def _to_rows(df: pd.DataFrame, ticker: str, interval: str) -> list[PriceBar]:
     for stamp, (o, h, lo, c, v) in zip(pd.DatetimeIndex(df.index), values, strict=True):
         if math.isnan(c):
             continue  # no close -> no bar
-        dt = stamp.to_pydatetime()
-        if dt.tzinfo is not None:
-            dt = dt.astimezone(UTC).replace(tzinfo=None)
+        # Intraday stamps carry the exchange's zone; daily ones are bare dates,
+        # which become `clock.day_key` (midnight UTC of that date).
+        dt = as_utc(stamp.to_pydatetime())
         rows.append(
             {
                 "ticker": ticker,
@@ -264,10 +278,11 @@ class YahooProvider(MarketDataProvider):
     def fetch_price_rows(
         self, tickers: list[str], period: str, interval: str
     ) -> dict[str, list[PriceBar]]:
-        df = _download_batch(tickers, period, interval)
+        symbols = {yahoo_symbol(t): t for t in tickers}
+        df = _download_batch(list(symbols), period, interval)
         out: dict[str, list[PriceBar]] = {}
-        for ticker in tickers:
-            sub = _frame_for_ticker(df, ticker)
+        for symbol, ticker in symbols.items():
+            sub = _frame_for_ticker(df, symbol)
             if not sub.empty:
                 out[ticker] = _to_rows(sub, ticker, interval)
         return out
@@ -306,7 +321,7 @@ class YahooProvider(MarketDataProvider):
         """Fetch + parse one ticker's yearly fundamentals (normalized to base)."""
         base = settings.base_currency
         try:
-            t = yf.Ticker(ticker)
+            t = yf.Ticker(yahoo_symbol(ticker))
             income = t.income_stmt
             balance = t.balance_sheet
             info = t.info
@@ -380,10 +395,12 @@ class YahooProvider(MarketDataProvider):
                 continue
             out.append(
                 {
-                    "symbol": symbol,
+                    # IDX stocks come back as their IDX code, like everywhere else.
+                    "symbol": idx_code(symbol) or symbol,
                     "name": q.get("shortname") or q.get("longname") or symbol,
                     "exchange": q.get("exchDisp") or q.get("exchange") or "",
                     "type": q.get("quoteType") or "",
+                    "idx": idx_code(symbol) is not None,
                 }
             )
         return out
@@ -419,7 +436,7 @@ class YahooProvider(MarketDataProvider):
     def fetch_splits(self, ticker: str) -> list[SplitRow]:
         """Historical stock splits (ratio = new shares per old share)."""
         try:
-            splits = yf.Ticker(ticker).splits
+            splits = yf.Ticker(yahoo_symbol(ticker)).splits
         except Exception as exc:  # noqa: BLE001 - network / parse failure
             log.warning("Split fetch failed for %s: %s", ticker, exc)
             return []
@@ -435,7 +452,7 @@ class YahooProvider(MarketDataProvider):
     def fetch_dividends(self, ticker: str) -> list[DividendRow]:
         """Historical cash dividends as [{ex_date, amount}]."""
         try:
-            divs = yf.Ticker(ticker).dividends
+            divs = yf.Ticker(yahoo_symbol(ticker)).dividends
         except Exception as exc:  # noqa: BLE001 - network / parse failure
             log.warning("Dividend fetch failed for %s: %s", ticker, exc)
             return []

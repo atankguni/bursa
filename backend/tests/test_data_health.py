@@ -10,10 +10,10 @@ from models import Fundamental, Stock
 
 async def test_report_sections_and_share_mismatch(client):
     async with AsyncSessionLocal() as s:
-        bbni = (await s.execute(select(Stock).where(Stock.ticker == "BBNI.JK"))).scalar_one()
+        bbni = (await s.execute(select(Stock).where(Stock.ticker == "BBNI"))).scalar_one()
         bbni.idx_shares = 37.3e9  # official IDX count
         s.add(Fundamental(  # Yahoo's broken sharesOutstanding (BBNI case)
-            ticker="BBNI.JK", fiscal_year=2025, financial_currency="IDR",
+            ticker="BBNI", fiscal_year=2025, financial_currency="IDR",
             total_shares=0.58e9, equity=1.7e14, source="statements",
             updated_at=utcnow(),
         ))
@@ -27,7 +27,7 @@ async def test_report_sections_and_share_mismatch(client):
     assert sec["prices"]["stocks"] > 900
     assert sec["fundamentals"]["statements"] == 1
     mism = sec["suspicious"]["share_mismatches"]
-    assert [m["ticker"] for m in mism] == ["BBNI.JK"]
+    assert [m["ticker"] for m in mism] == ["BBNI"]
     assert sec["suspicious"]["status"] == "warn"
 
 
@@ -47,12 +47,13 @@ async def test_reconcile_shares_uses_idx_register(client):
     from services.fundamentals import reconcile_shares
 
     async with AsyncSessionLocal() as s:
-        for t, idx, yahoo in [("AISA.JK", 9.3118e9, 3.8057e9), ("BBCA.JK", 1.2328e11, 1.228e11)]:
+        for t, idx, yahoo in [("AISA", 9.3118e9, 3.8057e9), ("BBCA", 1.2328e11, 1.228e11)]:
             stock = (await s.execute(select(Stock).where(Stock.ticker == t))).scalar_one()
             stock.idx_shares = idx
             for fy in (2024, 2025):
                 s.add(Fundamental(ticker=t, fiscal_year=fy, financial_currency="IDR",
-                                  total_shares=yahoo, updated_at=utcnow()))
+                                  source="statements", total_shares=yahoo,
+                                  updated_at=utcnow()))
         await s.commit()
 
     assert await reconcile_shares() == 1  # only AISA is off by more than 20%
@@ -62,9 +63,9 @@ async def test_reconcile_shares_uses_idx_register(client):
             .where(Fundamental.fiscal_year == 2025)
         )).all())
         old = (await s.execute(
-            select(Fundamental.total_shares).where(Fundamental.ticker == "AISA.JK",
+            select(Fundamental.total_shares).where(Fundamental.ticker == "AISA",
                                                    Fundamental.fiscal_year == 2024)
         )).scalar_one()
-    assert got["AISA.JK"] == 9.3118e9   # latest row: IDX register
-    assert got["BBCA.JK"] == 1.228e11   # within 20%: provider value kept
+    assert got["AISA"] == 9.3118e9   # latest row: IDX register
+    assert got["BBCA"] == 1.228e11   # within 20%: provider value kept
     assert old == 3.8057e9              # history untouched

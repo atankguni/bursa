@@ -9,8 +9,6 @@ password resets.
   is stored, so a database leak doesn't hand out working links or sessions.
 * There is no sign-up: an admin invites people. On a fresh install (no users)
   the app logs a one-time setup link for the first admin (`ensure_setup_invite`).
-* Data from before accounts existed belongs to nobody (user_id NULL) until the
-  first admin accepts the setup invite and claims it (`claim_orphans`).
 """
 
 import hashlib
@@ -23,24 +21,19 @@ from typing import Any, Literal, cast
 
 from argon2 import PasswordHasher
 from argon2.exceptions import InvalidHashError, VerificationError
-from sqlalchemy import CursorResult, delete, func, select, update
+from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clock import utcnow
 from config import settings
 from mail.base import is_valid_address
 from models import (
-    Alert,
-    AlertEvent,
     Invite,
     MfaChallenge,
     PasswordReset,
-    Transaction,
     TrustedDevice,
     User,
-    UserPreference,
     UserSession,
-    Watchlist,
 )
 
 log = logging.getLogger("bursa.auth")
@@ -286,11 +279,6 @@ async def accept_invite(
                 role="admin" if first else invite.role, is_active=True)
     session.add(user)
     invite.accepted_at = utcnow()
-    await session.flush()
-    if first:
-        claimed = await claim_orphans(session, user.id)
-        if claimed:
-            log.info("First admin %s now owns %d existing row(s)", address, claimed)
     await session.commit()
     log.info("Account created: %s (%s)", address, user.role)
     return user
@@ -315,17 +303,6 @@ async def ensure_setup_invite() -> None:
         ))
         await session.commit()
     log.warning("No accounts yet. Create the admin account here: %s", link(f"/invite/{raw}"))
-
-
-async def claim_orphans(session: AsyncSession, user_id: int) -> int:
-    """Give rows from before accounts existed (user_id NULL) to `user_id`."""
-    total = 0
-    for model in (Watchlist, Transaction, Alert, AlertEvent, UserPreference):
-        result = cast(CursorResult[Any], await session.execute(
-            update(model).where(model.user_id.is_(None)).values(user_id=user_id)
-        ))
-        total += result.rowcount or 0
-    return total
 
 
 # --------------------------------------------------------------------------- #

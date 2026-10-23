@@ -3,7 +3,7 @@
 | Layer    | Stack |
 |----------|-------|
 | Backend  | Python 3.14, FastAPI, SQLAlchemy 2.0 (async) + aiosqlite, APScheduler, yfinance |
-| Database | SQLite by default (WAL mode, persisted on the host); PostgreSQL and MySQL/MariaDB supported |
+| Database | SQLite by default (WAL mode, persisted on the host); PostgreSQL supported |
 | Frontend | React 19 + Vite, TypeScript, Tailwind CSS, TanStack Query, lightweight-charts, lucide-react |
 | Infra    | Docker Compose (single stack) + nginx |
 
@@ -74,24 +74,47 @@ The app uses **tiered sync** so the free Yahoo API is never hammered:
 
 ## Database layer
 
-All data access goes through **SQLAlchemy**, which already speaks SQLite, PostgreSQL
-and MySQL. The few things SQL dialects disagree on are kept in one adapter package,
-`backend/db/`, so services never contain database-specific code:
+All data access goes through **SQLAlchemy** on SQLite or PostgreSQL. The few things
+the two disagree on are kept in one adapter package, `backend/db/`, so services never
+contain database-specific code:
 
 | Module | What it hides |
 |---|---|
-| `db/upsert.py` | Insert-or-update: `ON CONFLICT` (SQLite/PostgreSQL) vs `ON DUPLICATE KEY` (MySQL). Also chunks large batches under each database's parameter limit. |
-| `db/maintenance.py` | SQLite pragmas (WAL, busy timeout, foreign keys), WAL checkpoints and the weekly `VACUUM`. PostgreSQL gets `VACUUM (ANALYZE)`; MySQL needs nothing. |
-| `db/migrate.py` | Runs **Alembic** migrations on startup. It also upgrades databases created before migrations existed. |
+| `db/upsert.py` | Insert-or-update (`ON CONFLICT`), chunked under each database's parameter limit. |
+| `db/maintenance.py` | SQLite pragmas (WAL, busy timeout, foreign keys), WAL checkpoints and the weekly `VACUUM`. PostgreSQL gets `VACUUM (ANALYZE)`. |
+| `db/migrate.py` | Runs **Alembic** migrations on startup. Refuses a database from before the 2026-10-23 squash (convert it: `scripts/convert_db.py`). |
+| `db/types.py` | `UTCDateTime` (timezone-aware UTC only) and `one_of()`, a CHECK constraint built from a `Literal` in `schemas.py`. |
 
-Portability rules for new queries (the test suite runs on all three databases to catch these):
+**Schema.** The main tables and their keys:
+
+| Table | Key | Holds |
+|---|---|---|
+| `stocks` | `ticker` | The catalog. `ticker` is the IDX code (`BBCA`); Yahoo's `.JK` symbol exists only inside the Yahoo provider. Every stock foreign key is `ON UPDATE CASCADE`, so a renamed code is one update. |
+| `daily_bars` | `ticker, day` | One bar per trading day (`day` is a date). `WITHOUT ROWID` on SQLite: rows are stored in key order. |
+| `intraday_bars` | `ticker, timestamp` | 1-minute bars, pruned after the retention window. |
+| `stock_quotes` | `ticker` | Latest and previous close per stock, rewritten by every daily sync (`market/quotes.py`). Screens and lists read this instead of searching the bars. |
+| `indices`, `stock_indices`, `index_bars` | `code`; `index_code, ticker`; `code, day` | The index catalog with its latest value, memberships and daily closes. |
+| `fundamentals`, `stock_profiles`, `dividends`, `splits` | per stock (+ year / ex-date) | Company data from the providers. |
+| `sync_state` | `ticker, job` | When each sync job last finished per stock (listing, history backfill, full history, splits, fundamentals). Job bookkeeping stays off the data tables. |
+| `rating_snapshots` | `style, day, ticker` | The daily ratings behind the live track record. |
+| `user_settings` | `user_id` | One typed row per user: style, assistant and digest switches, alerts-seen marker, display and trading-cost JSON. |
+| `watchlist`, `rating_state` | `user_id, ticker` | Per-user lists and the last rating seen (rating-change alerts). |
+| `transactions`, `alerts`, `alert_events` | `id` | Per-user records. Quantities are whole shares (`BIGINT`); prices stay `DOUBLE` (exact for whole rupiah far beyond any real amount). |
+
+Value sets (roles, trade sides, alert types, ratings, styles, chat roles, ...) are
+CHECK constraints generated from the same `Literal` types as the API and the
+frontend, and amounts have range checks (quantity and price > 0, fees >= 0).
+Constraint names follow one convention (`pk_`, `fk_`, `uq_`, `ix_`, `ck_`), set on
+`Base.metadata`.
+
+Portability rules for new queries (`make check` runs the tests on both databases to catch these):
 
 - Use `db.upsert.upsert()` instead of a dialect's `insert(...).on_conflict_...`.
 - Compute dates in Python (`date.today() - timedelta(...)`), not with SQL date functions.
 - Don't rely on where `NULL` sorts. Sort on `column.is_not(None)` first when it matters.
 - `GROUP BY` must cover every selected non-aggregated column. Group on the exact
   expression you select, and inline constants rather than binding them.
-- Use `Double` for numbers, not `Float`: MySQL's `FLOAT` is 4-byte.
+- Use `Double` for numbers, not `Float` (4-byte `REAL` on PostgreSQL).
 
 MongoDB is not supported: it isn't SQL, and supporting it would need a repository
 layer over every query.
@@ -125,9 +148,9 @@ Invite-only accounts (`services/auth.py`, `routers/auth.py`, `routers/admin.py`)
   `require_admin` (data health, mail, syncs, tracking, Telegram, user management).
 
 **Per-user data.** `watchlist`, `transactions`, `alerts`, `alert_events`,
-`user_preferences` and `rating_state` have a `user_id`; every query filters by the
-signed-in user. `user_preferences` also holds the account part of the Settings menu
-(one JSON document, `display_settings`) and the alerts-seen marker; the frontend
+`user_settings` and `rating_state` have a required `user_id`; every query filters by
+the signed-in user. `user_settings` also holds the account part of the Settings menu
+(the `display` JSON document) and the alerts-seen marker; the frontend
 (`lib/settings.tsx`, `ACCOUNT_KEYS`) keeps a local copy for instant rendering and
 syncs it after sign-in. Appearance settings stay in the browser only. Market data is shared. Signals depend on the investing style, so the
 scoring cache is keyed by style and routes pass the user's style
@@ -189,6 +212,15 @@ point to add a shared cache/lock, not before.
 The frontend is a static build served by nginx (gzipped, immutable caching,
 `/api` reverse-proxied). The chart library and heavier routes are code-split and
 loaded on demand.
+
+nginx is the only way in from the network: the backend's port 8000 is bound to
+`127.0.0.1`, because the backend trusts the client-IP header (`X-Real-IP`) that
+nginx sets. Every response carries security headers
+(`frontend/security-headers.conf`): a Content-Security-Policy that allows
+scripts only from the site itself (no inline scripts; the theme is applied by
+`public/theme-init.js`), no framing, `nosniff`, a same-origin referrer policy,
+and no camera/microphone/location access. Put HTTPS (and HSTS) on a proxy in
+front of nginx when exposing Bursa beyond your network.
 
 ## Limitations
 

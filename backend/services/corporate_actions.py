@@ -14,12 +14,13 @@ from datetime import date, timedelta
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clock import utcnow
+from clock import local_today, utcnow
 from database import AsyncSessionLocal
 from db.upsert import upsert
 from market.providers.governor import governor
 from market.providers.registry import price_provider
 from models import Split, Stock, Transaction
+from services.sync_state import clear, done_at, done_column, mark_done
 
 log = logging.getLogger("bursa.corporate_actions")
 
@@ -61,7 +62,7 @@ async def load_splits(session: AsyncSession, tickers: Sequence[str]) -> SplitMap
 def split_factor(splits: Sequence[tuple[date, float]], trade_date: date,
                  today: date | None = None) -> float:
     """Product of split ratios that took effect after `trade_date` (up to today)."""
-    today = today or date.today()
+    today = today or local_today()
     factor = 1.0
     for ex_date, ratio in splits:
         if trade_date < ex_date <= today:
@@ -122,12 +123,12 @@ async def sync_splits(tickers: Sequence[str]) -> int:
                 )
                 # A split after the full history was stored: the provider has since
                 # re-adjusted older prices, so fetch the history again on next view.
-                stored = stock.full_history_at
+                stored = await done_at(session, "full_history", ticker)
                 if stored is not None and r["ex_date"] >= stored.date():
-                    stock.full_history_at = None
+                    await clear(session, "full_history", ticker)
                     log.info("New split for %s on %s: full history will be re-fetched",
                              ticker, r["ex_date"])
-            stock.splits_checked_at = utcnow()
+            await mark_done(session, "splits", [ticker])
             await session.commit()
             found += len(rows)
     return found
@@ -137,11 +138,12 @@ async def sync_due(tickers: Sequence[str]) -> int:
     """Check splits for the given tickers whose last check is over a week old."""
     async with AsyncSessionLocal() as session:
         cutoff = utcnow() - CHECK_EVERY
+        checked = done_column("splits")
         due = (
             await session.execute(
                 select(Stock.ticker).where(
                     Stock.ticker.in_(list(tickers)),
-                    (Stock.splits_checked_at.is_(None)) | (Stock.splits_checked_at < cutoff),
+                    (checked.is_(None)) | (checked < cutoff),
                 )
             )
         ).scalars().all()

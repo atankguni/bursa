@@ -14,16 +14,18 @@ prices would stay frozen at the opening snapshot all session.
 
 import asyncio
 import logging
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime
 from zoneinfo import ZoneInfo
 
+from clock import day_key, local_today
 from config import settings
 from database import AsyncSessionLocal
 from db.upsert import upsert
 from market.providers.base import MarketDataProvider, PriceBar
 from market.providers.governor import governor
 from market.providers.registry import price_provider
-from models import StockPrice
+from market.quotes import refresh_quotes
+from models import DailyBar, IntradayBar
 
 log = logging.getLogger("bursa.market.sync")
 
@@ -44,7 +46,7 @@ def rollup_daily(bars: list[PriceBar], day: date) -> list[PriceBar]:
     """
     Aggregate `day`'s intraday bars (UTC timestamps) into one daily bar per ticker.
 
-    Keyed like provider daily bars (naive midnight of the exchange-local date), so
+    Keyed like provider daily bars (`clock.day_key`: midnight of the local date), so
     the upsert updates today's row and the next official daily sync overwrites it.
     Bars from other days are ignored so a finished day's official bar is never
     replaced by a partial aggregate.
@@ -52,7 +54,7 @@ def rollup_daily(bars: list[PriceBar], day: date) -> list[PriceBar]:
     tz = ZoneInfo(settings.timezone)
     by_ticker: dict[str, list[PriceBar]] = {}
     for bar in bars:
-        if bar["timestamp"].replace(tzinfo=UTC).astimezone(tz).date() == day:
+        if bar["timestamp"].astimezone(tz).date() == day:
             by_ticker.setdefault(bar["ticker"], []).append(bar)
 
     daily: list[PriceBar] = []
@@ -61,7 +63,7 @@ def rollup_daily(bars: list[PriceBar], day: date) -> list[PriceBar]:
         daily.append(
             {
                 "ticker": ticker,
-                "timestamp": datetime.combine(day, time()),
+                "timestamp": day_key(day),
                 "interval": DAILY_INTERVAL,
                 "open": rows[0]["open"],
                 "high": max(b["high"] for b in rows),
@@ -73,20 +75,37 @@ def rollup_daily(bars: list[PriceBar], day: date) -> list[PriceBar]:
     return daily
 
 
+def _ohlcv(bar: PriceBar) -> dict[str, float | int]:
+    return {
+        "open": bar["open"], "high": bar["high"], "low": bar["low"],
+        "close": bar["close"], "volume": bar["volume"],
+    }
+
+
 async def _upsert_rows(rows: list[PriceBar]) -> int:
     """
-    Idempotent bulk upsert keyed on (ticker, timestamp, interval); `upsert`
-    splits large inputs to stay under the database's bound-parameter limit.
+    Store bars (daily -> `daily_bars` by trading date, intraday -> `intraday_bars`)
+    and refresh the quotes of stocks whose daily bars changed, in one
+    transaction. Idempotent; `upsert` splits large inputs to stay under the
+    database's bound-parameter limit.
     """
     if not rows:
         return 0
-
+    daily = [
+        {"ticker": b["ticker"], "day": b["timestamp"].date(), **_ohlcv(b)}
+        for b in rows if b["interval"] == DAILY_INTERVAL
+    ]
+    intraday = [
+        {"ticker": b["ticker"], "timestamp": b["timestamp"], **_ohlcv(b)}
+        for b in rows if b["interval"] != DAILY_INTERVAL
+    ]
     async with AsyncSessionLocal() as session:
-        await upsert(
-            session, StockPrice, rows,
-            keys=["ticker", "timestamp", "interval"],
-            update=["open", "high", "low", "close", "volume"],
-        )
+        await upsert(session, DailyBar, daily, keys=["ticker", "day"])
+        await upsert(session, IntradayBar, intraday, keys=["ticker", "timestamp"])
+        if daily:
+            await refresh_quotes(
+                session, {b["ticker"] for b in rows if b["interval"] == DAILY_INTERVAL}
+            )
         await session.commit()
     return len(rows)
 
@@ -141,7 +160,7 @@ async def sync_batch(tickers: list[str], period: str, interval: str) -> int:
     provider = price_provider()
     size = max(1, settings.provider_chunk_size)
     written = 0
-    today = datetime.now(ZoneInfo(settings.timezone)).date()
+    today = local_today()
 
     for start in range(0, len(tickers), size):
         chunk = tickers[start : start + size]

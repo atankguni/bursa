@@ -35,7 +35,7 @@ from database import AsyncSessionLocal, engine
 from db import maintenance
 from market.sync import DAILY_INTERVAL, INTRADAY_INTERVAL, sync_batch
 from market.tickers import all_tickers
-from models import Stock, StockIndex, StockPrice, Transaction, Watchlist
+from models import IntradayBar, Stock, StockIndex, Transaction, Watchlist
 from schemas import JobHealth
 from services.market_clock import is_open
 
@@ -161,10 +161,7 @@ async def prune_intraday() -> None:
     cutoff = utcnow() - timedelta(days=settings.intraday_retention_days)
     async with AsyncSessionLocal() as session:
         result = cast(CursorResult[Any], await session.execute(
-            delete(StockPrice).where(
-                StockPrice.interval == INTRADAY_INTERVAL,
-                StockPrice.timestamp < cutoff,
-            )
+            delete(IntradayBar).where(IntradayBar.timestamp < cutoff)
         ))
         await session.commit()
     await maintenance.checkpoint(engine)
@@ -175,7 +172,7 @@ async def prune_intraday() -> None:
 
 
 async def compact_db() -> None:
-    """Weekly housekeeping: VACUUM on SQLite/PostgreSQL, nothing on MySQL."""
+    """Weekly housekeeping: VACUUM (SQLite) / VACUUM ANALYZE (PostgreSQL)."""
     ran = await maintenance.compact(engine)
     if ran:
         log.info("%s complete", ran)

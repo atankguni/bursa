@@ -16,7 +16,7 @@ import {
   type Role,
 } from '../api'
 import { useAuth } from '../lib/auth'
-import { fmtShortDateTime, fmtTimeAgo } from '../lib/format'
+import { fmtShortDateTime, fmtTimeAgo, parseServerTime } from '../lib/format'
 
 const USERS_KEY = ['admin', 'users'] as const
 const INVITES_KEY = ['admin', 'invites'] as const
@@ -227,7 +227,8 @@ export default function Users() {
           <table className="w-full text-xs">
             <tbody>
               {invites.data.map((i) => {
-                const expired = new Date(`${i.expires_at}Z`).getTime() < Date.now()
+                const expired =
+                  (parseServerTime(i.expires_at)?.getTime() ?? 0) < Date.now()
                 return (
                   <tr key={i.id} className="border-b border-line last:border-0">
                     <td className="px-4 py-2">{i.email}</td>

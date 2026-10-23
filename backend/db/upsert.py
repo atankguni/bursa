@@ -4,7 +4,6 @@ Portable "insert or update" across SQL dialects.
 Every database spells upsert differently:
 
 * SQLite / PostgreSQL: ``INSERT ... ON CONFLICT (keys) DO UPDATE SET c = excluded.c``
-* MySQL / MariaDB:     ``INSERT ... ON DUPLICATE KEY UPDATE c = VALUES(c)``
 
 Services call :func:`upsert` and never import a dialect-specific ``insert``, so
 switching ``DATABASE_URL`` to another supported database needs no code changes.
@@ -14,12 +13,12 @@ To support a new SQL dialect, add a branch to :func:`_statement`.
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from sqlalchemy.dialects import mysql, postgresql, sqlite
+from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import DeclarativeBase
 from sqlalchemy.sql.dml import Insert
 
-# Bound-parameter limits: SQLite 32766, PostgreSQL (asyncpg) 32767, MySQL 65535.
+# Bound-parameter limits: SQLite 32766, PostgreSQL (asyncpg) 32767.
 # Stay under the smallest so one chunk size works everywhere.
 _MAX_PARAMS = 30_000
 
@@ -27,7 +26,7 @@ Row = Mapping[str, Any]
 
 
 def dialect_name(session: AsyncSession) -> str:
-    """The SQLAlchemy dialect behind a session ("sqlite", "postgresql", "mysql", ...)."""
+    """The SQLAlchemy dialect behind a session ("sqlite" or "postgresql")."""
     return session.get_bind().dialect.name
 
 
@@ -46,13 +45,6 @@ def _statement(
         return ins.on_conflict_do_update(
             index_elements=list(keys), set_={c: ins.excluded[c] for c in update}
         )
-    if dialect in ("mysql", "mariadb"):
-        ins = mysql.insert(model).values(list(rows))
-        if not update:
-            # Assigning a key column to itself is a no-op that, unlike INSERT
-            # IGNORE, still surfaces other errors (bad types, FK violations).
-            return ins.on_duplicate_key_update({keys[0]: model.__table__.c[keys[0]]})
-        return ins.on_duplicate_key_update({c: ins.inserted[c] for c in update})
     raise NotImplementedError(
         f"upsert() has no adapter for the {dialect!r} dialect; add one in db/upsert.py"
     )

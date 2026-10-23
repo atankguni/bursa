@@ -84,7 +84,7 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
             list="tickers"
             value={ticker}
             onChange={(e) => setTicker(e.target.value)}
-            placeholder="BBCA.JK"
+            placeholder="BBCA"
             className={inputCls}
           />
           <datalist id="tickers">
@@ -133,6 +133,8 @@ export default function TransactionModal({ onClose }: { onClose: () => void }) {
             </div>
             <input
               type="number"
+              min={1}
+              step={1}
               value={quantity}
               onChange={(e) => setQuantity(e.target.value)}
               className={inputCls}

@@ -21,7 +21,8 @@ from typing import Protocol, TypedDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from models import Dividend, IndexBar, Stock, StockPrice, Transaction
+from clock import local_today
+from models import DailyBar, Dividend, IndexBar, Stock, Transaction
 from schemas import EquityPoint, HoldingOut, PortfolioTotals
 from services.corporate_actions import AdjustedTx, adjusted_transactions
 from services.preferences import get_trading_costs
@@ -116,7 +117,7 @@ async def load_dividends(
         .where(
             Dividend.ticker.in_(tickers),
             Dividend.ex_date > since,
-            Dividend.ex_date <= date.today(),
+            Dividend.ex_date <= local_today(),
         )
         .order_by(Dividend.ex_date)
     )
@@ -257,15 +258,15 @@ async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPoint]
     tickers = sorted({t.ticker for t in txs})
     rows = (
         await session.execute(
-            select(StockPrice.ticker, StockPrice.timestamp, StockPrice.close)
-            .where(StockPrice.interval == "1d", StockPrice.ticker.in_(tickers))
-            .order_by(StockPrice.timestamp)
+            select(DailyBar.ticker, DailyBar.day, DailyBar.close)
+            .where(DailyBar.ticker.in_(tickers))
+            .order_by(DailyBar.day)
         )
     ).all()
 
     series: dict[str, list[tuple[date, float]]] = defaultdict(list)
-    for ticker, ts, close in rows:
-        series[ticker].append((ts.date(), close))
+    for ticker, day, close in rows:
+        series[ticker].append((day, close))
     if not series:
         return []
 

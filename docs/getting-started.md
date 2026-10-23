@@ -9,7 +9,7 @@ docker compose up --build
 | Service  | URL |
 |----------|-----|
 | Frontend | http://localhost:5173 (nginx, serves the built SPA) |
-| Backend  | http://localhost:8000 (interactive API docs at `/docs`) |
+| Backend  | http://localhost:8000 (interactive API docs at `/docs`; this machine only) |
 
 The SQLite database lives at `./backend/data/bursa.db` and survives container restarts.
 The first boot fetches ~1 year of daily candles, so initial charts fill in within a few seconds.

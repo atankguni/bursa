@@ -10,7 +10,7 @@ or on a day the market was closed.
 
 import logging
 from dataclasses import dataclass, field
-from datetime import date, datetime
+from datetime import date, datetime, time
 from html import escape
 from zoneinfo import ZoneInfo
 
@@ -22,7 +22,7 @@ from config import settings
 from mail.base import Email
 from mail.templates import layout
 from models import AlertEvent, RatingSnapshot, User, Watchlist
-from schemas import PortfolioTotals
+from schemas import PortfolioTotals, Rating
 from services.dividend_calendar import UpcomingDividend, next_expected
 from services.market_clock import is_trading_day
 from services.portfolio import build_portfolio
@@ -46,8 +46,8 @@ class Mover:
 @dataclass
 class SignalChange:
     ticker: str
-    before: str
-    after: str
+    before: Rating
+    after: Rating
 
 
 @dataclass
@@ -60,10 +60,6 @@ class Digest:
         default_factory=list[tuple[str, UpcomingDividend]]
     )
     alerts: int = 0
-
-
-def _short(ticker: str) -> str:
-    return ticker.removesuffix(".JK")
 
 
 async def build_digest(session: AsyncSession, user: User, day: date) -> Digest | None:
@@ -109,7 +105,7 @@ async def build_digest(session: AsyncSession, user: User, day: date) -> Digest |
                 )
             )
         ).all()
-        by_day: dict[date, dict[str, str]] = {d: {} for d in days}
+        by_day: dict[date, dict[str, Rating]] = {d: {} for d in days}
         for d, t, r in rows:
             by_day[d][t] = r
         for t, now_rating in sorted(by_day[days[0]].items()):
@@ -118,13 +114,12 @@ async def build_digest(session: AsyncSession, user: User, day: date) -> Digest |
                 signals.append(SignalChange(t, before, now_rating))
 
     upcoming = await next_expected(session, tickers, day, DIVIDEND_DAYS)
-    tz = ZoneInfo(settings.timezone)
-    start = datetime.combine(day, datetime.min.time(), tz).astimezone(ZoneInfo("UTC"))
+    start = datetime.combine(day, time(), ZoneInfo(settings.timezone))
     alerts = (
         await session.execute(
             select(func.count()).select_from(AlertEvent).where(
                 AlertEvent.user_id == user.id,
-                AlertEvent.triggered_at >= start.replace(tzinfo=None),
+                AlertEvent.triggered_at >= start,
             )
         )
     ).scalar_one()
@@ -174,17 +169,17 @@ def sections(d: Digest) -> list[tuple[str, list[str]]]:
         ]))
     if d.movers:
         out.append(("Biggest moves", [
-            f"{_short(m.ticker)} {m.change_pct:+.2f}%{' (you hold it)' if m.held else ''}"
+            f"{m.ticker} {m.change_pct:+.2f}%{' (you hold it)' if m.held else ''}"
             for m in d.movers
         ]))
     if d.signals:
         out.append(("Signal changes", [
-            f"{_short(s.ticker)}: {rating_label(s.before)} → {rating_label(s.after)}"
+            f"{s.ticker}: {rating_label(s.before)} → {rating_label(s.after)}"
             for s in d.signals
         ]))
     if d.dividends:
         out.append(("Dividends coming up (estimated from last year)", [
-            f"{_short(t)}: last day to buy ≈ {u['cum_date']:%a %d %b}, "
+            f"{t}: last day to buy ≈ {u['cum_date']:%a %d %b}, "
             f"about {_rp(u['amount_per_share'])}/share"
             for t, u in d.dividends
         ]))

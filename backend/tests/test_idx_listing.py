@@ -8,12 +8,12 @@ from config import settings
 
 def _rows(n_extra: int = 0, board_bbca: str = "Main"):
     rows = [
-        {"ticker": "BBCA.JK", "name": "Bank Central Asia", "board": board_bbca,
+        {"ticker": "BBCA", "name": "Bank Central Asia", "board": board_bbca,
          "listed_on": date(2000, 5, 31), "shares": 1.23e11},
-        {"ticker": "NEWIPO.JK", "name": "Fresh Listing Tbk", "board": "Acceleration",
+        {"ticker": "NEWIPO", "name": "Fresh Listing Tbk", "board": "Acceleration",
          "listed_on": date(2026, 10, 1), "shares": 1e9},
     ]
-    rows += [{"ticker": f"X{i:04d}.JK", "name": f"Filler {i}", "board": "Development",
+    rows += [{"ticker": f"X{i:04d}", "name": f"Filler {i}", "board": "Development",
               "listed_on": None, "shares": None} for i in range(n_extra)]
     return rows
 
@@ -24,19 +24,19 @@ async def test_sync_applies_boards_and_adds_ipos(client, monkeypatch):
     assert await idx_listing.sync_listing() == 602
     assert not await idx_listing.is_stale()
 
-    bbca = (await client.get("/api/stocks/BBCA.JK")).json()
+    bbca = (await client.get("/api/stocks/BBCA")).json()
     assert bbca["board"] == "Watchlist"
-    ipo = (await client.get("/api/stocks/NEWIPO.JK")).json()  # auto-added to the catalog
+    ipo = (await client.get("/api/stocks/NEWIPO")).json()  # auto-added to the catalog
     assert ipo["name"] == "Fresh Listing Tbk" and ipo["board"] == "Acceleration"
     page = (await client.get("/api/screener", params={"limit": 200})).json()
-    assert any(r["ticker"] == "BBCA.JK" and r["board"] == "Watchlist" for r in page["items"])
+    assert any(r["ticker"] == "BBCA" and r["board"] == "Watchlist" for r in page["items"])
 
 
 async def test_partial_listing_is_not_applied(client, monkeypatch):
     monkeypatch.setattr(settings, "provider_min_interval_ms", 0)
     monkeypatch.setattr(idx_listing, "fetch_listing", lambda: _rows(10))  # blocked/partial
     assert await idx_listing.sync_listing() == 0
-    assert (await client.get("/api/stocks/NEWIPO.JK")).status_code == 404
+    assert (await client.get("/api/stocks/NEWIPO")).status_code == 404
 
 
 async def test_fetch_failure_is_swallowed(client, monkeypatch):
@@ -59,8 +59,8 @@ def test_special_monitoring_caps_buy_at_hold():
 
     good = {"roe": 0.3, "net_margin": 0.3, "pbv": 0.8, "per": 6, "revenue_yoy": 0.2}
     bad = {"roe": 0.01, "net_margin": 0.01, "pbv": 5.0, "per": 40, "revenue_yoy": -0.2}
-    universe = {"OK.JK": raw(**good), "PPK.JK": raw(**good), "BAD.JK": raw(**bad)}
-    rec = score_universe(universe, special_monitoring={"PPK.JK"})
-    assert rec["OK.JK"].rating == "Buy"
-    assert rec["PPK.JK"].rating == "Hold"
-    assert any("special monitoring" in r for r in rec["PPK.JK"].reasons)
+    universe = {"OK": raw(**good), "PPK": raw(**good), "BAD": raw(**bad)}
+    rec = score_universe(universe, special_monitoring={"PPK"})
+    assert rec["OK"].rating == "Buy"
+    assert rec["PPK"].rating == "Hold"
+    assert any("special monitoring" in r for r in rec["PPK"].reasons)

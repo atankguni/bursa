@@ -7,7 +7,7 @@ from services.metrics import derive_metrics
 def _f(**overrides) -> Fundamental:
     """A Fundamental ORM instance (not persisted) with sensible defaults."""
     base = {
-        "ticker": "TEST.JK",
+        "ticker": "TEST",
         "fiscal_year": 2024,
         "financial_currency": "IDR",
         "total_shares": 1_000.0,
@@ -67,7 +67,7 @@ def test_roe_blank_on_negative_equity():
     from services.metrics import derive_metrics
 
     f = Fundamental(
-        ticker="X.JK", fiscal_year=2025, total_shares=1000.0, net_income=-500.0,
+        ticker="X", fiscal_year=2025, total_shares=1000.0, net_income=-500.0,
         total_assets=4_000.0, total_liabilities=5_000.0, equity=-1_000.0,
     )
     m = derive_metrics(100.0, f)

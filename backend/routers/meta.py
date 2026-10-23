@@ -68,7 +68,7 @@ async def get_providers() -> ProvidersOut:
 async def list_indexes(session: AsyncSession = Depends(get_session)) -> list[str]:
     """Distinct index names present in the DB, ordered for the UI selector."""
     rows = (
-        await session.execute(select(StockIndex.index_name).distinct())
+        await session.execute(select(StockIndex.index_code).distinct())
     ).scalars().all()
     known = [i for i in INDEX_ORDER if i in rows]
     extra = sorted(set(rows) - set(INDEX_ORDER))

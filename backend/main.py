@@ -29,7 +29,6 @@ import asyncio
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
 from contextlib import asynccontextmanager
-from datetime import datetime
 from urllib.parse import urlsplit
 
 from fastapi import Depends, FastAPI, Request, Response
@@ -42,7 +41,7 @@ import mail as mail_service
 from config import settings
 from database import init_db
 from deps import current_user, require_admin
-from models import StockPrice
+from models import StockQuote
 from routers import (
     admin,
     alerts,
@@ -72,7 +71,7 @@ from scheduler import (
     sync_watchlist_fundamentals,
 )
 from services.auth import ensure_setup_invite
-from services.bootstrap import purge_stale_fundamentals, seed
+from services.bootstrap import seed
 from services.crypto import ensure_secret
 from services.idx_listing import sync_if_stale as sync_idx_listing_if_stale
 from services.market_clock import last_closed_trading_day
@@ -104,10 +103,7 @@ async def _catalog_coverage() -> float:
     async with AsyncSessionLocal() as session:
         have = (
             await session.execute(
-                select(func.count(func.distinct(StockPrice.ticker))).where(
-                    StockPrice.interval == "1d",
-                    StockPrice.timestamp >= datetime.combine(day, datetime.min.time()),
-                )
+                select(func.count()).select_from(StockQuote).where(StockQuote.day >= day)
             )
         ).scalar_one()
     return have / max(1, len(TICKERS))
@@ -124,9 +120,6 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     if mail_service.configured() and mail_service.status()["provider"] == "console":
         log.warning("DEVELOPMENT EMAIL: messages (2FA codes, reset links) are printed to "
                     "this log, not sent. Never use MAIL_PROVIDER=console on a real server.")
-
-    # Drop fundamentals rows written before currency-aware storage.
-    await purge_stale_fundamentals()
 
     # Fast startup backfill for the active set; the full catalog sync runs in
     # the background only when coverage is low (first boot), keeping restarts fast.

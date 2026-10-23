@@ -7,18 +7,18 @@ once, the first time their chart is opened).
 """
 
 import logging
-from datetime import date, timedelta
+from datetime import timedelta
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clock import utcnow
+from clock import local_today, utcnow
 from database import AsyncSessionLocal
 from db.upsert import upsert
 from market.indices import BY_CODE, BY_SYMBOL, INDICES
 from market.providers.governor import governor
 from market.providers.registry import price_provider
-from models import IndexBar, IndexQuote
+from models import IndexBar, MarketIndex
 from schemas import IndexOut
 from services.history import RANGE_DAYS
 from services.market_clock import last_trading_day
@@ -48,7 +48,7 @@ async def refresh_quotes() -> int:
             if idx is None:
                 continue
             await upsert(
-                session, IndexQuote,
+                session, MarketIndex,
                 {"code": idx.code, "last": q["last"], "previous_close": q["previous_close"],
                  "updated_at": now},
                 keys=["code"],
@@ -69,7 +69,7 @@ async def ensure_full_history(session: AsyncSession, code: str) -> None:
     idx = BY_CODE[code]
     if not idx.history:
         return
-    quote = await session.get(IndexQuote, code)
+    quote = await session.get(MarketIndex, code)
     if quote is not None and quote.full_history_at is not None:
         return
     provider = price_provider()
@@ -89,23 +89,15 @@ async def ensure_full_history(session: AsyncSession, code: str) -> None:
          "low": b["low"], "close": b["close"], "volume": b["volume"]}
         for b in bars
     ]
+    # The index row first: its bars reference it.
+    await upsert(session, MarketIndex, {"code": code, "full_history_at": utcnow()}, keys=["code"])
     await upsert(session, IndexBar, values, keys=["code", "day"])
-    now = utcnow()
-    # A new quote row gets the history's last close; an existing (fresher) quote
-    # only records that the full history is now stored.
-    await upsert(
-        session, IndexQuote,
-        {"code": code, "last": bars[-1]["close"],
-         "previous_close": bars[-2]["close"] if len(bars) > 1 else None,
-         "updated_at": now, "full_history_at": now},
-        keys=["code"], update=["full_history_at"],
-    )
     await session.commit()
     log.info("Fetched full history for index %s (%d bars)", code, len(values))
 
 
 async def list_indices(session: AsyncSession) -> list[IndexOut]:
-    quotes = {q.code: q for q in (await session.execute(select(IndexQuote))).scalars()}
+    quotes = {q.code: q for q in (await session.execute(select(MarketIndex))).scalars()}
     since = dict(
         (await session.execute(
             select(IndexBar.code, func.min(IndexBar.day)).group_by(IndexBar.code)
@@ -134,5 +126,5 @@ async def index_history(session: AsyncSession, code: str, range_: str) -> list[I
     stmt = select(IndexBar).where(IndexBar.code == code)
     days = RANGE_DAYS[range_]
     if days is not None:
-        stmt = stmt.where(IndexBar.day >= date.today() - timedelta(days=days))
+        stmt = stmt.where(IndexBar.day >= local_today() - timedelta(days=days))
     return list((await session.execute(stmt.order_by(IndexBar.day))).scalars().all())

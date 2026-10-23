@@ -23,7 +23,7 @@ def fetch() -> dict[str, str]:
     for x in fetch_securities():
         code = (x.code or "").strip().upper()
         if code:
-            rows[f"{code}.JK"] = (x.name or "").strip()
+            rows[code] = (x.name or "").strip()
     return dict(sorted(rows.items()))
 
 

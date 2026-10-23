@@ -18,6 +18,7 @@ Both models were chosen with scripts/evaluate_signals.py (point-in-time
 backtest). Everything is transparent and testable — no black-box model.
 """
 
+import asyncio
 import logging
 import math
 import time
@@ -30,7 +31,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from models import Fundamental, Stock, StockProfile
-from schemas import CategoryOut, InvestingStyle, RecommendationOut
+from schemas import CategoryOut, InvestingStyle, Rating, RecommendationOut, Strength
 from services.prices import (
     daily_closes,
     fundamental_series,
@@ -65,12 +66,12 @@ FACTORS: list[tuple[str, str, str, str, str]] = [
 _FACTOR_KEYS = [f[0] for f in FACTORS]
 # A stock needs at least one of these (they come from fundamentals) to be rated.
 _FUNDAMENTAL_KEYS = [f[0] for f in FACTORS if f[1] in ("Quality", "Valuation")]
-_BUY_RATINGS = ("Strong Buy", "Buy")
+_BUY_RATINGS: tuple[Rating, ...] = ("Strong Buy", "Buy")
 
 # What users see instead of the internal codes (which alerts, filters and the
 # backtest keep using). The score ranks stocks against each other; it is not a
 # buy/sell instruction, and the backtest edge is modest (services/track_record).
-RATING_LABELS: dict[str, str] = {
+RATING_LABELS: dict[Rating, str] = {
     "Strong Buy": "Very positive",
     "Buy": "Positive",
     "Hold": "Neutral",
@@ -79,11 +80,11 @@ RATING_LABELS: dict[str, str] = {
 }
 
 
-def rating_label(rating: str) -> str:
-    return RATING_LABELS.get(rating, rating)
+def rating_label(rating: Rating) -> str:
+    return RATING_LABELS[rating]
 
 
-def rating_code(value: str | None) -> str | None:
+def rating_code(value: str | None) -> Rating | None:
     """A rating code from a code or a label, any case ("positive" -> "Buy")."""
     if not value:
         return None
@@ -251,7 +252,7 @@ def _fmt(value: float | None, kind: str) -> str:
     return f"{value * 100:.1f}%" if kind == "pct" else f"{value:.2f}"
 
 
-def _rating(score: float, style: InvestingStyle) -> str:
+def _rating(score: float, style: InvestingStyle) -> Rating:
     scale = (
         settings.recommendation_investor_ratings
         if style == "investor"
@@ -263,7 +264,7 @@ def _rating(score: float, style: InvestingStyle) -> str:
     return scale[-1][0]
 
 
-def _conviction(score: float, cat_scores: list[float], coverage: float) -> str:
+def _conviction(score: float, cat_scores: list[float], coverage: float) -> Strength:
     magnitude = abs(score - 50) / 50
     agreement = 1 - min(pstdev(cat_scores) / 25, 1) if len(cat_scores) >= 2 else 0.0
     confidence = 0.5 * magnitude + 0.3 * agreement + 0.2 * coverage
@@ -407,29 +408,42 @@ async def compute_universe(
             select(Stock.ticker).where(Stock.listing_board == "Watchlist")
         )).scalars().all()
     )
+    # The math below is pure CPU (100-300 ms for the whole market): it runs in a
+    # worker thread so the event loop keeps serving requests meanwhile. The
+    # loaded rows are plain values / detached-safe ORM objects (no lazy loads).
     if style == "trader":
-        raw = {t: trader_factors(closes_map.get(t, [])) for t in tickers}
-        return score_universe(raw, liquidity, style, special)
+
+        def score_trader() -> dict[str, RecommendationOut]:
+            raw = {t: trader_factors(closes_map.get(t, [])) for t in tickers}
+            return score_universe(raw, liquidity, style, special)
+
+        return await asyncio.to_thread(score_trader)
 
     funds_map = await fundamental_series(session, tickers)
     prof_map = await profiles(session, tickers)
     price_map = await latest_daily(session, tickers)
 
-    raw = {
-        t: raw_factors(
-            closes_map.get(t, []),
-            funds_map.get(t, []),
-            prof_map.get(t),
-            price_map.get(t, {}).get("close"),
-        )
-        for t in tickers
-    }
-    return score_universe(raw, liquidity, style, special)
+    def score_investor() -> dict[str, RecommendationOut]:
+        raw = {
+            t: raw_factors(
+                closes_map.get(t, []),
+                funds_map.get(t, []),
+                prof_map.get(t),
+                price_map.get(t, {}).get("close"),
+            )
+            for t in tickers
+        }
+        return score_universe(raw, liquidity, style, special)
+
+    return await asyncio.to_thread(score_investor)
 
 
 # In-process TTL cache per style: the cross-section only changes when data syncs
 # (prices every 3 min, fundamentals daily), so recomputing on every poll is wasteful.
 _cache: dict[InvestingStyle, tuple[float, dict[str, RecommendationOut]]] = {}
+# One computation per style at a time: requests that arrive while the cache is
+# being refilled wait for that result instead of each recomputing it.
+_locks: dict[InvestingStyle, asyncio.Lock] = {}
 
 
 async def compute_universe_cached(
@@ -440,15 +454,24 @@ async def compute_universe_cached(
     `recommendation_cache_seconds`. Callers pass the signed-in user's style
     (`deps`/`services.preferences`), so users with different styles don't mix.
     """
-    now = time.monotonic()
-    cached = _cache.get(style)
-    if cached is not None and now - cached[0] < settings.recommendation_cache_seconds:
+    def fresh() -> dict[str, RecommendationOut] | None:
+        cached = _cache.get(style)
+        if cached is None or time.monotonic() - cached[0] >= settings.recommendation_cache_seconds:
+            return None
         return cached[1]
-    data = await compute_universe(session, style)
-    _cache[style] = (now, data)
-    return data
+
+    if (data := fresh()) is not None:
+        return data
+    async with _locks.setdefault(style, asyncio.Lock()):
+        if (data := fresh()) is not None:  # filled while we waited
+            return data
+        started = time.monotonic()
+        data = await compute_universe(session, style)
+        _cache[style] = (started, data)
+        return data
 
 
 def invalidate_cache() -> None:
     """Drop the cached universe scores (e.g. after a manual refresh)."""
     _cache.clear()
+    _locks.clear()

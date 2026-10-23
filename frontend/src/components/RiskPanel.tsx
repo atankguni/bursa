@@ -124,10 +124,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
           <p className="mt-2 text-[10px] text-subtle">
             Beta per stock:{' '}
             {r.holdings
-              .map(
-                (h) =>
-                  `${h.ticker.replace('.JK', '')} ${h.beta != null ? h.beta.toFixed(2) : '—'}`,
-              )
+              .map((h) => `${h.ticker} ${h.beta != null ? h.beta.toFixed(2) : '—'}`)
               .join(' · ')}
           </p>
         </div>

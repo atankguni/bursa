@@ -8,7 +8,8 @@ Everything is statically typed, and one command checks it all (the backend
 runs in its Docker test image, so no local Python is needed):
 
 ```bash
-make check        # everything: types, lint, format, tests, API types in sync
+make check        # everything: types, lint, format, tests on SQLite and PostgreSQL,
+                  # schema drift, API types in sync
 make check-fast   # the pre-commit subset (~10 s): no test suite
 make hooks        # once per clone: run check-fast before every commit
 make api-types    # after changing a response/request model in backend/schemas.py
@@ -31,6 +32,15 @@ make api-types    # after changing a response/request model in backend/schemas.p
   it); `src/api/types.ts` gives its models short names. `make check` fails
   when the file is out of date. Response fields with defaults are still *required* in the
   generated types (the `Schema` base class), since the server always sends them.
+- **Time:** points in time are timezone-aware UTC everywhere in Python
+  (`clock.utcnow()`); datetime columns use `db.types.UTCDateTime`, which refuses
+  naive values. Dates at the exchange come from `clock.local_today()`, never
+  `date.today()` (the server runs in UTC). Daily price bars are keyed by their
+  trading `day` (a date); where the API needs a time for one it sends
+  `clock.day_key(day)`. The API sends times with `Z`.
+- **Stock codes:** stored and sent as IDX codes (`BBCA`). Request bodies and
+  paths use `schemas.StockCode`, which upper-cases and also accepts `BBCA.JK`
+  (old links). Only the Yahoo provider knows the `.JK` suffix.
 - **TypeScript:** `strict` plus `noUncheckedIndexedAccess` (`arr[i]` may be
   `undefined`), `exactOptionalPropertyTypes`, `noImplicitOverride` and
   `noPropertyAccessFromIndexSignature`.
@@ -62,11 +72,13 @@ Tests never call Yahoo: an autouse fixture blocks `yf.download`, `yf.Ticker` and
 They also ignore `backend/.env` (`BURSA_ENV_FILE=""`, set in `tests/conftest.py`), so
 real API keys or a configured mail provider never leak into a test run.
 
-### Testing on PostgreSQL / MySQL
+### Testing on PostgreSQL
 
-Tests use a throwaway SQLite file by default. Point `TEST_DATABASE_URL` at an
-**empty, disposable** database to run the same suite there; its tables are dropped
-after every test. The test image already includes both drivers:
+`make check` runs the suite on SQLite and then on a throwaway PostgreSQL container
+(`make backend-pg`; removed afterwards). Tests use a throwaway SQLite file by
+default. To run them against another **empty, disposable** database, point
+`TEST_DATABASE_URL` at it; its tables are dropped after every test. The test image
+includes the driver:
 
 ```bash
 docker network create bursa-dbtest
@@ -77,7 +89,6 @@ docker run --rm --network bursa-dbtest \
   bursa-backend-test python -m pytest -q
 ```
 
-For MySQL use `mysql:8.4` and `mysql+aiomysql://root:test@bursa-my/bursa_test`.
 
 ### Schema changes (migrations)
 
@@ -90,11 +101,35 @@ alembic upgrade head      # or just restart the app; it migrates on startup
 alembic check             # verifies models.py and the database agree
 ```
 
+`make check` also catches a forgotten migration: `scripts/check_schema.py` migrates an
+empty database (SQLite and PostgreSQL) and fails if it differs from `models.py`.
+
 Migrations live in `backend/migrations/versions/`, named by creation time (Jakarta):
-`20261022_2057_rating_snapshots.py`. New ones get that name and a matching revision id
-(`20261022_205703`) automatically. Alembic runs them in the order of each file's
-`down_revision`, not by name. `20261017_2114_baseline.py` is the schema at
-the time Alembic was introduced.
+`20261023_0735_baseline_schema.py`. New ones get that name and a matching revision id
+(`20261023_073546`) automatically. Alembic runs them in the order of each file's
+`down_revision`, not by name. The earlier migrations were squashed into that
+baseline on 2026-10-23.
+
+### Converting an old database
+
+A SQLite database from before the squash is refused on startup with a pointer here.
+Convert it into a new file (the old one is only read), then swap the files:
+
+```bash
+docker compose stop backend
+docker compose run --rm --no-deps backend \
+  python scripts/convert_db.py data/bursa.db data/bursa.converted.db
+mv backend/data/bursa.db backend/data/bursa.pre-squash.db   # keep as a backup
+rm -f backend/data/bursa.db-wal backend/data/bursa.db-shm
+mv backend/data/bursa.converted.db backend/data/bursa.db
+docker compose start backend
+```
+
+It strips `.JK` from stock codes, splits the price table into daily and intraday
+bars, moves sync timestamps to `sync_state` and preferences to `user_settings`, then
+compares row counts and runs SQLite's foreign-key and integrity checks; it stops
+with an error if anything doesn't match. The live database (1.17 M price rows) took
+about 30 s and shrank from 269 MB to 75 MB.
 
 ### Signal backtest
 

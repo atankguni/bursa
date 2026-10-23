@@ -186,11 +186,7 @@ export default function DataHealth() {
               {[...s.suspicious.share_mismatches, ...s.suspicious.extreme_values]
                 .slice(0, 20)
                 .map((x) => (
-                  <Row
-                    key={x.ticker + x.issue}
-                    k={x.ticker.replace('.JK', '')}
-                    v={x.issue}
-                  />
+                  <Row key={x.ticker + x.issue} k={x.ticker} v={x.issue} />
                 ))}
               {s.suspicious.share_mismatches.length +
                 s.suspicious.extreme_values.length ===

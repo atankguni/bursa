@@ -2,15 +2,18 @@
 services/backup.py
 ------------------
 Nightly backups of a SQLite database: a consistent online copy (SQLite's backup
-API, safe while the app writes), gzip-compressed, plus the 2FA server secret
-file (without it, a restored database can't read 2FA secrets). The newest
-BACKUP_KEEP backups are kept; files are readable by the owner only.
+API, safe while the app writes), checked with `PRAGMA integrity_check`,
+gzip-compressed, plus the 2FA server secret file (without it, a restored
+database can't read 2FA secrets). The newest BACKUP_KEEP backups are kept;
+files are readable by the owner only.
 
 They sit next to the database (BACKUP_DIR), which guards against mistakes and
 corruption but not against losing the disk: copy them elsewhere too.
-PostgreSQL / MySQL are skipped: use their own tools (pg_dump, mysqldump).
+PostgreSQL is skipped: use its own tools (pg_dump).
 
 Run one now: `docker compose exec backend python -m services.backup`
+Restore one: `python -m services.backup restore <backup.db.gz> <new.db>`
+(steps in docs/configuration.md).
 """
 
 import asyncio
@@ -19,6 +22,7 @@ import logging
 import os
 import shutil
 import sqlite3
+import sys
 from datetime import datetime
 from pathlib import Path
 from zoneinfo import ZoneInfo
@@ -44,8 +48,25 @@ def sqlite_path(url: str) -> Path | None:
     return Path(parsed.database)
 
 
+class BadBackup(RuntimeError):
+    """A copy failed SQLite's integrity check."""
+
+
 def _private(path: Path) -> None:
     os.chmod(path, 0o600)
+
+
+def check_integrity(db: Path) -> None:
+    """Raise BadBackup unless SQLite's full integrity check passes."""
+    con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+    try:
+        result = [r[0] for r in con.execute("PRAGMA integrity_check")]
+    except sqlite3.DatabaseError as exc:  # too damaged to even check
+        result = [str(exc)]
+    finally:
+        con.close()
+    if result != ["ok"]:
+        raise BadBackup(f"{db}: " + "; ".join(str(r) for r in result[:5]))
 
 
 def backup_sqlite(db: Path, dest: Path, keep: int, stamp: str) -> Path:
@@ -64,6 +85,7 @@ def backup_sqlite(db: Path, dest: Path, keep: int, stamp: str) -> Path:
                 out.close()
         finally:
             src.close()
+        check_integrity(tmp)  # a damaged copy is never kept as a backup
         partial = target.with_name(target.name + ".part")
         with open(tmp, "rb") as raw, gzip.open(partial, "wb", compresslevel=6) as packed:
             shutil.copyfileobj(raw, packed, length=1024 * 1024)
@@ -95,6 +117,22 @@ def prune(dest: Path, keep: int) -> list[str]:
     return removed
 
 
+def restore_sqlite(backup: Path, target: Path) -> None:
+    """Unpack `backup` into `target` (which must not exist) and check it."""
+    if target.exists():
+        raise FileExistsError(f"{target} exists; move it aside first")
+    partial = target.with_name(target.name + ".part")
+    with gzip.open(backup, "rb") as packed, open(partial, "wb") as raw:
+        shutil.copyfileobj(packed, raw, length=1024 * 1024)
+    try:
+        check_integrity(partial)
+    except BadBackup:
+        partial.unlink()
+        raise
+    _private(partial)
+    partial.replace(target)
+
+
 async def run_backup() -> Path | None:
     """Back up the configured database now. None when not SQLite or disabled."""
     if not settings.backup_enabled:
@@ -119,4 +157,10 @@ async def run_backup() -> Path | None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    asyncio.run(run_backup())
+    if sys.argv[1:2] == ["restore"] and len(sys.argv) == 4:
+        restore_sqlite(Path(sys.argv[2]), Path(sys.argv[3]))
+        log.info("Restored %s to %s (integrity check passed)", sys.argv[2], sys.argv[3])
+    elif len(sys.argv) == 1:
+        asyncio.run(run_backup())
+    else:
+        raise SystemExit("usage: python -m services.backup [restore <backup.db.gz> <new.db>]")

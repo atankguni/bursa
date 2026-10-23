@@ -12,9 +12,8 @@ FROM python:3.14-alpine AS build
 RUN apk add --no-cache binutils
 
 COPY requirements.txt .
-# Optional async driver for a server database, e.g. --build-arg DB_DRIVER=asyncpg
-# (PostgreSQL) or DB_DRIVER="aiomysql cryptography" (MySQL/MariaDB; MySQL 8
-# logins need cryptography). SQLite needs none.
+# Optional async driver for PostgreSQL: --build-arg DB_DRIVER=asyncpg.
+# SQLite needs none.
 ARG DB_DRIVER=""
 # --no-compile: no .pyc at install time (Python compiles on import anyway).
 # All deps ship musllinux wheels, so no compiler/toolchain is required.
@@ -54,17 +53,17 @@ EXPOSE 8000
 CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
 
 # --- test -------------------------------------------------------------------
-# Same packages as production plus dev tools, and the PostgreSQL/MySQL drivers
-# so the suite can also run against a server database (TEST_DATABASE_URL):
+# Same packages as production plus dev tools, and the PostgreSQL driver so the
+# suite can also run against PostgreSQL (TEST_DATABASE_URL):
 #   docker build --target test -t bursa-backend-test ./backend
 #   docker run --rm bursa-backend-test
 FROM runtime AS test
 # nodejs: pyright's runtime (the pip package uses the system node when present).
 # Dev tools come from requirements-dev.txt (its `-r requirements.txt` line is
-# already satisfied by the runtime layer); the server DB drivers are extra.
+# already satisfied by the runtime layer); the PostgreSQL driver is extra.
 COPY requirements.txt requirements-dev.txt /tmp/reqs/
 RUN apk add --no-cache nodejs npm \
  && python -m ensurepip \
  && python -m pip install --no-cache-dir -r /tmp/reqs/requirements-dev.txt \
-    asyncpg aiomysql cryptography
+    asyncpg
 CMD ["sh", "-c", "ruff check . && pyright && python -m pytest -q"]

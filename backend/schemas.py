@@ -7,7 +7,7 @@ Pydantic v2 response models for the public API surface.
 from datetime import date, datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 from pydantic.alias_generators import to_camel
 
 
@@ -19,6 +19,15 @@ class Schema(BaseModel):
     model_config = ConfigDict(json_schema_serialization_defaults_required=True)
 
 
+def stock_code(value: str) -> str:
+    """An IDX stock code as stored: upper case, without Yahoo's ".JK" suffix, so
+    "bbca", "BBCA" and old links with "BBCA.JK" all mean the same stock."""
+    return value.strip().upper().removesuffix(".JK")
+
+
+# A stock code from a client (request body field or path parameter).
+StockCode = Annotated[str, AfterValidator(stock_code)]
+
 # How the user invests: long-term fundamentals vs short-term (swing) price action.
 InvestingStyle = Literal["investor", "trader"]
 # IDX trading state (services/market_clock).
@@ -26,6 +35,19 @@ MarketSession = Literal["pre_open", "open", "break", "closed"]
 TradeSide = Literal["buy", "sell"]
 # "batch" = one capped run; "all" = paced batches until every stock is tried.
 SyncMode = Literal["batch", "all"]
+# Recommendation rating codes (the UI shows labels: services/recommendation
+# RATING_LABELS) and conviction, best first.
+Rating = Literal["Strong Buy", "Buy", "Hold", "Reduce", "Avoid"]
+Strength = Literal["Weak", "Moderate", "Strong", "Very Strong"]
+# Who wrote an assistant chat message.
+ChatRole = Literal["user", "assistant"]
+# What a pending second sign-in step is for (services/two_factor).
+MfaPurpose = Literal["login", "enroll_email"]
+# Where a fundamentals row came from: yearly statement tables, or Yahoo's summary
+# metrics for companies without statements (market/providers/base.FundamentalRow).
+FundamentalSource = Literal["statements", "summary"]
+# Per-stock background work whose last run is remembered (models.SyncState).
+SyncJob = Literal["listing", "history_backfill", "full_history", "splits", "fundamentals"]
 
 
 class StockBase(Schema):
@@ -41,8 +63,8 @@ class RecommendationSummary(Schema):
     """Compact recommendation, attached to stock + watchlist rows."""
 
     score: float
-    rating: str
-    strength: str
+    rating: Rating
+    strength: Strength
 
 
 class MarketStatusOut(Schema):
@@ -101,11 +123,11 @@ class StatusOut(Schema):
 
 
 class TransactionIn(Schema):
-    """Payload for recording a buy/sell."""
+    """Payload for recording a buy/sell (whole shares, as traded)."""
 
-    ticker: str
+    ticker: StockCode
     side: TradeSide
-    quantity: float = Field(gt=0)
+    quantity: int = Field(gt=0)
     price: float = Field(gt=0)
     fees: float = Field(default=0.0, ge=0)
     trade_date: date
@@ -191,7 +213,7 @@ class SearchResultOut(Schema):
 
 
 class TrackStockIn(Schema):
-    ticker: str
+    ticker: StockCode
     name: str | None = None
 
 
@@ -205,8 +227,8 @@ class ScreenerRow(Schema):
     pbv: float | None = None
     roe: float | None = None
     score: float | None = None
-    rating: str | None = None
-    strength: str | None = None
+    rating: Rating | None = None
+    strength: Strength | None = None
     has_fundamentals: bool = False
     board: str | None = None
 
@@ -277,7 +299,7 @@ AlertType = Literal[
 
 
 class AlertIn(Schema):
-    ticker: str
+    ticker: StockCode
     type: AlertType
     threshold: float | None = None
 
@@ -361,7 +383,6 @@ class CompanyOut(Schema):
 class StockOut(StockBase):
     """A tracked stock enriched with its latest quote + daily change."""
 
-    id: int
     indices: list[str] = []
     last_price: float | None = None
     previous_close: float | None = None
@@ -474,8 +495,8 @@ class RecommendationOut(Schema):
 
     ticker: str
     score: float                 # 0-100 composite
-    rating: str                  # Strong Buy / Buy / Hold / Reduce / Avoid
-    strength: str                # Weak / Moderate / Strong / Very Strong
+    rating: Rating
+    strength: Strength
     coverage: float              # fraction of factors with data
     categories: list[CategoryOut] = []
     reasons: list[str] = []
@@ -484,7 +505,7 @@ class RecommendationOut(Schema):
 
 
 class RatingRecordOut(Schema):
-    rating: str      # internal code (Strong Buy ... Avoid)
+    rating: Rating
     n: int           # stock-dates with this rating
     beat: float      # share that beat that date's median stock (0.5 = coin flip)
 
@@ -519,7 +540,6 @@ class TrackRecordOut(Schema):
 class WatchlistItemOut(StockBase):
     """A watchlist row: stock + latest price + latest fundamentals + ratios."""
 
-    id: int
     indices: list[str] = []
     added_at: datetime | None = None
     last_price: float | None = None
@@ -540,7 +560,7 @@ class FundamentalsResponse(Schema):
 
 
 class ChatTurn(Schema):
-    role: Literal["user", "assistant"]
+    role: ChatRole
     content: str = Field(min_length=1, max_length=4000)
 
 
@@ -550,7 +570,7 @@ class AssistantChatIn(Schema):
     messages: list[ChatTurn] = Field(min_length=1, max_length=40)
     # Saved chat this continues; None starts a new one. Ignored when saving is off.
     chat_id: int | None = None
-    context: str | None = Field(None, max_length=200)  # e.g. "the BBCA.JK detail view"
+    context: str | None = Field(None, max_length=200)  # e.g. "the BBCA detail view"
 
 
 class AssistantChatOut(Schema):
@@ -585,7 +605,7 @@ class ChatSummaryOut(Schema):
 class ChatMessageOut(Schema):
     model_config = ConfigDict(from_attributes=True)
 
-    role: Literal["user", "assistant"]
+    role: ChatRole
     content: str
     tools_used: list[str] | None = None
     created_at: datetime

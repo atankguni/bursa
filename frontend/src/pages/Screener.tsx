@@ -284,7 +284,7 @@ export default function Screener() {
                   >
                     <td className="px-4 py-2 font-semibold">
                       <span className="inline-flex items-center gap-1.5">
-                        {r.ticker.replace('.JK', '')}
+                        {r.ticker}
                         <BoardBadge board={r.board} compact />
                       </span>
                     </td>
@@ -326,11 +326,11 @@ export default function Screener() {
                     <td className="px-4 py-2">
                       <SignalBadge
                         rec={
-                          r.score != null && r.rating
+                          r.score != null && r.rating && r.strength
                             ? {
                                 score: r.score,
                                 rating: r.rating,
-                                strength: r.strength ?? '',
+                                strength: r.strength,
                               }
                             : null
                         }

@@ -10,13 +10,14 @@ history the first time a chart asks for it.
 import logging
 from datetime import datetime, timedelta
 
-from sqlalchemy import select, update
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clock import utcnow
 from config import settings
 from market.sync import DAILY_INTERVAL, sync_batch
 from models import Stock
+from services.sync_state import done_at, is_done, mark_done
 
 log = logging.getLogger("bursa.history")
 
@@ -41,19 +42,19 @@ async def ensure_full_history(session: AsyncSession, stock: Stock, range_: str =
     stock share it (governor single-flight). Not marked done when nothing came
     back, so a provider outage is retried on the next request.
     """
-    if stock.full_history_at is not None:
+    if await done_at(session, "full_history", stock.ticker) is not None:
         return True
     if (
         range_ != "max"
-        and stock.history_backfilled_at is not None
         and settings.daily_history_years >= 5
+        and await done_at(session, "history_backfill", stock.ticker) is not None
     ):
         return True
     written = await sync_batch([stock.ticker], period="max", interval=DAILY_INTERVAL)
     if written == 0:
         log.warning("Full history fetch returned nothing for %s", stock.ticker)
         return False
-    stock.full_history_at = utcnow()
+    await mark_done(session, "full_history", [stock.ticker])
     await session.commit()
     log.info("Fetched full daily history for %s (%d bars)", stock.ticker, written)
     return True
@@ -77,7 +78,7 @@ async def backfill_history() -> int:
             (
                 await session.execute(
                     select(Stock.ticker)
-                    .where(Stock.history_backfilled_at.is_(None), Stock.full_history_at.is_(None))
+                    .where(~is_done("history_backfill"), ~is_done("full_history"))
                     .order_by(Stock.ticker)
                 )
             ).scalars()
@@ -94,11 +95,7 @@ async def backfill_history() -> int:
             log.warning("History backfill got no data; stopping, the next run retries")
             break
         async with AsyncSessionLocal() as session:
-            await session.execute(
-                update(Stock)
-                .where(Stock.ticker.in_(chunk))
-                .values(history_backfilled_at=utcnow())
-            )
+            await mark_done(session, "history_backfill", chunk)
             await session.commit()
         done += len(chunk)
     log.info("History backfill: %d of %d stocks done", done, len(tickers))

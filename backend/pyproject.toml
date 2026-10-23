@@ -19,6 +19,7 @@ ignore = [
 "assistant/providers/*.py" = ["ANN401"]
 "db/maintenance.py" = ["ANN401"]
 "migrations/**" = ["ANN401"]  # Alembic hook signatures
+"migrations/versions/*.py" = ["E501"]  # generated; long constraint strings
 
 [tool.ruff.lint.isort]
 known-first-party = ["assistant", "clock", "config", "database", "db", "deps", "mail", "market", "models", "routers", "schemas", "scheduler", "services"]

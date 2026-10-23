@@ -30,7 +30,7 @@ Bursa is **free and open source** under the [MIT License](LICENSE).
 - **Gentle on free APIs**: tiered sync, a rate-limit governor and the database as the cache.
 - **Invite-only accounts**: everyone gets their own watchlist, portfolio, alerts and style;
   email + password sign-in, admin-managed invites and reset links.
-- **Your choice of database**: SQLite out of the box; PostgreSQL or MySQL by changing one setting.
+- **Your choice of database**: SQLite out of the box; PostgreSQL by changing one setting.
 
 See the full **[feature list](docs/features.md)**.
 
@@ -40,7 +40,7 @@ See the full **[feature list](docs/features.md)**.
 docker compose up --build
 ```
 
-Open **http://localhost:5173**. The API runs at http://localhost:8000 (docs at `/docs`).
+Open **http://localhost:5173**. The API docs are at http://localhost:8000/docs (from this machine only).
 Data is stored in `backend/data/bursa.db` and survives restarts.
 
 Bursa is invite-only. Get the one-time link for the first (admin) account from the logs:
@@ -66,7 +66,7 @@ To enable the AI assistant, email or Telegram alerts, copy `backend/.env.example
 
 ## Tech stack
 
-Python 3.14 · FastAPI · SQLAlchemy (async) + Alembic · SQLite / PostgreSQL / MySQL · APScheduler · yfinance ·
+Python 3.14 · FastAPI · SQLAlchemy (async) + Alembic · SQLite / PostgreSQL · APScheduler · yfinance ·
 React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · Lightweight Charts · Docker + nginx
 
 ## License

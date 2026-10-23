@@ -34,6 +34,7 @@ from assistant.providers import (
     setup_hint,
 )
 from assistant.tools import Tool, ToolContext, available_tools
+from clock import local_today
 from config import settings
 from services.preferences import get_assistant_personal_data, get_investing_style
 
@@ -48,7 +49,7 @@ How to answer:
 - Every number you state (prices, ratios, scores, returns, P/L) must come from a \
 tool result in this conversation. If no tool gives it, say the app doesn't have \
 that data; never estimate or recall figures from memory.
-- Stock codes are IDX tickers like BBCA (shown without .JK). Prices are in IDR.
+- Stock codes are IDX tickers like BBCA. Prices are in IDR.
 - Signals are the app's own heuristic factor scores, relative to other IDX \
 stocks, and depend on the user's investing style ({style}). When explaining a \
 signal, name the categories and drivers the tool returned. Ratings (Very \
@@ -89,7 +90,7 @@ _usage: dict[tuple[str, int], int] = {}
 
 
 def _today() -> str:
-    return datetime.now(ZoneInfo(settings.timezone)).date().isoformat()
+    return local_today().isoformat()
 
 
 def remaining_today(user_id: int) -> int:

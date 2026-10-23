@@ -13,7 +13,7 @@ def test_status_shape():
 
 def test_start_rejects_while_running(monkeypatch):
     monkeypatch.setitem(sync_job._state, "running", True)
-    assert sync_job.start(["BBCA.JK"]) is False
+    assert sync_job.start(["BBCA"]) is False
 
 
 async def test_sync_many_passes_with_dividends_flag(monkeypatch):
@@ -25,11 +25,11 @@ async def test_sync_many_passes_with_dividends_flag(monkeypatch):
 
     monkeypatch.setattr(fundamentals, "sync_ticker", fake_sync)
     total = await fundamentals.sync_many(
-        ["A.JK", "B.JK"], throttle=0, with_dividends=False
+        ["A", "B"], throttle=0, with_dividends=False
     )
 
     assert total == 2
-    assert calls == [("A.JK", False), ("B.JK", False)]
+    assert calls == [("A", False), ("B", False)]
 
 
 async def test_missing_tickers_rotates_tried_ones_to_the_back(client):
@@ -64,7 +64,7 @@ async def test_statements_supersede_summary_rows(client, monkeypatch):
     monkeypatch.setattr(settings, "provider_min_interval_ms", 0)
 
     def row(year, source):
-        return {"ticker": "BBCA.JK", "fiscal_year": year, "financial_currency": "IDR",
+        return {"ticker": "BBCA", "fiscal_year": year, "financial_currency": "IDR",
                 "total_shares": 1.0, "revenue": 1.0, "net_income": 1.0, "total_assets": 2.0,
                 "total_liabilities": 1.0, "equity": 1.0, "source": source,
                 "updated_at": utcnow()}
@@ -80,16 +80,16 @@ async def test_statements_supersede_summary_rows(client, monkeypatch):
 
     # First sync: only a summary row (dated to the latest quarter, 2026).
     monkeypatch.setattr(fundamentals, "fundamentals_provider", lambda: _P([row(2026, "summary")]))
-    await fundamentals.sync_ticker("BBCA.JK", with_dividends=False)
+    await fundamentals.sync_ticker("BBCA", with_dividends=False)
     # Later the statements appear (FY2025): the 2026 summary row must not linger as "latest".
     monkeypatch.setattr(fundamentals, "fundamentals_provider",
                         lambda: _P([row(2024, "statements"), row(2025, "statements")]))
-    await fundamentals.sync_ticker("BBCA.JK", with_dividends=False)
+    await fundamentals.sync_ticker("BBCA", with_dividends=False)
 
     async with AsyncSessionLocal() as s:
         got = (await s.execute(
             select(Fundamental.fiscal_year, Fundamental.source)
-            .where(Fundamental.ticker == "BBCA.JK").order_by(Fundamental.fiscal_year)
+            .where(Fundamental.ticker == "BBCA").order_by(Fundamental.fiscal_year)
         )).all()
     assert got == [(2024, "statements"), (2025, "statements")]
 
@@ -112,7 +112,7 @@ async def test_catch_up_intraday_ignores_market_hours(monkeypatch):
         return 0
 
     async def fake_active():
-        return ["BBCA.JK", "TLKM.JK"]
+        return ["BBCA", "TLKM"]
 
     monkeypatch.setattr(sched, "sync_batch", fake_sync)
     monkeypatch.setattr(sched, "active_tickers", fake_active)

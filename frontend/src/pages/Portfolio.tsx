@@ -256,7 +256,7 @@ export default function Portfolio() {
                     >
                       <td className="px-4 py-2 font-semibold">
                         <span className="inline-flex items-center gap-1.5">
-                          {h.ticker.replace('.JK', '')}
+                          {h.ticker}
                           <BoardBadge board={h.board} compact />
                           {h.split_adjusted && (
                             <span
@@ -383,9 +383,7 @@ export default function Portfolio() {
                     {txs.map((t) => (
                       <tr key={t.id} className="bg-panel">
                         <td className="px-4 py-2 text-muted">{t.trade_date}</td>
-                        <td className="px-4 py-2 font-medium">
-                          {t.ticker.replace('.JK', '')}
-                        </td>
+                        <td className="px-4 py-2 font-medium">{t.ticker}</td>
                         <td
                           className={`px-4 py-2 font-medium uppercase ${
                             t.side === 'buy' ? 'text-bull' : 'text-bear'

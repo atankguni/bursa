@@ -12,7 +12,7 @@ class _FakeProvider:
 
     def search_symbols(self, q: str) -> list[dict]:
         self.calls += 1
-        return [{"symbol": f"{q.upper()}.JK", "name": q, "exchange": "JK", "type": "EQUITY"}]
+        return [{"symbol": q.upper(), "name": q, "exchange": "JK", "type": "EQUITY", "idx": True}]
 
 
 async def test_search_is_cached_and_normalized(monkeypatch):
@@ -42,10 +42,10 @@ class _MixedProvider:
 
     def search_symbols(self, q: str) -> list[dict]:
         return [
-            {"symbol": "BBCA.JK", "name": "Bank Central Asia",
-             "exchange": "Jakarta", "type": "EQUITY"},
+            {"symbol": "BBCA", "name": "Bank Central Asia",
+             "exchange": "Jakarta", "type": "EQUITY", "idx": True},
             {"symbol": "PBCRY", "name": "Bank Central Asia OTC",
-             "exchange": "OTC", "type": "EQUITY"},
+             "exchange": "OTC", "type": "EQUITY", "idx": False},
         ]
 
 
@@ -57,5 +57,5 @@ async def test_search_defaults_to_idx_only(monkeypatch):
     idx_only = await search_mod.search("bank", idf_only=True)
     all_exchanges = await search_mod.search("bank", idf_only=False)
 
-    assert [r["symbol"] for r in idx_only] == ["BBCA.JK"]
+    assert [r["symbol"] for r in idx_only] == ["BBCA"]
     assert len(all_exchanges) == 2

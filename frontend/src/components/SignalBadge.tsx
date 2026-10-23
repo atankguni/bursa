@@ -1,17 +1,10 @@
 import type { RecommendationSummary } from '../api'
-import { ratingLabel, ratingTone } from '../lib/ratings'
-
-const STRENGTH_DOTS: Record<string, number> = {
-  Weak: 1,
-  Moderate: 2,
-  Strong: 3,
-  'Very Strong': 4,
-}
+import { CONVICTION_DOTS, ratingLabel, ratingTone } from '../lib/ratings'
 
 /** Compact rating + score + conviction pill for table cells. */
 export default function SignalBadge({ rec }: { rec?: RecommendationSummary | null }) {
   if (!rec) return <span className="text-subtle">—</span>
-  const dots = STRENGTH_DOTS[rec.strength] ?? 0
+  const dots = CONVICTION_DOTS[rec.strength]
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded bg-panelalt/70 px-2 py-0.5 ring-1 ring-line"

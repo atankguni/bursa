@@ -2,7 +2,7 @@
 Per-dialect connection setup and housekeeping.
 
 SQLite needs pragmas on every connection plus periodic WAL checkpoints and
-VACUUM; server databases (PostgreSQL, MySQL) handle all of that themselves.
+VACUUM; PostgreSQL handles all of that itself.
 The scheduler calls `checkpoint()` / `compact()` without knowing which database
 is in use.
 """
@@ -44,8 +44,8 @@ async def checkpoint(engine: AsyncEngine) -> None:
 
 async def compact(engine: AsyncEngine) -> str | None:
     """
-    Reclaim space / refresh planner statistics. Returns what ran, or None when
-    the database needs nothing (MySQL/InnoDB manages itself).
+    Reclaim space / refresh planner statistics. Returns what ran (None for a
+    dialect that needs nothing).
     """
     sql = {"sqlite": "VACUUM", "postgresql": "VACUUM (ANALYZE)"}.get(engine.dialect.name)
     if sql is None:

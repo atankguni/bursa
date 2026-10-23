@@ -3,17 +3,18 @@
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import insert, select
+from sqlalchemy import select
 
 import mail
 import routers.alerts as alerts_router
 from config import settings
 from database import AsyncSessionLocal
-from models import AlertEvent, Dividend, RatingSnapshot, StockPrice, User, Watchlist
+from models import AlertEvent, Dividend, RatingSnapshot, User, Watchlist
 from services import digest
 from services.alerts import dividend_due, evaluate_alerts
 from services.dividend_calendar import UpcomingDividend, cum_date
 from services.market_clock import is_trading_day
+from tests.conftest import add_daily_bars
 
 
 def test_cum_date_is_the_trading_day_before_the_ex_date():
@@ -44,21 +45,21 @@ async def test_dividend_alert_fires_once_with_the_estimate(client, monkeypatch):
     while not is_trading_day(ex):
         ex += timedelta(days=1)
 
-    r = await client.post("/api/alerts", json={"ticker": "BBRI.JK", "type": "dividend_soon",
+    r = await client.post("/api/alerts", json={"ticker": "BBRI", "type": "dividend_soon",
                                                "threshold": 10})
-    assert r.status_code == 201 and fetched == ["BBRI.JK"]  # history fetched once
-    bad = await client.post("/api/alerts", json={"ticker": "BBRI.JK",
+    assert r.status_code == 201 and fetched == ["BBRI"]  # history fetched once
+    bad = await client.post("/api/alerts", json={"ticker": "BBRI",
                                                  "type": "dividend_soon", "threshold": 99})
     assert bad.status_code == 400
 
     async with AsyncSessionLocal() as s:
-        s.add(Dividend(ticker="BBRI.JK", ex_date=ex.replace(year=ex.year - 1), amount=208.0))
+        s.add(Dividend(ticker="BBRI", ex_date=ex.replace(year=ex.year - 1), amount=208.0))
         await s.commit()
     assert await evaluate_alerts() == 1
     assert await evaluate_alerts() == 0  # once per expected dividend
     async with AsyncSessionLocal() as s:
         event = (await s.execute(select(AlertEvent))).scalar_one()
-    assert "BBRI.JK dividend expected" in event.message
+    assert "BBRI dividend expected" in event.message
     assert f"{cum_date(ex):%a %d %b}" in event.message and "Rp 208/share" in event.message
 
 
@@ -67,16 +68,16 @@ async def test_digest_content_and_preview(client, monkeypatch):
     async with AsyncSessionLocal() as s:
         user = (await s.execute(select(User).where(User.id == client.user_id))).scalar_one()
         assert await digest.build_digest(s, user, day) is None  # follows nothing yet
-        s.add(Watchlist(user_id=client.user_id, ticker="BBCA.JK"))
-        await s.execute(insert(StockPrice).values([
-            {"ticker": "BBCA.JK", "timestamp": datetime(2026, 3, d), "interval": "1d",
+        s.add(Watchlist(user_id=client.user_id, ticker="BBCA"))
+        await add_daily_bars(s, [
+            {"ticker": "BBCA", "day": date(2026, 3, d),
              "open": c, "high": c, "low": c, "close": c, "volume": 0}
             for d, c in ((9, 1000.0), (10, 1050.0))
-        ]))
+        ])
         s.add_all([
-            RatingSnapshot(day=date(2026, 3, 9), style="investor", ticker="BBCA.JK",
+            RatingSnapshot(day=date(2026, 3, 9), style="investor", ticker="BBCA",
                            rating="Hold", score=50, liquid=True),
-            RatingSnapshot(day=day, style="investor", ticker="BBCA.JK",
+            RatingSnapshot(day=day, style="investor", ticker="BBCA",
                            rating="Buy", score=66, liquid=True),
         ])
         await s.commit()
