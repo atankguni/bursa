@@ -1,7 +1,19 @@
 import { api } from './client'
-import type { AdminUser, OneTimeLink, PendingInvite, Role } from './types'
+import type {
+  AdminSecurityEvent,
+  AdminUser,
+  OneTimeLink,
+  PendingInvite,
+  Role,
+} from './types'
 
-export type { AdminUser, PendingInvite, OneTimeLink }
+export type { AdminUser, PendingInvite, OneTimeLink, AdminSecurityEvent }
+
+/** Everyone's latest account activity. */
+export async function fetchSecurityLog(): Promise<AdminSecurityEvent[]> {
+  const { data } = await api.get<AdminSecurityEvent[]>('/api/admin/security-log')
+  return data
+}
 
 export async function fetchUsers(): Promise<AdminUser[]> {
   const { data } = await api.get<AdminUser[]>('/api/admin/users')

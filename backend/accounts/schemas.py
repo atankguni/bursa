@@ -15,6 +15,26 @@ from schemas import InvestingStyle, Schema
 # What a pending second sign-in step is for (accounts/two_factor).
 MfaPurpose = Literal["login", "enroll_email"]
 
+# Entries of the account activity log (accounts/security_log).
+SecurityEventKind = Literal[
+    "account_created",
+    "sign_in",
+    "sign_in_failed",
+    "session_revoked",
+    "other_sessions_revoked",
+    "password_changed",
+    "password_reset",
+    "reset_link_created",
+    "two_factor_enabled",
+    "two_factor_disabled",
+    "two_factor_reset",
+    "recovery_codes_regenerated",
+    "trusted_devices_forgotten",
+    "account_disabled",
+    "account_enabled",
+    "role_changed",
+]
+
 
 _Name = Annotated[str, StringConstraints(max_length=32)]
 
@@ -241,3 +261,31 @@ class LinkOut(Schema):
 
     link: str
     emailed: bool  # also sent by email (when email is set up)
+
+
+# --------------------------------------------------------------------------- #
+# Signed-in devices and account activity
+# --------------------------------------------------------------------------- #
+class SessionOut(Schema):
+    id: int
+    device: str  # "Chrome on macOS"
+    ip: str | None
+    created_at: datetime  # signed in
+    last_seen_at: datetime  # last used (updated every few minutes)
+    current: bool  # the browser asking
+
+
+class SecurityEventOut(Schema):
+    id: int
+    kind: SecurityEventKind
+    at: datetime
+    ip: str | None
+    device: str
+    new_device: bool  # a sign-in from a browser this account hadn't used
+    detail: str | None
+
+
+class AdminSecurityEventOut(SecurityEventOut):
+    user_id: int
+    user_name: str
+    user_email: str

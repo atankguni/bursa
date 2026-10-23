@@ -100,6 +100,12 @@ export type AdminUser = Schemas['UserOut']
 export type PendingInvite = Schemas['PendingInviteOut']
 /** A one-time link, shown once (the server keeps only its hash). */
 export type OneTimeLink = Schemas['LinkOut']
+/** A browser signed in to the account. */
+export type SignedInSession = Schemas['SessionOut']
+/** An entry of the account activity log. */
+export type SecurityEvent = Schemas['SecurityEventOut']
+export type SecurityEventKind = SecurityEvent['kind']
+export type AdminSecurityEvent = Schemas['AdminSecurityEventOut']
 
 // --- Data health -------------------------------------------------------------
 export type DataHealth = Schemas['DataHealthOut']

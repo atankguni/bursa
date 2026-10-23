@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { KeyRound } from 'lucide-react'
+import { RecentActivity, SignedInDevices } from '../components/AccountActivity'
 import ChangePasswordForm from '../components/ChangePasswordForm'
 import TwoFactorSettings from '../components/TwoFactorSettings'
 import { ME_KEY, useAuth } from '../lib/auth'
@@ -8,7 +9,7 @@ import { ME_KEY, useAuth } from '../lib/auth'
 const secondaryBtn =
   'rounded px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink'
 
-/** Settings → Security: password, then two-factor authentication. */
+/** Settings → Security: password, two-factor authentication, devices, activity. */
 export default function Security() {
   const { user } = useAuth()
   return (
@@ -29,6 +30,9 @@ export default function Security() {
         </div>
         <TwoFactorSettings />
       </div>
+
+      <SignedInDevices />
+      <RecentActivity />
     </div>
   )
 }

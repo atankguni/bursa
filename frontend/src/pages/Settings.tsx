@@ -92,7 +92,7 @@ const SECTIONS: {
     id: 'security',
     label: 'Security',
     icon: ShieldCheck,
-    description: 'Password, two-factor authentication and remembered devices.',
+    description: 'Password, two-factor authentication, signed-in devices and activity.',
   },
   {
     id: 'users',

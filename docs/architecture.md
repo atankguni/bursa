@@ -165,6 +165,13 @@ Invite-only accounts (`accounts/auth.py`, `accounts/routes/auth.py`, `accounts/r
   "Remember this device" is a separate HttpOnly cookie limited to `/api/auth`.
   `deps.current_user` holds admins without 2FA at the setup (403); `signed_in_user`
   skips that check for `/me` and the 2FA endpoints. Password resets keep 2FA on.
+- **Activity log** (`accounts/security_log.py`, table `security_events`): sign-ins,
+  failed sign-ins of real accounts, password / 2FA changes, signed-out devices and
+  admin actions, with address and browser; kept `SECURITY_LOG_DAYS` (daily purge).
+  A random `bursa_device` cookie (path `/api/auth`, hash stored) tells browsers
+  apart: a sign-in from one the account never used is flagged and emailed. Users
+  list and revoke their sessions (`/api/auth/sessions`); admins read everyone's log
+  (`/api/admin/security-log`).
 - **Routing**: `main.py` mounts every router behind the `current_user` dependency,
   except `/api/health` and the public `/api/auth` routes. Admin-only routes add
   `require_admin` (data health, mail, syncs, tracking, Telegram, user management).
@@ -273,8 +280,27 @@ nginx sets. Every response carries security headers
 (`frontend/security-headers.conf`): a Content-Security-Policy that allows
 scripts only from the site itself (no inline scripts; the theme is applied by
 `public/theme-init.js`), no framing, `nosniff`, a same-origin referrer policy,
-and no camera/microphone/location access. Put HTTPS (and HSTS) on a proxy in
-front of nginx when exposing Bursa beyond your network.
+and no camera/microphone/location access.
+
+The port is published on `127.0.0.1` only; other devices come in through
+`tailscale serve`, which adds HTTPS on the tailnet name. nginx takes the client's
+address from `X-Forwarded-For` only when the connection comes from the host or
+the Docker network (`set_real_ip_from`), so sign-in throttling stays per person
+behind Tailscale and can't be spoofed from outside. nginx also rate-limits by
+that address: POSTs under `/api/auth` (sign-in, codes, reset mail) 10 a minute,
+the API 30 a second, answering 429 in the API's JSON error shape.
+
+Every container runs as an unprivileged user (backend uid 1000, nginx uid 101)
+with a read-only root filesystem (writable: `backend/data/` and `/tmp`), all
+Linux capabilities dropped and `no-new-privileges`. Base images are pinned to a
+language release and an Alpine release (`python:3.14-alpine3.24`); `make audit`
+(part of `make check`) checks the dependencies against the PyPI and npm advisory
+databases.
+
+Nightly SQLite backups (`system/backup.py`) can be encrypted with `age` to a
+public key (`BACKUP_RECIPIENT`): the compressed copy streams into `age`, so no
+readable copy is written, and the private key needed to restore stays off the
+server.
 
 ## Limitations
 

@@ -20,6 +20,7 @@ from accounts.routes.auth import (
     TRUSTED_COOKIE,
     TRUSTED_PATH,
     client_ip,
+    log_event,
     set_trusted_cookie,
     sign_in,
 )
@@ -62,6 +63,7 @@ async def verify(
         await two_factor.verify_login(session, payload.token, payload.method, payload.code)
     except auth.AuthError as exc:
         await auth.record_failure(user.email, ip)
+        await log_event(session, user.id, "sign_in_failed", request, "wrong 2FA code")
         raise _bad(exc) from exc
     await auth.clear_failures(user.email)
     if payload.remember_device:
@@ -111,16 +113,16 @@ async def totp_setup(
 
 @router.post("/totp/confirm", response_model=RecoveryCodesOut)
 async def totp_confirm(
-    payload: CodeIn,
+    payload: CodeIn, request: Request,
     session: AsyncSession = Depends(get_session), user: User = Depends(signed_in_user),
 ) -> RecoveryCodesOut:
     """Turn the app on with a code from it. Returns recovery codes when 2FA was off."""
     try:
-        return RecoveryCodesOut(
-            recovery_codes=await two_factor.confirm_totp(session, user, payload.code)
-        )
+        codes = await two_factor.confirm_totp(session, user, payload.code)
     except auth.AuthError as exc:
         raise _bad(exc) from exc
+    await log_event(session, user.id, "two_factor_enabled", request, "authenticator app")
+    return RecoveryCodesOut(recovery_codes=codes)
 
 
 @router.post("/email", status_code=status.HTTP_202_ACCEPTED)
@@ -137,50 +139,55 @@ async def email_setup(
 
 @router.post("/email/confirm", response_model=RecoveryCodesOut)
 async def email_confirm(
-    payload: CodeIn,
+    payload: CodeIn, request: Request,
     session: AsyncSession = Depends(get_session), user: User = Depends(signed_in_user),
 ) -> RecoveryCodesOut:
     try:
-        return RecoveryCodesOut(
-            recovery_codes=await two_factor.confirm_email(session, user, payload.code)
-        )
+        codes = await two_factor.confirm_email(session, user, payload.code)
     except auth.AuthError as exc:
         raise _bad(exc) from exc
+    await log_event(session, user.id, "two_factor_enabled", request, "email codes")
+    return RecoveryCodesOut(recovery_codes=codes)
 
 
 @router.post("/{method}/disable", status_code=status.HTTP_204_NO_CONTENT)
 async def disable(
-    method: Literal["totp", "email"], payload: PasswordConfirmIn,
+    method: Literal["totp", "email"], payload: PasswordConfirmIn, request: Request,
     session: AsyncSession = Depends(get_session), user: User = Depends(signed_in_user),
 ) -> Response:
     try:
         await two_factor.disable_method(session, user, method, payload.password)
     except auth.AuthError as exc:
         raise _bad(exc) from exc
+    await log_event(
+        session, user.id, "two_factor_disabled", request,
+        "authenticator app" if method == "totp" else "email codes",
+    )
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/recovery-codes", response_model=RecoveryCodesOut)
 async def new_recovery_codes(
-    payload: PasswordConfirmIn,
+    payload: PasswordConfirmIn, request: Request,
     session: AsyncSession = Depends(get_session), user: User = Depends(signed_in_user),
 ) -> RecoveryCodesOut:
     """Replace the recovery codes (the old ones stop working)."""
     try:
-        return RecoveryCodesOut(
-            recovery_codes=await two_factor.regenerate_codes(session, user, payload.password)
-        )
+        codes = await two_factor.regenerate_codes(session, user, payload.password)
     except auth.AuthError as exc:
         raise _bad(exc) from exc
+    await log_event(session, user.id, "recovery_codes_regenerated", request)
+    return RecoveryCodesOut(recovery_codes=codes)
 
 
 @router.delete("/trusted-devices", status_code=status.HTTP_204_NO_CONTENT)
 async def forget_trusted_devices(
-    session: AsyncSession = Depends(get_session), user: User = Depends(signed_in_user)
+    request: Request,
+    session: AsyncSession = Depends(get_session), user: User = Depends(signed_in_user),
 ) -> Response:
     """Every remembered device (this one too) asks for a code at the next sign-in."""
     await two_factor.forget_devices(session, user.id)
-    await session.commit()
+    await log_event(session, user.id, "trusted_devices_forgotten", request)
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     response.delete_cookie(TRUSTED_COOKIE, path=TRUSTED_PATH)
     return response

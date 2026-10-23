@@ -5,6 +5,8 @@ import type {
   LoginResult,
   Me,
   Role,
+  SecurityEvent,
+  SignedInSession,
   TotpSetup,
   TwoFactorChallenge,
   TwoFactorMethod,
@@ -21,6 +23,8 @@ export type {
   TotpSetup,
   AuthOptions,
   InviteInfo,
+  SignedInSession,
+  SecurityEvent,
 }
 
 /** The signed-in user, or null when signed out. */
@@ -106,6 +110,27 @@ export async function regenerateRecoveryCodes(password: string): Promise<string[
 
 export async function forgetTrustedDevices(): Promise<void> {
   await api.delete('/api/auth/2fa/trusted-devices')
+}
+
+/** Browsers signed in to your account, most recently used first. */
+export async function fetchSessions(): Promise<SignedInSession[]> {
+  const { data } = await api.get<SignedInSession[]>('/api/auth/sessions')
+  return data
+}
+
+export async function revokeSession(id: number): Promise<void> {
+  await api.delete(`/api/auth/sessions/${id}`)
+}
+
+/** Sign out every browser but this one. */
+export async function signOutOtherSessions(): Promise<void> {
+  await api.post('/api/auth/sessions/sign-out-others')
+}
+
+/** Your latest account activity (sign-ins, password and 2FA changes). */
+export async function fetchActivity(): Promise<SecurityEvent[]> {
+  const { data } = await api.get<SecurityEvent[]>('/api/auth/activity')
+  return data
 }
 
 export async function logout(): Promise<void> {

@@ -1,5 +1,5 @@
 """
-Sign-in endpoints (public, except /me and /password).
+Sign-in endpoints (public, except /me, /password, /sessions and /activity).
 
 The session lives in an HttpOnly cookie, so page scripts can never read it.
 SameSite=Lax keeps other sites from sending it with their requests, and
@@ -8,14 +8,15 @@ SameSite=Lax keeps other sites from sending it with their requests, and
 
 import html
 from datetime import timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import mail
-from accounts import auth, passwords, two_factor
-from accounts.models import PasswordReset, User
+from accounts import auth, passwords, security_log, two_factor
+from accounts.models import PasswordReset, User, UserSession
 from accounts.schemas import (
     AcceptInviteIn,
     AuthOptionsOut,
@@ -26,11 +27,14 @@ from accounts.schemas import (
     PasswordChangeIn,
     ResetPasswordIn,
     ResetRequestIn,
+    SecurityEventKind,
+    SecurityEventOut,
+    SessionOut,
     TwoFactorChallengeOut,
 )
 from clock import utcnow
 from config import settings
-from deps import get_session, session_token, signed_in_user
+from deps import current_user, get_session, session_token, signed_in_user
 from mail.templates import layout
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -66,13 +70,50 @@ def set_trusted_cookie(response: Response, raw: str) -> None:
     )
 
 
+# Identifies the browser for the activity log ("new device" sign-ins). Random,
+# not a secret: it grants nothing. Browsers cap cookie lifetimes at 400 days.
+DEVICE_COOKIE = "bursa_device"
+
+
+async def log_event(
+    session: AsyncSession, user_id: int, kind: SecurityEventKind, request: Request,
+    detail: str | None = None,
+) -> None:
+    """An activity-log entry with the asking browser's address and device."""
+    await security_log.record(
+        session, user_id, kind, ip=client_ip(request),
+        user_agent=request.headers.get("user-agent"), detail=detail,
+    )
+
+
 async def sign_in(
     session: AsyncSession, user: User, request: Request, response: Response
 ) -> MeOut:
-    raw = await auth.create_session(
-        session, user, request.headers.get("user-agent"), client_ip(request)
-    )
+    ip, user_agent = client_ip(request), request.headers.get("user-agent")
+    raw = await auth.create_session(session, user, user_agent, ip)
     _set_cookie(response, raw)
+
+    device = request.cookies.get(DEVICE_COOKIE)
+    if not device or len(device) > 64:
+        device = auth.new_token()[0]
+    device_hash = auth.hash_token(device)
+    new_device = await security_log.is_new_device(session, user.id, device_hash)
+    await security_log.record(
+        session, user.id, "sign_in", ip=ip, user_agent=user_agent,
+        device_hash=device_hash, new_device=new_device,
+    )
+    response.set_cookie(
+        DEVICE_COOKIE, device, max_age=400 * 86400, httponly=True,
+        secure=settings.session_cookie_secure, samesite="lax", path=TRUSTED_PATH,
+    )
+    if new_device:
+        when = utcnow().astimezone(ZoneInfo(settings.timezone)).strftime("%d %b %Y, %H:%M %Z")
+        await two_factor.notify(
+            user, "New sign-in to your Bursa account",
+            f"Your account was signed in from a device it hadn't used before: "
+            f"{security_log.describe_device(user_agent)}, address {ip or 'unknown'}, "
+            f"on {when}. You can sign it out in Settings → Security.",
+        )
     return MeOut.model_validate(user)
 
 
@@ -105,6 +146,12 @@ async def login(
     user = await auth.authenticate(session, payload.email, payload.password)
     if user is None:
         await auth.record_failure(payload.email, ip)
+        known = await auth.user_by_email(session, payload.email)
+        if known is not None:
+            await log_event(
+                session, known.id, "sign_in_failed", request,
+                "wrong password" if known.is_active else "account disabled",
+            )
         # Same message whether the email exists or not.
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     # The only moment the plain password is known: flag it if today's policy
@@ -157,6 +204,7 @@ async def change_password(
         )
     except auth.AuthError as exc:
         raise _bad_request(exc) from exc
+    await log_event(session, user.id, "password_changed", request)
     await two_factor.notify(user, "Your Bursa password was changed",
                             "The password of your Bursa account was just changed.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
@@ -184,6 +232,7 @@ async def accept_invite(
         )
     except auth.AuthError as exc:
         raise _bad_request(exc) from exc
+    await log_event(session, user.id, "account_created", request, f"as {user.role}")
     return await sign_in(session, user, request, response)
 
 
@@ -208,7 +257,7 @@ async def send_reset_email(user: User, link: str) -> bool:
 
 @router.post("/password-reset", status_code=status.HTTP_202_ACCEPTED)
 async def request_reset(
-    payload: ResetRequestIn, session: AsyncSession = Depends(get_session)
+    payload: ResetRequestIn, request: Request, session: AsyncSession = Depends(get_session)
 ) -> dict[str, str]:
     """Email a reset link. The answer never reveals whether the email has an account."""
     done = {"detail": "If that email has an account, a reset link is on its way."}
@@ -228,6 +277,7 @@ async def request_reset(
     )).first()
     if recent is None:
         raw = await auth.create_reset(session, user)
+        await log_event(session, user.id, "reset_link_created", request, "emailed on request")
         await send_reset_email(user, auth.link(f"/reset/{raw}"))
     return done
 
@@ -243,13 +293,79 @@ async def check_reset(token: str, session: AsyncSession = Depends(get_session)) 
 
 @router.post("/password-reset/{token}", status_code=status.HTTP_204_NO_CONTENT)
 async def reset_password(
-    token: str, payload: ResetPasswordIn, session: AsyncSession = Depends(get_session)
+    token: str, payload: ResetPasswordIn, request: Request,
+    session: AsyncSession = Depends(get_session),
 ) -> Response:
     """Set a new password; signs the account out everywhere (sign in again)."""
     try:
         user = await auth.reset_password(session, token, payload.password)
     except auth.AuthError as exc:
         raise _bad_request(exc) from exc
+    await log_event(session, user.id, "password_reset", request)
     await two_factor.notify(user, "Your Bursa password was reset",
                             "The password of your Bursa account was reset with a reset link.")
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --- signed-in devices and activity ------------------------------------------
+@router.get("/sessions", response_model=list[SessionOut])
+async def list_sessions(
+    request: Request,
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user),
+) -> list[SessionOut]:
+    """Browsers signed in to this account, most recently used first."""
+    raw = session_token(request)
+    current = auth.hash_token(raw) if raw else None
+    rows = await session.execute(
+        select(UserSession)
+        .where(UserSession.user_id == user.id, UserSession.expires_at > utcnow())
+        .order_by(UserSession.last_seen_at.desc())
+    )
+    return [
+        SessionOut(
+            id=s.id, device=security_log.describe_device(s.user_agent), ip=s.ip,
+            created_at=s.created_at, last_seen_at=s.last_seen_at,
+            current=s.token_hash == current,
+        )
+        for s in rows.scalars()
+    ]
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def revoke_one_session(
+    session_id: int, request: Request,
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user),
+) -> Response:
+    """Sign out one other browser."""
+    row = await session.get(UserSession, session_id)
+    if row is None or row.user_id != user.id:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Already signed out")
+    raw = session_token(request)
+    if raw and row.token_hash == auth.hash_token(raw):
+        raise HTTPException(status_code=400, detail="Use Sign out for this browser")
+    device = security_log.describe_device(row.user_agent)
+    await session.delete(row)
+    await log_event(session, user.id, "session_revoked", request, device)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/sessions/sign-out-others", status_code=status.HTTP_204_NO_CONTENT)
+async def sign_out_others(
+    request: Request,
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user),
+) -> Response:
+    """Sign out every browser but this one (e.g. after losing a phone)."""
+    count = await auth.revoke_sessions(session, user.id, session_token(request))
+    await log_event(
+        session, user.id, "other_sessions_revoked", request,
+        f"{count} device{'' if count == 1 else 's'}",
+    )
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.get("/activity", response_model=list[SecurityEventOut])
+async def activity(
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user),
+) -> list[SecurityEventOut]:
+    """The latest entries of this account's activity log."""
+    return await security_log.recent(session, user.id, limit=50)

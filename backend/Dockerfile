@@ -6,7 +6,9 @@
 #   test    : runtime + dev tools, for `docker build --target test` CI checks.
 
 # --- build ------------------------------------------------------------------
-FROM python:3.14-alpine AS build
+# Python 3.14 on Alpine 3.24: patch releases come with each rebuild; moving to a
+# new Python or Alpine release is a deliberate edit here.
+FROM python:3.14-alpine3.24 AS build
 
 # binutils -> `strip` for the compiled extensions.
 RUN apk add --no-cache binutils
@@ -23,7 +25,7 @@ RUN pip install --no-cache-dir --no-compile --prefix=/install -r requirements.tx
  && find /install -type f \( -name '*.pyx' -o -name '*.pxd' -o -name '*.c' -o -name '*.h' \) -delete
 
 # --- runtime ----------------------------------------------------------------
-FROM python:3.14-alpine AS runtime
+FROM python:3.14-alpine3.24 AS runtime
 
 # Prevent Python from writing .pyc files and enable unbuffered stdout/stderr
 # so FastAPI logs stream straight to the terminal.
@@ -33,8 +35,9 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 # tzdata   -> zoneinfo has no data in Alpine; APScheduler needs "Asia/Jakarta".
 # libstdc++ -> runtime libs for numpy's musl wheel.
+# age      -> encrypts backups (BACKUP_RECIPIENT); age-keygen makes the key pair.
 # pip is only needed to build, so it is removed from the runtime image.
-RUN apk add --no-cache tzdata libstdc++ \
+RUN apk add --no-cache tzdata libstdc++ age \
  && python -m pip uninstall -y pip \
  && rm -rf /root/.cache
 
@@ -43,8 +46,13 @@ COPY --from=build /install /usr/local
 WORKDIR /app
 COPY . .
 
-# SQLite lives on a mounted volume.
-RUN mkdir -p /app/data
+# Runs as an unprivileged user (uid 1000). The mounted data directory must be
+# writable by it: on Linux, `sudo chown -R 1000:1000 backend/data` once.
+RUN addgroup -S -g 1000 bursa \
+ && adduser -S -D -H -u 1000 -G bursa bursa \
+ && mkdir -p /app/data \
+ && chown bursa:bursa /app/data
+USER bursa
 
 EXPOSE 8000
 
@@ -60,6 +68,9 @@ CMD ["sh", "-c", "python prepare.py && exec uvicorn main:app --host 0.0.0.0 --po
 #   docker build --target test -t bursa-backend-test ./backend
 #   docker run --rm bursa-backend-test
 FROM runtime AS test
+# Dev tools need root to install; the suite runs against a bind-mounted
+# checkout, so it stays root too (this image is never deployed).
+USER root
 # nodejs: pyright's runtime (the pip package uses the system node when present).
 # Dev tools come from requirements-dev.txt (its `-r requirements.txt` line is
 # already satisfied by the runtime layer); the PostgreSQL driver is extra.

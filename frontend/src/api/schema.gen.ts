@@ -39,6 +39,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/admin/security-log': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Security Events
+     * @description The latest account activity of every user.
+     */
+    get: operations['security_events_api_admin_security_log_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/admin/users': {
     parameters: {
       query?: never
@@ -485,6 +505,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/auth/activity': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Activity
+     * @description The latest entries of this account's activity log.
+     */
+    get: operations['activity_api_auth_activity_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/auth/invites/{token}': {
     parameters: {
       query?: never
@@ -650,6 +690,66 @@ export interface paths {
      */
     post: operations['reset_password_api_auth_password_reset__token__post']
     delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/auth/sessions': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Sessions
+     * @description Browsers signed in to this account, most recently used first.
+     */
+    get: operations['list_sessions_api_auth_sessions_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/auth/sessions/sign-out-others': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Sign Out Others
+     * @description Sign out every browser but this one (e.g. after losing a phone).
+     */
+    post: operations['sign_out_others_api_auth_sessions_sign_out_others_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/auth/sessions/{session_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Revoke One Session
+     * @description Sign out one other browser.
+     */
+    delete: operations['revoke_one_session_api_auth_sessions__session_id__delete']
     options?: never
     head?: never
     patch?: never
@@ -1414,6 +1514,51 @@ export interface components {
       name: string
       /** Password */
       password: string
+    }
+    /** AdminSecurityEventOut */
+    AdminSecurityEventOut: {
+      /**
+       * At
+       * Format: date-time
+       */
+      at: string
+      /** Detail */
+      detail: string | null
+      /** Device */
+      device: string
+      /** Id */
+      id: number
+      /** Ip */
+      ip: string | null
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | 'account_created'
+        | 'sign_in'
+        | 'sign_in_failed'
+        | 'session_revoked'
+        | 'other_sessions_revoked'
+        | 'password_changed'
+        | 'password_reset'
+        | 'reset_link_created'
+        | 'two_factor_enabled'
+        | 'two_factor_disabled'
+        | 'two_factor_reset'
+        | 'recovery_codes_regenerated'
+        | 'trusted_devices_forgotten'
+        | 'account_disabled'
+        | 'account_enabled'
+        | 'role_changed'
+      /** New Device */
+      new_device: boolean
+      /** User Email */
+      user_email: string
+      /** User Id */
+      user_id: number
+      /** User Name */
+      user_name: string
     }
     /** AlertEventOut */
     AlertEventOut: {
@@ -2840,6 +2985,66 @@ export interface components {
       /** Weight */
       weight: number
     }
+    /** SecurityEventOut */
+    SecurityEventOut: {
+      /**
+       * At
+       * Format: date-time
+       */
+      at: string
+      /** Detail */
+      detail: string | null
+      /** Device */
+      device: string
+      /** Id */
+      id: number
+      /** Ip */
+      ip: string | null
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind:
+        | 'account_created'
+        | 'sign_in'
+        | 'sign_in_failed'
+        | 'session_revoked'
+        | 'other_sessions_revoked'
+        | 'password_changed'
+        | 'password_reset'
+        | 'reset_link_created'
+        | 'two_factor_enabled'
+        | 'two_factor_disabled'
+        | 'two_factor_reset'
+        | 'recovery_codes_regenerated'
+        | 'trusted_devices_forgotten'
+        | 'account_disabled'
+        | 'account_enabled'
+        | 'role_changed'
+      /** New Device */
+      new_device: boolean
+    }
+    /** SessionOut */
+    SessionOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
+      /** Current */
+      current: boolean
+      /** Device */
+      device: string
+      /** Id */
+      id: number
+      /** Ip */
+      ip: string | null
+      /**
+       * Last Seen At
+       * Format: date-time
+       */
+      last_seen_at: string
+    }
     /** SplitOut */
     SplitOut: {
       /**
@@ -3400,6 +3605,26 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  security_events_api_admin_security_log_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['AdminSecurityEventOut'][]
         }
       }
     }
@@ -4165,6 +4390,26 @@ export interface operations {
       }
     }
   }
+  activity_api_auth_activity_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SecurityEventOut'][]
+        }
+      }
+    }
+  }
   invite_info_api_auth_invites__token__get: {
     parameters: {
       query?: never
@@ -4431,6 +4676,73 @@ export interface operations {
         'application/json': components['schemas']['ResetPasswordIn']
       }
     }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  list_sessions_api_auth_sessions_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SessionOut'][]
+        }
+      }
+    }
+  }
+  sign_out_others_api_auth_sessions_sign_out_others_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  revoke_one_session_api_auth_sessions__session_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        session_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
     responses: {
       /** @description Successful Response */
       204: {

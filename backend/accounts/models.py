@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from accounts.schemas import MfaPurpose, Role
+from accounts.schemas import MfaPurpose, Role, SecurityEventKind
 from database import Base
 from db.columns import created_at_column, updated_at_column, user_fk
 from db.types import UTCDateTime, one_of
@@ -213,3 +213,31 @@ class LoginFailure(Base):
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     key: Mapped[str] = mapped_column(String(300), nullable=False)  # "email:..." / "ip:..."
     at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+
+
+class SecurityEvent(Base):
+    """
+    One entry of an account's activity log (accounts/security_log): sign-ins,
+    password and 2FA changes, signed-out devices, admin changes. Deleted with the
+    account, or after SECURITY_LOG_DAYS.
+    """
+
+    __tablename__ = "security_events"
+    __table_args__ = (
+        one_of("kind", SecurityEventKind),
+        Index("ix_security_events_user_id_at", "user_id", "at"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = user_fk()
+    kind: Mapped[SecurityEventKind] = mapped_column(String(32), nullable=False)
+    at: Mapped[datetime] = mapped_column(UTCDateTime, index=True, nullable=False)
+    ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # SHA-256 of the browser's device cookie (sign-ins only).
+    device_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    new_device: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    # Short context: the 2FA method, "by <admin>", "wrong password", ...
+    detail: Mapped[str | None] = mapped_column(String(255), nullable=True)

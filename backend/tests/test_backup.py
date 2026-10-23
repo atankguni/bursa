@@ -3,6 +3,7 @@
 import gzip
 import sqlite3
 import stat
+import subprocess
 
 import pytest
 
@@ -66,6 +67,21 @@ def test_damaged_files_are_refused(tmp_path):
     assert not list(tmp_path.glob("restored.db*"))  # nothing left behind
 
 
+def test_wal_database_leaves_no_temp_files(tmp_path, monkeypatch):
+    db = tmp_path / "bursa.db"
+    _make_db(db)
+    live = sqlite3.connect(db)  # like the running app: WAL mode, connection open
+    live.execute("PRAGMA journal_mode=WAL")
+    live.execute("insert into t values (-1)")
+    live.commit()
+    monkeypatch.setattr(settings, "secret_key", "x" * 40)
+    try:
+        backup.backup_sqlite(db, tmp_path / "b", keep=7, stamp="2026-10-01_0230")
+    finally:
+        live.close()
+    assert [p.name for p in (tmp_path / "b").iterdir()] == ["bursa-2026-10-01_0230.db.gz"]
+
+
 def test_no_key_copy_when_secret_comes_from_env(tmp_path, monkeypatch):
     db = tmp_path / "bursa.db"
     _make_db(db)
@@ -79,3 +95,77 @@ def test_only_sqlite_is_backed_up():
     assert path is not None and path.name == "bursa.db"
     assert backup.sqlite_path("postgresql+asyncpg://u:p@h/bursa") is None
     assert backup.sqlite_path("sqlite+aiosqlite:///:memory:") is None
+
+
+def _age_keys(tmp_path):
+    """A fresh age key pair: (private key file, public key)."""
+    tmp_path.mkdir(parents=True, exist_ok=True)
+    identity = tmp_path / "key.txt"
+    subprocess.run(["age-keygen", "-o", str(identity)], check=True, capture_output=True)
+    public = next(
+        line.split(": ", 1)[1]
+        for line in identity.read_text().splitlines()
+        if line.startswith("# public key: ")
+    )
+    return identity, public
+
+
+def test_encrypted_backup_needs_the_private_key(tmp_path, monkeypatch):
+    db = tmp_path / "bursa.db"
+    _make_db(db)
+    key = tmp_path / "secret.key"
+    key.write_text("server-secret-" * 4)
+    monkeypatch.setattr(settings, "secret_key", None)
+    monkeypatch.setattr(settings, "secret_key_file", str(key))
+    identity, public = _age_keys(tmp_path)
+    dest = tmp_path / "backups"
+
+    target = backup.backup_sqlite(db, dest, keep=7, stamp="2026-10-01_0230", recipient=public)
+
+    assert sorted(p.name for p in dest.iterdir()) == [
+        "bursa-2026-10-01_0230.db.gz.age", "bursa-2026-10-01_0230.secret.key.age",
+    ]
+    for p in dest.iterdir():
+        assert stat.S_IMODE(p.stat().st_mode) == 0o600
+        assert p.read_bytes().startswith(b"age-encryption.org/v1")
+    assert b"server-secret" not in (dest / "bursa-2026-10-01_0230.secret.key.age").read_bytes()
+
+    with pytest.raises(ValueError, match="identity"):
+        backup.restore_sqlite(target, tmp_path / "a.db")
+    other_identity, _ = _age_keys(tmp_path / "other")
+    with pytest.raises(RuntimeError, match="decrypt"):
+        backup.restore_sqlite(target, tmp_path / "b.db", identity=other_identity)
+    assert not list(tmp_path.glob("b.db*"))
+
+    restored = tmp_path / "restored.db"
+    backup.restore_sqlite(target, restored, identity=identity)
+    assert sqlite3.connect(restored).execute("select count(*) from t").fetchone()[0] == 1000
+
+
+def test_prune_counts_plain_and_encrypted_together(tmp_path):
+    dest = tmp_path / "b"
+    dest.mkdir()
+    for name in [
+        "bursa-2026-10-01_0230.db.gz", "bursa-2026-10-01_0230.secret.key",
+        "bursa-2026-10-02_0230.db.gz.age", "bursa-2026-10-02_0230.secret.key.age",
+        "bursa-2026-10-03_0230.db.gz.age",
+    ]:
+        (dest / name).write_bytes(b"x")
+    assert backup.prune(dest, keep=2) == ["2026-10-01_0230"]
+    assert sorted(p.name for p in dest.iterdir()) == [
+        "bursa-2026-10-02_0230.db.gz.age", "bursa-2026-10-02_0230.secret.key.age",
+        "bursa-2026-10-03_0230.db.gz.age",
+    ]
+
+
+def test_recipient_must_be_an_age_public_key(tmp_path):
+    from pydantic import ValidationError
+
+    from config import Settings
+
+    _, public = _age_keys(tmp_path)
+    assert Settings(backup_recipient=f"  {public} ").backup_recipient == public
+    assert Settings(backup_recipient="").backup_recipient is None
+    for bad in ["age1short", "AGE-SECRET-KEY-1" + "Q" * 58, "ssh-ed25519 AAAA"]:
+        with pytest.raises(ValidationError, match="age public key"):
+            Settings(backup_recipient=bad)

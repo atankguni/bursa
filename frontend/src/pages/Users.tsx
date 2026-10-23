@@ -7,6 +7,7 @@ import {
   deleteUser,
   errorMessage,
   fetchInvites,
+  fetchSecurityLog,
   fetchUsers,
   resetTwoFactor,
   revokeInvite,
@@ -17,9 +18,11 @@ import {
 } from '../api'
 import { useAuth } from '../lib/auth'
 import { fmtShortDateTime, fmtTimeAgo, parseServerTime } from '../lib/format'
+import { eventLabel, isNotable } from '../lib/securityEvents'
 
 const USERS_KEY = ['admin', 'users'] as const
 const INVITES_KEY = ['admin', 'invites'] as const
+const LOG_KEY = ['admin', 'security-log'] as const
 
 const inputCls =
   'rounded bg-panelalt px-3 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-none focus:ring-accent'
@@ -86,6 +89,7 @@ export default function Users() {
   const refresh = () => {
     void qc.invalidateQueries({ queryKey: USERS_KEY })
     void qc.invalidateQueries({ queryKey: INVITES_KEY })
+    void qc.invalidateQueries({ queryKey: LOG_KEY })
   }
   const onError = (fallback: string) => (e: unknown) =>
     setError(errorMessage(e, fallback))
@@ -375,6 +379,74 @@ export default function Users() {
                 </tr>
               )
             })}
+          </tbody>
+        </table>
+      </div>
+
+      <SecurityLog />
+    </div>
+  )
+}
+
+/** Everyone's latest sign-ins and security changes (newest 200). */
+function SecurityLog() {
+  const log = useQuery({ queryKey: LOG_KEY, queryFn: fetchSecurityLog })
+  return (
+    <div className="space-y-2">
+      <div>
+        <h3 className="text-sm font-semibold">Account activity</h3>
+        <p className="mt-0.5 text-xs text-muted">
+          Sign-ins and security changes of every account, newest first. Highlighted:
+          failed sign-ins, new devices, two-factor turned off.
+        </p>
+      </div>
+      <div className="surface max-h-96 overflow-auto">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-subtle">
+              <th className="px-4 py-2 font-medium">When</th>
+              <th className="px-4 py-2 font-medium">Account</th>
+              <th className="px-4 py-2 font-medium">What</th>
+              <th className="px-4 py-2 font-medium">Device</th>
+              <th className="px-4 py-2 font-medium">Address</th>
+            </tr>
+          </thead>
+          <tbody>
+            {log.isPending && (
+              <tr>
+                <td colSpan={5} className="px-4 py-3 text-subtle">
+                  Loading…
+                </td>
+              </tr>
+            )}
+            {log.isError && (
+              <tr>
+                <td colSpan={5} className="px-4 py-3 text-bear">
+                  Couldn&apos;t load the activity log.
+                </td>
+              </tr>
+            )}
+            {log.data?.map((e) => (
+              <tr key={e.id} className="border-b border-line last:border-0">
+                <td className="whitespace-nowrap px-4 py-1.5 tabular-nums text-subtle">
+                  {fmtShortDateTime(e.at)}
+                </td>
+                <td className="px-4 py-1.5" title={e.user_email}>
+                  {e.user_name}
+                </td>
+                <td
+                  className={`px-4 py-1.5 ${
+                    isNotable(e) ? 'font-medium text-amber-700 dark:text-amber-400' : ''
+                  }`}
+                >
+                  {eventLabel(e)}
+                </td>
+                <td className="whitespace-nowrap px-4 py-1.5 text-muted">{e.device}</td>
+                <td className="whitespace-nowrap px-4 py-1.5 text-muted">
+                  {e.ip ?? '—'}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

@@ -6,3 +6,4 @@ httpx
 ruff
 pyright
 pandas-stubs
+pip-audit==2.10.1

@@ -2,7 +2,8 @@
 # image), the frontend with the local Node install.
 #
 #   make check        everything: types, lint, format, tests (SQLite and
-#                     PostgreSQL), schema drift, API types
+#                     PostgreSQL), schema drift, API types, known vulnerabilities
+#   make audit        known vulnerabilities in the dependencies only (online)
 #   make check-fast   the pre-commit subset (no backend test suite, no rebuild of the types)
 #   make api-types    regenerate frontend/src/api/schema.gen.ts from the backend
 #   make hooks        use the repo's git hooks (.githooks/)
@@ -23,9 +24,9 @@ PG_URL := postgresql+asyncpg://postgres:test@$(PG_NAME)/bursa_test
 TMP := $(shell mktemp -d 2>/dev/null || echo /tmp/bursa-make)
 
 .PHONY: check check-fast backend-image backend-check backend-check-fast backend-pg \
-	frontend-check api-types api-types-check hooks
+	frontend-check api-types api-types-check audit hooks
 
-check: backend-check backend-pg frontend-check api-types-check
+check: backend-check backend-pg frontend-check api-types-check audit
 
 check-fast: backend-check-fast frontend-check
 
@@ -82,3 +83,14 @@ api-types-check: $(TMP)/schema.gen.ts
 hooks:
 	git config core.hooksPath .githooks
 	@echo "Git hooks enabled (.githooks/pre-commit runs 'make check-fast')."
+
+# Known vulnerabilities in the dependencies (needs the internet). Fails on any
+# advisory in what runs: the backend's packages and the frontend's shipped ones.
+# The frontend's build tools are only reported: they run on your own sources
+# at build time (today: Tailwind 3's file watcher and CSS parser, fixed only by
+# moving to Tailwind 4).
+audit: backend-image
+	docker run --rm $(BACKEND_IMAGE) pip-audit --progress-spinner off
+	cd frontend && npm audit --omit=dev
+	@cd frontend && npm audit >/dev/null 2>&1 \
+		|| echo "audit: build tools have advisories (not shipped; see 'cd frontend && npm audit')"

@@ -4,7 +4,9 @@
 #
 # Backend  : FastAPI      -> http://localhost:8000  (docs at /docs; this machine only)
 # Worker   : scheduler + background jobs (same image; no port)
-# Frontend : nginx static -> http://localhost:5173  (proxies /api to backend)
+# Frontend : nginx static -> http://localhost:5173  (proxies /api to backend;
+#            this machine only: reach it from elsewhere with `tailscale serve`,
+#            see docs/getting-started.md)
 # SQLite   : ./backend/data/bursa.db (persisted on the host, WAL mode)
 #
 # The frontend image builds the SPA and serves it with nginx; the backend runs
@@ -26,6 +28,15 @@ services:
     volumes:
       # Persist only the database.
       - ./backend/data:/app/data
+    # Least privilege: no root (set in the images), read-only filesystem except
+    # the data volume and /tmp, no Linux capabilities, no privilege escalation.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     # Loopback only: other machines reach the API through nginx (which sets the
     # client IP header the backend trusts), never directly.
     ports:
@@ -55,6 +66,15 @@ services:
     depends_on:
       backend:
         condition: service_healthy
+    # Least privilege: no root (set in the images), read-only filesystem except
+    # the data volume and /tmp, no Linux capabilities, no privilege escalation.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     # Let a running sync save its progress before the container stops.
     stop_grace_period: 30s
     restart: unless-stopped
@@ -66,8 +86,21 @@ services:
       args:
         # Empty -> the client calls /api on its own origin (nginx-proxied).
         VITE_API_URL: ""
+    # Least privilege: no root (set in the images), read-only filesystem except
+    # the data volume and /tmp, no Linux capabilities, no privilege escalation.
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    # This machine only by default. Other devices use Tailscale (`tailscale
+    # serve --bg 5173` gives https://<machine>.<tailnet>.ts.net). Binding to a
+    # LAN address instead (BURSA_BIND=0.0.0.0) serves plain HTTP to the network
+    # and lets LAN clients set their own X-Forwarded-For (nginx.conf).
     ports:
-      - "5173:80"
+      - "${BURSA_BIND:-127.0.0.1}:5173:8080"
     depends_on:
       - backend
     restart: unless-stopped

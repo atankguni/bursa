@@ -27,6 +27,7 @@ from accounts.models import (
     LoginFailure,
     MfaChallenge,
     PasswordReset,
+    SecurityEvent,
     TrustedDevice,
     User,
     UserSession,
@@ -211,12 +212,12 @@ async def revoke_session(session: AsyncSession, raw: str) -> None:
 
 async def revoke_sessions(
     session: AsyncSession, user_id: int, keep_raw: str | None = None
-) -> None:
-    """Sign a user out everywhere (optionally except the current browser)."""
+) -> int:
+    """Sign a user out everywhere (optionally except the current browser); how many."""
     stmt = delete(UserSession).where(UserSession.user_id == user_id)
     if keep_raw:
         stmt = stmt.where(UserSession.token_hash != hash_token(keep_raw))
-    await session.execute(stmt)
+    return cast(CursorResult[Any], await session.execute(stmt)).rowcount or 0
 
 
 async def change_password(
@@ -368,8 +369,8 @@ async def reset_password(session: AsyncSession, raw: str, password: str) -> User
 
 
 async def purge_expired() -> int:
-    """Delete expired sessions, invite / reset links, 2FA challenges and
-    remembered devices (daily job)."""
+    """Delete expired sessions, invite / reset links, 2FA challenges, remembered
+    devices and old activity-log entries (daily job)."""
     from database import AsyncSessionLocal
 
     now = utcnow()
@@ -382,6 +383,9 @@ async def purge_expired() -> int:
             delete(MfaChallenge).where(MfaChallenge.expires_at <= now),
             delete(TrustedDevice).where(TrustedDevice.expires_at <= now),
             delete(LoginFailure).where(LoginFailure.at <= _window_start()),
+            delete(SecurityEvent).where(
+                SecurityEvent.at <= now - timedelta(days=settings.security_log_days)
+            ),
         ):
             removed += cast(CursorResult[Any], await session.execute(stmt)).rowcount or 0
         await session.commit()

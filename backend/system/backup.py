@@ -7,12 +7,19 @@ gzip-compressed, plus the 2FA server secret file (without it, a restored
 database can't read 2FA secrets). The newest BACKUP_KEEP backups are kept;
 files are readable by the owner only.
 
+With BACKUP_RECIPIENT (an age public key) both files are encrypted with `age`
+(`.age` suffix): the compressed copy streams straight into it, so nothing
+readable is kept. This machine can then write backups but not read them; the
+private key, kept elsewhere, is needed to restore. Plain `age` decrypts them too:
+`age -d -i key.txt bursa-<stamp>.db.gz.age | gunzip > bursa.db`.
+
 They sit next to the database (BACKUP_DIR), which guards against mistakes and
 corruption but not against losing the disk: copy them elsewhere too.
 PostgreSQL is skipped: use its own tools (pg_dump).
 
 Run one now: `docker compose exec backend python -m system.backup`
-Restore one: `python -m system.backup restore <backup.db.gz> <new.db>`
+Restore one: `python -m system.backup restore <backup.db.gz[.age]> <new.db>
+[--identity <private key file>]`
 (steps in docs/configuration.md).
 """
 
@@ -22,6 +29,7 @@ import logging
 import os
 import shutil
 import sqlite3
+import subprocess
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -36,6 +44,8 @@ log = logging.getLogger("bursa.backup")
 PREFIX = "bursa-"
 DB_SUFFIX = ".db.gz"
 KEY_SUFFIX = ".secret.key"
+AGE = ".age"
+CHUNK = 1024 * 1024
 
 
 def sqlite_path(url: str) -> Path | None:
@@ -56,6 +66,20 @@ def _private(path: Path) -> None:
     os.chmod(path, 0o600)
 
 
+def _age_encrypt_to(target: Path, recipient: str) -> subprocess.Popen[bytes]:
+    """An `age` process encrypting its stdin to `target` (create it 0600 first)."""
+    target.touch(mode=0o600)
+    with open(target, "wb") as out:
+        return subprocess.Popen(["age", "-r", recipient], stdin=subprocess.PIPE, stdout=out)
+
+
+def _finish(proc: subprocess.Popen[bytes], what: str) -> None:
+    if proc.stdin:
+        proc.stdin.close()
+    if proc.wait() != 0:
+        raise RuntimeError(f"age failed while encrypting {what}")
+
+
 def check_integrity(db: Path) -> None:
     """Raise BadBackup unless SQLite's full integrity check passes."""
     con = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
@@ -69,65 +93,113 @@ def check_integrity(db: Path) -> None:
         raise BadBackup(f"{db}: " + "; ".join(str(r) for r in result[:5]))
 
 
-def backup_sqlite(db: Path, dest: Path, keep: int, stamp: str) -> Path:
-    """Write `bursa-<stamp>.db.gz` (+ the secret key file) into `dest`; prune old ones."""
+def backup_sqlite(
+    db: Path, dest: Path, keep: int, stamp: str, recipient: str | None = None
+) -> Path:
+    """Write `bursa-<stamp>.db.gz` (+ the secret key file) into `dest`, encrypted
+    to `recipient` (`.age`) when given; prune old ones."""
     dest.mkdir(parents=True, exist_ok=True)
     os.chmod(dest, 0o700)
+    suffix = AGE if recipient else ""
     tmp = dest / f".{PREFIX}{stamp}.db.tmp"
-    target = dest / f"{PREFIX}{stamp}{DB_SUFFIX}"
+    target = dest / f"{PREFIX}{stamp}{DB_SUFFIX}{suffix}"
     try:
         src = sqlite3.connect(db)
         try:
             out = sqlite3.connect(tmp)
             try:
                 src.backup(out)
+                # The copy inherits WAL mode; a plain journal keeps it one file.
+                out.execute("PRAGMA journal_mode=DELETE")
             finally:
                 out.close()
         finally:
             src.close()
         check_integrity(tmp)  # a damaged copy is never kept as a backup
         partial = target.with_name(target.name + ".part")
-        with open(tmp, "rb") as raw, gzip.open(partial, "wb", compresslevel=6) as packed:
-            shutil.copyfileobj(raw, packed, length=1024 * 1024)
-        _private(partial)
-        partial.replace(target)  # never leave a half-written backup under the real name
+        try:
+            if recipient:
+                proc = _age_encrypt_to(partial, recipient)
+                assert proc.stdin is not None
+                with open(tmp, "rb") as raw, gzip.GzipFile(
+                    fileobj=proc.stdin, mode="wb", compresslevel=6
+                ) as packed:
+                    shutil.copyfileobj(raw, packed, length=CHUNK)
+                _finish(proc, "the database")
+            else:
+                with open(tmp, "rb") as raw, gzip.open(partial, "wb", compresslevel=6) as packed:
+                    shutil.copyfileobj(raw, packed, length=CHUNK)
+            _private(partial)
+            partial.replace(target)  # never leave a half-written backup under the real name
+        finally:
+            partial.unlink(missing_ok=True)
     finally:
-        tmp.unlink(missing_ok=True)
+        for leftover in (tmp, tmp.with_name(tmp.name + "-wal"), tmp.with_name(tmp.name + "-shm")):
+            leftover.unlink(missing_ok=True)
 
     key_file = Path(settings.secret_key_file)
     if not settings.secret_key and key_file.is_file():
-        key_copy = dest / f"{PREFIX}{stamp}{KEY_SUFFIX}"
-        shutil.copyfile(key_file, key_copy)
+        key_copy = dest / f"{PREFIX}{stamp}{KEY_SUFFIX}{suffix}"
+        if recipient:
+            proc = _age_encrypt_to(key_copy, recipient)
+            assert proc.stdin is not None
+            proc.stdin.write(key_file.read_bytes())
+            _finish(proc, "the secret key")
+        else:
+            shutil.copyfile(key_file, key_copy)
         _private(key_copy)
 
     prune(dest, keep)
     return target
 
 
+def _stamp(name: str) -> str | None:
+    for suffix in (DB_SUFFIX + AGE, DB_SUFFIX):
+        if name.startswith(PREFIX) and name.endswith(suffix):
+            return name[len(PREFIX) : -len(suffix)]
+    return None
+
+
 def prune(dest: Path, keep: int) -> list[str]:
-    """Delete all but the newest `keep` backups (and their key copies)."""
-    stamps = sorted(
-        (p.name[len(PREFIX) : -len(DB_SUFFIX)] for p in dest.glob(f"{PREFIX}*{DB_SUFFIX}")),
-        reverse=True,
-    )
+    """Delete all but the newest `keep` backups (and their key copies), plain or
+    encrypted alike."""
+    stamps = sorted({s for p in dest.iterdir() if (s := _stamp(p.name))}, reverse=True)
     removed = stamps[max(1, keep) :]
     for stamp in removed:
         for suffix in (DB_SUFFIX, KEY_SUFFIX):
-            (dest / f"{PREFIX}{stamp}{suffix}").unlink(missing_ok=True)
+            for enc in ("", AGE):
+                (dest / f"{PREFIX}{stamp}{suffix}{enc}").unlink(missing_ok=True)
     return removed
 
 
-def restore_sqlite(backup: Path, target: Path) -> None:
-    """Unpack `backup` into `target` (which must not exist) and check it."""
+def restore_sqlite(backup: Path, target: Path, identity: Path | None = None) -> None:
+    """Unpack `backup` into `target` (which must not exist) and check it. An
+    encrypted backup (`.age`) needs the private key file (`identity`)."""
     if target.exists():
         raise FileExistsError(f"{target} exists; move it aside first")
+    encrypted = backup.name.endswith(AGE)
+    if encrypted and identity is None:
+        raise ValueError(f"{backup.name} is encrypted: pass --identity <private key file>")
     partial = target.with_name(target.name + ".part")
-    with gzip.open(backup, "rb") as packed, open(partial, "wb") as raw:
-        shutil.copyfileobj(packed, raw, length=1024 * 1024)
     try:
+        if encrypted:
+            assert identity is not None
+            proc = subprocess.Popen(
+                ["age", "-d", "-i", str(identity), str(backup)], stdout=subprocess.PIPE
+            )
+            assert proc.stdout is not None
+            with gzip.GzipFile(fileobj=proc.stdout, mode="rb") as packed, open(
+                partial, "wb"
+            ) as raw:
+                shutil.copyfileobj(packed, raw, length=CHUNK)
+            if proc.wait() != 0:
+                raise RuntimeError("age could not decrypt it (wrong private key?)")
+        else:
+            with gzip.open(backup, "rb") as packed, open(partial, "wb") as raw:
+                shutil.copyfileobj(packed, raw, length=CHUNK)
         check_integrity(partial)
-    except BadBackup:
-        partial.unlink()
+    except BaseException:
+        partial.unlink(missing_ok=True)
         raise
     _private(partial)
     partial.replace(target)
@@ -145,9 +217,15 @@ async def run_backup() -> Path | None:
         log.warning("Backup skipped: database file %s not found", db)
         return None
     stamp = datetime.now(ZoneInfo(settings.timezone)).strftime("%Y-%m-%d_%H%M")
+    recipient = settings.backup_recipient
     target = await asyncio.to_thread(
-        backup_sqlite, db, Path(settings.backup_dir), settings.backup_keep, stamp
+        backup_sqlite, db, Path(settings.backup_dir), settings.backup_keep, stamp, recipient
     )
+    if not recipient:
+        log.warning(
+            "Backup is NOT encrypted: anyone with a copy can read it. Set BACKUP_RECIPIENT "
+            "(docs/configuration.md#backups)."
+        )
     log.info(
         "Backup written: %s (%.1f MB, keeping the newest %d)",
         target, target.stat().st_size / 1e6, settings.backup_keep,
@@ -157,10 +235,21 @@ async def run_backup() -> Path | None:
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, format="%(message)s")
-    if sys.argv[1:2] == ["restore"] and len(sys.argv) == 4:
-        restore_sqlite(Path(sys.argv[2]), Path(sys.argv[3]))
-        log.info("Restored %s to %s (integrity check passed)", sys.argv[2], sys.argv[3])
-    elif len(sys.argv) == 1:
+    args = sys.argv[1:]
+    identity: Path | None = None
+    if "--identity" in args:
+        i = args.index("--identity")
+        if i + 1 >= len(args):
+            raise SystemExit("--identity needs the private key file")
+        identity = Path(args[i + 1])
+        del args[i : i + 2]
+    if args[:1] == ["restore"] and len(args) == 3:
+        restore_sqlite(Path(args[1]), Path(args[2]), identity)
+        log.info("Restored %s to %s (integrity check passed)", args[1], args[2])
+    elif not args:
         asyncio.run(run_backup())
     else:
-        raise SystemExit("usage: python -m system.backup [restore <backup.db.gz> <new.db>]")
+        raise SystemExit(
+            "usage: python -m system.backup "
+            "[restore <backup.db.gz[.age]> <new.db> [--identity <private key file>]]"
+        )

@@ -1,7 +1,10 @@
 """Central application settings (environment-driven)."""
 
 import os
+import re
+from typing import Self
 
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from signals.schemas import Rating
@@ -23,6 +26,9 @@ class Settings(BaseSettings):
     backup_enabled: bool = True
     backup_dir: str = "./data/backups"
     backup_keep: int = 7
+    # Encrypt backups to this age public key ("age1..."; make a key pair with
+    # `age-keygen`, keep the private key off this machine). Unset: plain backups.
+    backup_recipient: str | None = None
     # AI assistant. Ordered "provider:model" attempts (see assistant/providers):
     # the first configured one answers; on busy/quota/errors the next is tried.
     # Providers without credentials are skipped, so a fallback can be listed
@@ -75,8 +81,9 @@ class Settings(BaseSettings):
     # used in invite / password-reset links and for the cross-site request check.
     public_url: str = "http://localhost:5173"
     session_cookie_name: str = "bursa_session"
-    # True when served over HTTPS (production): the cookie is then never sent
-    # over plain HTTP. Must stay False for http://localhost.
+    # True when served over HTTPS: the cookie is then never sent over plain HTTP.
+    # Switched on automatically when `public_url` is https:// (e.g. Tailscale's
+    # https://<machine>.<tailnet>.ts.net); must stay False for http://localhost.
     session_cookie_secure: bool = False
     session_days: int = 30
     invite_days: int = 7
@@ -103,6 +110,8 @@ class Settings(BaseSettings):
     mfa_code_minutes: int = 10  # a sign-in / email code expires after this
     mfa_max_attempts: int = 5  # wrong codes allowed per sign-in attempt
     trusted_device_days: int = 30  # "Remember this device"
+    # Account activity log (sign-ins, password / 2FA changes): kept this long.
+    security_log_days: int = 180
 
     # Optional email (mail/ package). `mail_provider` picks the adapter:
     # "smtp" (any mailbox: Gmail app password, Outlook, Zoho, Brevo, ...) or
@@ -210,6 +219,26 @@ class Settings(BaseSettings):
     # Reuse a computed universe score for this long (seconds) to avoid
     # recomputing on every 60s poll.
     recommendation_cache_seconds: int = 60
+
+    @field_validator("backup_recipient")
+    @classmethod
+    def _age_public_key(cls, value: str | None) -> str | None:
+        """Fail at startup, not at 02:30, on a mistyped key (or a private one)."""
+        value = (value or "").strip()
+        if not value:
+            return None
+        if not re.fullmatch(r"age1[02-9ac-hj-np-z]{58}", value):
+            raise ValueError(
+                "BACKUP_RECIPIENT must be an age public key (age1 followed by 58 "
+                "characters), as printed by age-keygen. Never the private key."
+            )
+        return value
+
+    @model_validator(mode="after")
+    def _secure_cookies_over_https(self) -> Self:
+        if self.public_url.lower().startswith("https://"):
+            self.session_cookie_secure = True
+        return self
 
 
 settings = Settings()
