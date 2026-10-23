@@ -71,12 +71,13 @@ React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · Lightweight 
 
 ## License
 
-[MIT](LICENSE) © 2026 Lalu Haryadi Guni. You're free to use, modify and share it, for personal or
+[MIT](LICENSE) © 2026 Atank Guni. You're free to use, modify and share it, for personal or
 commercial use, as long as the copyright notice is kept. It comes without any warranty.
 
 Charts use **TradingView Lightweight Charts™**, which requires attribution (shown in the app
 footer). The license covers the code only: market data comes from Yahoo Finance and the IDX
-website under their own terms. Bursa is not affiliated with them. Details are in
+website under their own terms, so Bursa is meant for self-hosting, not for running as a public
+service. Bursa is not affiliated with them. Details are in
 [third-party notices](docs/third-party-notices.md).
 
 > **Not financial advice.** Signals and figures are heuristic estimates for personal reference.

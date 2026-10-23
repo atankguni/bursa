@@ -23,7 +23,7 @@ export default function Footer() {
     <footer className="border-t border-line bg-panel/80 px-4 py-2 text-[11px] text-subtle">
       <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1">
         <span className="inline-flex items-center gap-1.5">
-          © {year} Lalu Haryadi Guni
+          © {year} Atank Guni
           <span aria-hidden>·</span>
           <a
             href="mailto:atankguni@gmail.com"

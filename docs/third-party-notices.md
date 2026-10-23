@@ -60,8 +60,15 @@ Optional database drivers, installed only when building for that database
 |---|---|---|
 | asyncpg (PostgreSQL) | 0.32.0 | Apache-2.0 |
 
-(Versions as pinned at the time of writing; transitive dependencies carry their
-own licenses.)
+(Versions as pinned at the time of writing.) Transitive dependencies carry their
+own licenses. All of them, frontend and backend, are permissive (MIT, BSD, ISC,
+Apache-2.0, PSF, Zlib, CC0); none is GPL or AGPL. The one weak-copyleft package
+is **certifi** (Mozilla's CA certificate bundle, MPL-2.0), used unmodified; its
+source is at <https://github.com/certifi/python-certifi>.
+
+If you publish ready-built Docker images, they also contain the base image's
+operating-system packages (Alpine Linux: musl, BusyBox and others, some under
+GPL-2.0); their licenses and sources come from Alpine.
 
 ## Data sources and services (not covered by this license)
 
@@ -72,14 +79,30 @@ fetches at runtime:
   the unofficial `yfinance` library. Use of this data is subject to Yahoo's
   terms and is intended for personal, non-commercial use.
 - **Indonesia Stock Exchange (idx.co.id)** website data (listing boards,
-  listing dates, share counts), fetched from undocumented public endpoints.
-- **Google Gemini API** (optional AI assistant), subject to Google's terms;
-  each user supplies their own API key.
-- **Telegram Bot API** (optional alert delivery), subject to Telegram's terms.
+  listing dates, share counts), fetched weekly from undocumented public
+  endpoints. `backend/market/idx_listed.py` (stock codes and company names)
+  is generated from the same source.
+- **Google Gemini API** (optional AI assistant), subject to Google's terms. The
+  server operator supplies one API key for everyone (`GEMINI_API_KEY`); on
+  Google's free tier, prompts may be used to improve Google's products.
+- **Have I Been Pwned, Pwned Passwords** (optional leaked-password check): only
+  the first 5 characters of the password's SHA-1 hash are sent. No license or
+  attribution is required.
+- **Telegram Bot API** (optional alert delivery) and the email provider you
+  configure (SMTP or Resend), each subject to its own terms.
 
-Bursa is not affiliated with or endorsed by Yahoo, the Indonesia Stock
-Exchange, TradingView, Google or Telegram. All trademarks belong to their
-respective owners.
+**Running Bursa for other people.** Bursa is meant to be self-hosted for
+yourself (and maybe your family). Offering it as a public or paid service would
+redistribute Yahoo's and IDX's data, which their terms don't allow without a
+license, and showing stock ratings to the public may need a license from your
+financial regulator (in Indonesia, OJK). The operator of such a service is
+responsible for that; use a licensed data source if you do.
+
+Bursa is not affiliated with or endorsed by Yahoo, PT Bursa Efek Indonesia
+(the Indonesia Stock Exchange), TradingView, Google, Telegram or Have I Been
+Pwned. IDX, IHSG, LQ45, IDX30, JII and ISSI are names and trademarks of PT Bursa
+Efek Indonesia, used here only to identify the indices. All trademarks belong to
+their respective owners.
 
 ## Not financial advice
 
