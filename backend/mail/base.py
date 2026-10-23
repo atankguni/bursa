@@ -112,7 +112,7 @@ class MailProvider(ABC):
 
     @classmethod
     @abstractmethod
-    def from_settings(cls, settings: "Settings") -> Self | None:
+    def from_settings(cls, settings: Settings) -> Self | None:
         """Build from app settings, or None when its required settings are missing."""
 
     @abstractmethod

@@ -34,7 +34,7 @@ class ResendProvider(MailProvider):
         self.timeout = timeout
 
     @classmethod
-    def from_settings(cls, settings: "Settings") -> Self | None:
+    def from_settings(cls, settings: Settings) -> Self | None:
         if not settings.resend_api_key:
             return None
         return cls(api_key=settings.resend_api_key, timeout=settings.mail_timeout_seconds)

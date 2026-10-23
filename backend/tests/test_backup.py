@@ -4,6 +4,7 @@ import gzip
 import sqlite3
 import stat
 import subprocess
+from compression import zstd
 
 import pytest
 
@@ -35,8 +36,8 @@ def test_backup_is_restorable_private_and_pruned(tmp_path, monkeypatch):
     # Only the newest two remain, each with its key copy.
     names = sorted(p.name for p in dest.iterdir())
     assert names == [
-        "bursa-2026-10-02_0230.db.gz", "bursa-2026-10-02_0230.secret.key",
-        "bursa-2026-10-03_0230.db.gz", "bursa-2026-10-03_0230.secret.key",
+        "bursa-2026-10-02_0230.db.zst", "bursa-2026-10-02_0230.secret.key",
+        "bursa-2026-10-03_0230.db.zst", "bursa-2026-10-03_0230.secret.key",
     ]
     for p in dest.iterdir():
         assert stat.S_IMODE(p.stat().st_mode) == 0o600
@@ -79,7 +80,7 @@ def test_wal_database_leaves_no_temp_files(tmp_path, monkeypatch):
         backup.backup_sqlite(db, tmp_path / "b", keep=7, stamp="2026-10-01_0230")
     finally:
         live.close()
-    assert [p.name for p in (tmp_path / "b").iterdir()] == ["bursa-2026-10-01_0230.db.gz"]
+    assert [p.name for p in (tmp_path / "b").iterdir()] == ["bursa-2026-10-01_0230.db.zst"]
 
 
 def test_no_key_copy_when_secret_comes_from_env(tmp_path, monkeypatch):
@@ -87,7 +88,7 @@ def test_no_key_copy_when_secret_comes_from_env(tmp_path, monkeypatch):
     _make_db(db)
     monkeypatch.setattr(settings, "secret_key", "x" * 40)
     backup.backup_sqlite(db, tmp_path / "b", keep=7, stamp="2026-10-01_0230")
-    assert [p.name for p in (tmp_path / "b").iterdir()] == ["bursa-2026-10-01_0230.db.gz"]
+    assert [p.name for p in (tmp_path / "b").iterdir()] == ["bursa-2026-10-01_0230.db.zst"]
 
 
 def test_only_sqlite_is_backed_up():
@@ -123,7 +124,7 @@ def test_encrypted_backup_needs_the_private_key(tmp_path, monkeypatch):
     target = backup.backup_sqlite(db, dest, keep=7, stamp="2026-10-01_0230", recipient=public)
 
     assert sorted(p.name for p in dest.iterdir()) == [
-        "bursa-2026-10-01_0230.db.gz.age", "bursa-2026-10-01_0230.secret.key.age",
+        "bursa-2026-10-01_0230.db.zst.age", "bursa-2026-10-01_0230.secret.key.age",
     ]
     for p in dest.iterdir():
         assert stat.S_IMODE(p.stat().st_mode) == 0o600
@@ -146,15 +147,15 @@ def test_prune_counts_plain_and_encrypted_together(tmp_path):
     dest = tmp_path / "b"
     dest.mkdir()
     for name in [
-        "bursa-2026-10-01_0230.db.gz", "bursa-2026-10-01_0230.secret.key",
-        "bursa-2026-10-02_0230.db.gz.age", "bursa-2026-10-02_0230.secret.key.age",
-        "bursa-2026-10-03_0230.db.gz.age",
+        "bursa-2026-10-01_0230.db.gz", "bursa-2026-10-01_0230.secret.key",  # older format
+        "bursa-2026-10-02_0230.db.zst.age", "bursa-2026-10-02_0230.secret.key.age",
+        "bursa-2026-10-03_0230.db.zst.age",
     ]:
         (dest / name).write_bytes(b"x")
     assert backup.prune(dest, keep=2) == ["2026-10-01_0230"]
     assert sorted(p.name for p in dest.iterdir()) == [
-        "bursa-2026-10-02_0230.db.gz.age", "bursa-2026-10-02_0230.secret.key.age",
-        "bursa-2026-10-03_0230.db.gz.age",
+        "bursa-2026-10-02_0230.db.zst.age", "bursa-2026-10-02_0230.secret.key.age",
+        "bursa-2026-10-03_0230.db.zst.age",
     ]
 
 
@@ -169,3 +170,34 @@ def test_recipient_must_be_an_age_public_key(tmp_path):
     for bad in ["age1short", "AGE-SECRET-KEY-1" + "Q" * 58, "ssh-ed25519 AAAA"]:
         with pytest.raises(ValidationError, match="age public key"):
             Settings(backup_recipient=bad)
+
+
+def test_zstd_backup_and_older_gzip_backups_restore(tmp_path, monkeypatch):
+    db = tmp_path / "bursa.db"
+    _make_db(db)
+    monkeypatch.setattr(settings, "secret_key", "x" * 40)
+    target = backup.backup_sqlite(db, tmp_path / "b", keep=7, stamp="2026-10-01_0230")
+    assert target.read_bytes()[:4] == b"\x28\xb5\x2f\xfd"  # zstd frame magic
+
+    legacy = tmp_path / "bursa-2026-09-30_0230.db.gz"
+    legacy.write_bytes(gzip.compress(db.read_bytes()))
+    for i, source in enumerate((target, legacy)):
+        restored = tmp_path / f"restored{i}.db"
+        backup.restore_sqlite(source, restored)
+        assert sqlite3.connect(restored).execute("select count(*) from t").fetchone()[0] == 1000
+
+
+def test_damaged_zstd_backup_is_refused(tmp_path):
+    db = tmp_path / "bursa.db"
+    _make_db(db)
+    raw = bytearray(db.read_bytes())
+    raw[4096:8192] = b"\xff" * 4096
+    packed = tmp_path / "broken.db.zst"
+    packed.write_bytes(zstd.compress(bytes(raw)))
+    with pytest.raises(backup.BadBackup):
+        backup.restore_sqlite(packed, tmp_path / "restored.db")
+    truncated = tmp_path / "cut.db.zst"
+    truncated.write_bytes(zstd.compress(db.read_bytes())[:-100])
+    with pytest.raises((EOFError, zstd.ZstdError)):
+        backup.restore_sqlite(truncated, tmp_path / "restored2.db")
+    assert not list(tmp_path.glob("restored*"))

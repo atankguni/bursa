@@ -19,8 +19,6 @@ import logging
 import re
 import urllib.request
 
-from zxcvbn import zxcvbn
-
 from config import settings
 
 log = logging.getLogger("bursa.passwords")
@@ -68,6 +66,8 @@ def strength_problem(password: str, *, email: str = "", name: str = "") -> str |
             "This password is too easy to guess. It's mostly your name, email or the "
             "app's name; add words of your own."
         )
+    from zxcvbn import zxcvbn  # its dictionaries take ~9 MB: load on first use
+
     result = zxcvbn(password[:_SCORED_LENGTH], user_inputs=words)
     if result["score"] >= settings.password_min_score:
         return None

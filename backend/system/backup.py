@@ -3,7 +3,8 @@ system/backup.py
 ----------------
 Nightly backups of a SQLite database: a consistent online copy (SQLite's backup
 API, safe while the app writes), checked with `PRAGMA integrity_check`,
-gzip-compressed, plus the 2FA server secret file (without it, a restored
+zstd-compressed (`.db.zst`; older `.db.gz` backups still restore), plus the
+2FA server secret file (without it, a restored
 database can't read 2FA secrets). The newest BACKUP_KEEP backups are kept;
 files are readable by the owner only.
 
@@ -11,28 +12,31 @@ With BACKUP_RECIPIENT (an age public key) both files are encrypted with `age`
 (`.age` suffix): the compressed copy streams straight into it, so nothing
 readable is kept. This machine can then write backups but not read them; the
 private key, kept elsewhere, is needed to restore. Plain `age` decrypts them too:
-`age -d -i key.txt bursa-<stamp>.db.gz.age | gunzip > bursa.db`.
+`age -d -i key.txt bursa-<stamp>.db.zst.age | zstd -d -o bursa.db`.
 
 They sit next to the database (BACKUP_DIR), which guards against mistakes and
 corruption but not against losing the disk: copy them elsewhere too.
 PostgreSQL is skipped: use its own tools (pg_dump).
 
 Run one now: `docker compose exec backend python -m system.backup`
-Restore one: `python -m system.backup restore <backup.db.gz[.age]> <new.db>
+Restore one: `python -m system.backup restore <backup.db.zst[.age]> <new.db>
 [--identity <private key file>]`
 (steps in docs/configuration.md).
 """
 
 import asyncio
 import gzip
+import io
 import logging
 import os
 import shutil
 import sqlite3
 import subprocess
 import sys
+from compression import zstd
 from datetime import datetime
 from pathlib import Path
+from typing import IO
 from zoneinfo import ZoneInfo
 
 from sqlalchemy.engine import make_url
@@ -42,7 +46,12 @@ from config import settings
 log = logging.getLogger("bursa.backup")
 
 PREFIX = "bursa-"
-DB_SUFFIX = ".db.gz"
+DB_SUFFIX = ".db.zst"
+LEGACY_DB_SUFFIX = ".db.gz"  # backups made before 2026-10-23: restore and prune only
+DB_SUFFIXES = (DB_SUFFIX, LEGACY_DB_SUFFIX)
+# zstd level 19: a third smaller than gzip on Bursa's database, ~10 s and ~90 MB
+# of memory for that moment, once a night (level 9: +15% size, 1 s, ~12 MB).
+ZSTD_LEVEL = 19
 KEY_SUFFIX = ".secret.key"
 AGE = ".age"
 CHUNK = 1024 * 1024
@@ -96,7 +105,7 @@ def check_integrity(db: Path) -> None:
 def backup_sqlite(
     db: Path, dest: Path, keep: int, stamp: str, recipient: str | None = None
 ) -> Path:
-    """Write `bursa-<stamp>.db.gz` (+ the secret key file) into `dest`, encrypted
+    """Write `bursa-<stamp>.db.zst` (+ the secret key file) into `dest`, encrypted
     to `recipient` (`.age`) when given; prune old ones."""
     dest.mkdir(parents=True, exist_ok=True)
     os.chmod(dest, 0o700)
@@ -121,13 +130,15 @@ def backup_sqlite(
             if recipient:
                 proc = _age_encrypt_to(partial, recipient)
                 assert proc.stdin is not None
-                with open(tmp, "rb") as raw, gzip.GzipFile(
-                    fileobj=proc.stdin, mode="wb", compresslevel=6
+                with open(tmp, "rb") as raw, zstd.ZstdFile(
+                    proc.stdin, mode="wb", level=ZSTD_LEVEL
                 ) as packed:
                     shutil.copyfileobj(raw, packed, length=CHUNK)
                 _finish(proc, "the database")
             else:
-                with open(tmp, "rb") as raw, gzip.open(partial, "wb", compresslevel=6) as packed:
+                with open(tmp, "rb") as raw, zstd.ZstdFile(
+                    partial, mode="wb", level=ZSTD_LEVEL
+                ) as packed:
                     shutil.copyfileobj(raw, packed, length=CHUNK)
             _private(partial)
             partial.replace(target)  # never leave a half-written backup under the real name
@@ -154,9 +165,10 @@ def backup_sqlite(
 
 
 def _stamp(name: str) -> str | None:
-    for suffix in (DB_SUFFIX + AGE, DB_SUFFIX):
-        if name.startswith(PREFIX) and name.endswith(suffix):
-            return name[len(PREFIX) : -len(suffix)]
+    for suffix in DB_SUFFIXES:
+        for enc in (AGE, ""):
+            if name.startswith(PREFIX) and name.endswith(suffix + enc):
+                return name[len(PREFIX) : -len(suffix + enc)]
     return None
 
 
@@ -166,10 +178,17 @@ def prune(dest: Path, keep: int) -> list[str]:
     stamps = sorted({s for p in dest.iterdir() if (s := _stamp(p.name))}, reverse=True)
     removed = stamps[max(1, keep) :]
     for stamp in removed:
-        for suffix in (DB_SUFFIX, KEY_SUFFIX):
+        for suffix in (*DB_SUFFIXES, KEY_SUFFIX):
             for enc in ("", AGE):
                 (dest / f"{PREFIX}{stamp}{suffix}{enc}").unlink(missing_ok=True)
     return removed
+
+
+def _unpacker(packed: IO[bytes], name: str) -> io.BufferedIOBase:
+    """Decompress by the file's name: zstd, or gzip for older backups."""
+    if name.removesuffix(AGE).endswith(LEGACY_DB_SUFFIX):
+        return gzip.GzipFile(fileobj=packed, mode="rb")
+    return zstd.ZstdFile(packed, mode="rb")
 
 
 def restore_sqlite(backup: Path, target: Path, identity: Path | None = None) -> None:
@@ -188,14 +207,19 @@ def restore_sqlite(backup: Path, target: Path, identity: Path | None = None) -> 
                 ["age", "-d", "-i", str(identity), str(backup)], stdout=subprocess.PIPE
             )
             assert proc.stdout is not None
-            with gzip.GzipFile(fileobj=proc.stdout, mode="rb") as packed, open(
-                partial, "wb"
-            ) as raw:
-                shutil.copyfileobj(packed, raw, length=CHUNK)
+            try:
+                with _unpacker(proc.stdout, backup.name) as packed, open(partial, "wb") as raw:
+                    shutil.copyfileobj(packed, raw, length=CHUNK)
+            except (EOFError, OSError, zstd.ZstdError):
+                if proc.wait() != 0:  # nothing came out of age: say why
+                    raise RuntimeError("age could not decrypt it (wrong private key?)") from None
+                raise
             if proc.wait() != 0:
                 raise RuntimeError("age could not decrypt it (wrong private key?)")
         else:
-            with gzip.open(backup, "rb") as packed, open(partial, "wb") as raw:
+            with open(backup, "rb") as file, _unpacker(file, backup.name) as packed, open(
+                partial, "wb"
+            ) as raw:
                 shutil.copyfileobj(packed, raw, length=CHUNK)
         check_integrity(partial)
     except BaseException:
@@ -251,5 +275,5 @@ if __name__ == "__main__":
     else:
         raise SystemExit(
             "usage: python -m system.backup "
-            "[restore <backup.db.gz[.age]> <new.db> [--identity <private key file>]]"
+            "[restore <backup.db.zst[.age]> <new.db> [--identity <private key file>]]"
         )

@@ -45,7 +45,7 @@ class GeminiProvider(ChatProvider):
         self._timeout = timeout
 
     @classmethod
-    def from_settings(cls, settings: "Settings") -> Self | None:
+    def from_settings(cls, settings: Settings) -> Self | None:
         return cls(settings.gemini_api_key) if settings.gemini_api_key else None
 
     # -- neutral -> wire -------------------------------------------------------

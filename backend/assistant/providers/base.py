@@ -91,7 +91,7 @@ class ChatProvider(ABC):
 
     @classmethod
     @abstractmethod
-    def from_settings(cls, settings: "Settings") -> Self | None:
+    def from_settings(cls, settings: Settings) -> Self | None:
         """Build from app settings, or None when not configured (no key)."""
 
     @abstractmethod

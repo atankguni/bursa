@@ -40,7 +40,7 @@ def smtp_settings(monkeypatch):
 class FakeSMTP:
     """Records the conversation; `fail` raises from the named step."""
 
-    instances: list["FakeSMTP"] = []
+    instances: list[FakeSMTP] = []
     fail: dict[str, Exception] = {}
 
     def __init__(self, host, port, timeout=None, context=None):

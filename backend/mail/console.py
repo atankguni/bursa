@@ -37,7 +37,7 @@ class ConsoleProvider(MailProvider):
     default_sender = "Bursa (dev) <bursa@localhost.localdomain>"
 
     @classmethod
-    def from_settings(cls, settings: "Settings") -> Self | None:
+    def from_settings(cls, settings: Settings) -> Self | None:
         if not is_local(settings.public_url):
             raise ValueError(
                 "the console provider prints codes and links to the log, so it only "

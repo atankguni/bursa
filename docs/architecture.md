@@ -240,7 +240,11 @@ doesn't stop a sync. The two share **nothing but the database**
   they hold across several API processes.
 
 The API still calls the provider for a few things a click needs at once: symbol search,
-a chart's full history the first time, adding a stock to the watchlist, Refresh.
+a chart's full history the first time, adding a stock to the watchlist, Refresh. The
+provider is imported on first use (`market/providers/registry.py`): yfinance, pandas
+and numpy take ~85 MB, so an API process idles at ~80 MB until one of those clicks
+(the first waits ~1.6 s for the import). zxcvbn loads with the first password check.
+`tests/test_providers.py` fails if a module-level import brings them back.
 
 ## Architecture & rate-limiting
 

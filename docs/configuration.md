@@ -67,7 +67,8 @@ Your portfolio, watchlist and alerts would need to be moved separately.
 
 With SQLite, the backend backs up the database every night at 02:30 (Jakarta time):
 a consistent copy taken while the app runs, checked with SQLite's integrity check
-(a damaged copy is never kept), gzip-compressed, together with the 2FA server secret (`secret.key`; without it a restored
+(a damaged copy is never kept), compressed with zstd (`.db.zst`, about a sixth of the
+database's size; older `.db.gz` backups still restore), together with the 2FA server secret (`secret.key`; without it a restored
 database can't read anyone's 2FA). The newest 7 are kept, readable by the owner only.
 
 | Setting | Default | Meaning |
@@ -104,12 +105,13 @@ server) doesn't give them away.
    BACKUP_RECIPIENT=age1...
    ```
 
-New backups are `bursa-<time>.db.gz.age` and `bursa-<time>.secret.key.age`. Older
+New backups are `bursa-<time>.db.zst.age` and `bursa-<time>.secret.key.age`. Older
 plain backups stay until they're pruned (delete them yourself to be rid of them
 sooner). The restore below then needs the private key in a file for the moment, e.g.
 `backend/data/restore-key.txt` (delete it afterwards), passed with
 `--identity data/restore-key.txt`. Any other computer with `age` can open them too:
-`age -d -i key.txt bursa-<time>.db.gz.age | gunzip > bursa.db`.
+`age -d -i key.txt bursa-<time>.db.zst.age | zstd -d -o bursa.db` (macOS:
+`brew install age zstd`).
 
 To restore one, stop the backend, unpack the backup into a new file (the restore
 command checks it and never overwrites a file), then swap it in:
@@ -117,7 +119,7 @@ command checks it and never overwrites a file), then swap it in:
 ```bash
 docker compose stop backend worker
 docker compose run --rm --no-deps backend \
-  python -m system.backup restore data/backups/bursa-2026-10-22_0230.db.gz data/bursa.restored.db
+  python -m system.backup restore data/backups/bursa-2026-10-22_0230.db.zst data/bursa.restored.db
 mv backend/data/bursa.db backend/data/bursa.before-restore.db   # keep until all is well
 rm -f backend/data/bursa.db-wal backend/data/bursa.db-shm
 mv backend/data/bursa.restored.db backend/data/bursa.db

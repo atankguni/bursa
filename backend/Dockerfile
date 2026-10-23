@@ -33,13 +33,17 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     TZ=Asia/Jakarta
 
-# tzdata   -> zoneinfo has no data in Alpine; APScheduler needs "Asia/Jakarta".
-# libstdc++ -> runtime libs for numpy's musl wheel.
-# age      -> encrypts backups (BACKUP_RECIPIENT); age-keygen makes the key pair.
-# pip is only needed to build, so it is removed from the runtime image.
-RUN apk add --no-cache tzdata libstdc++ age \
+# tzdata -> zoneinfo has no data in Alpine; APScheduler needs "Asia/Jakarta".
+# age    -> encrypts backups (BACKUP_RECIPIENT); age-keygen makes the key pair.
+#           Its other two tools (inspect, passphrase plugin) are unused (-5 MB).
+# (numpy's wheel bundles its own libstdc++, so the system one isn't needed.)
+# Also removed, never used by a server: pip (build only), and the IDE, Tk,
+# turtle demos and help() texts of the standard library (-5 MB).
+RUN apk add --no-cache tzdata age \
+ && rm /usr/bin/age-inspect /usr/bin/age-plugin-batchpass \
  && python -m pip uninstall -y pip \
- && rm -rf /root/.cache
+ && cd /usr/local/lib/python3.14 \
+ && rm -rf /root/.cache idlelib tkinter turtledemo pydoc_data lib-dynload/_tkinter*
 
 COPY --from=build /install /usr/local
 

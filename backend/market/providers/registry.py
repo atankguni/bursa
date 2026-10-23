@@ -1,16 +1,24 @@
 """Registry that resolves the active data provider(s) from config."""
 
+import importlib
 from typing import TypedDict
 
 from config import settings
 from market.providers.base import MarketDataProvider
-from market.providers.yahoo import YahooProvider
 
-# name -> adapter class. Add new providers here.
-_REGISTRY: dict[str, type[MarketDataProvider]] = {
-    YahooProvider.name: YahooProvider,
+# name -> "module:Class". Add new providers here. Imported on first use: the
+# Yahoo adapter brings yfinance, pandas and numpy (~85 MB of memory, 1-2 s to
+# load), which the API process only needs once a request reaches Yahoo (search,
+# stale fundamentals, deep chart history).
+_REGISTRY: dict[str, str] = {
+    "yahoo": "market.providers.yahoo:YahooProvider",
 }
 _INSTANCES: dict[str, MarketDataProvider] = {}
+
+
+def _class(name: str) -> type[MarketDataProvider]:
+    module, _, attr = _REGISTRY[name].partition(":")
+    return getattr(importlib.import_module(module), attr)
 
 
 class ProviderEntry(TypedDict):
@@ -24,7 +32,7 @@ def _resolve(name: str) -> MarketDataProvider:
             f"Unknown data provider {name!r}. Available: {sorted(_REGISTRY)}"
         )
     if name not in _INSTANCES:
-        _INSTANCES[name] = _REGISTRY[name]()
+        _INSTANCES[name] = _class(name)()
     return _INSTANCES[name]
 
 
@@ -39,8 +47,8 @@ def fundamentals_provider() -> MarketDataProvider:
 
 
 def available() -> list[ProviderEntry]:
-    """Every registered provider with its capability flags."""
+    """Every registered provider with its capability flags (imports them)."""
     return [
-        {"name": cls.name, "capabilities": sorted(cls.capabilities)}
-        for cls in _REGISTRY.values()
+        {"name": name, "capabilities": sorted(_class(name).capabilities)}
+        for name in _REGISTRY
     ]

@@ -115,3 +115,18 @@ def test_no_summary_row_when_statements_exist_or_book_value_missing(monkeypatch)
     empty = pd.DataFrame()
     monkeypatch.setattr(yahoo.yf, "Ticker", lambda t: _FakeTicker(empty, empty, no_book))
     assert yahoo.YahooProvider().fetch_fundamentals("X.JK")[0] == []
+
+
+def test_api_starts_without_the_heavy_data_stack():
+    """pandas / numpy / yfinance (~85 MB) and zxcvbn load on first use, not when
+    the API starts: keep module-level imports of them out of the API's path."""
+    import subprocess
+    import sys
+
+    code = (
+        "import sys, main\n"
+        "heavy = [m for m in ('pandas', 'numpy', 'yfinance', 'zxcvbn') if m in sys.modules]\n"
+        "assert not heavy, heavy\n"
+    )
+    result = subprocess.run([sys.executable, "-c", code], capture_output=True, text=True)
+    assert result.returncode == 0, result.stderr[-2000:]

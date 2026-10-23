@@ -75,7 +75,7 @@ class SmtpProvider(MailProvider):
         self.timeout = timeout
 
     @classmethod
-    def from_settings(cls, settings: "Settings") -> Self | None:
+    def from_settings(cls, settings: Settings) -> Self | None:
         if not settings.smtp_host:
             return None
         return cls(
