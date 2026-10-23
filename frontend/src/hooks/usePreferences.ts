@@ -69,6 +69,10 @@ export function usePreferences() {
     saveChats: query.data?.assistant_save_chats ?? true,
     tradingCosts: query.data?.trading_costs ?? DEFAULT_COSTS,
     dailyDigest: query.data?.daily_digest ?? false,
+    /** Lock after this many idle minutes (0 = never; admins: within the cap). */
+    lockMinutes: query.data?.lock_minutes ?? 15,
+    setLockMinutes: (lock_minutes: Preferences['lock_minutes']) =>
+      mutation.mutate({ lock_minutes }),
     setDailyDigest: (daily_digest: boolean) => mutation.mutate({ daily_digest }),
     setTradingCosts: (trading_costs: TradingCosts) => mutation.mutate({ trading_costs }),
     setStyle: (investing_style: Preferences['investing_style']) =>

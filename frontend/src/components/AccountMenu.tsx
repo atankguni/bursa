@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import {
+  Lock,
   LogOut,
   Monitor,
   Moon,
@@ -35,7 +36,7 @@ function busy(e: KeyboardEvent) {
  * settings (also with the `,` key), security, admin links and sign out.
  */
 export default function AccountMenu() {
-  const { user, isAdmin, signOut } = useAuth()
+  const { user, isAdmin, signOut, lock } = useAuth()
   const { settings, update } = useSettings()
   const navigate = useNavigate()
   const [open, setOpen] = useState(false)
@@ -153,6 +154,9 @@ export default function AccountMenu() {
           </div>
 
           <div className="pt-1">
+            <button onClick={() => void lock()} className={itemCls}>
+              <Lock size={14} /> Lock now
+            </button>
             <button onClick={() => void signOut()} className={itemCls}>
               <LogOut size={14} /> Sign out
             </button>

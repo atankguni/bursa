@@ -4,8 +4,11 @@ import Footer from './components/Footer'
 import NavBar from './components/NavBar'
 import WeakPasswordBanner from './components/WeakPasswordBanner'
 import { useAuth } from './lib/auth'
+import { useIdleLock } from './lib/idleLock'
+import { usePreferences } from './hooks'
 import Home from './pages/Home'
 import Login from './pages/auth/Login'
+import LockScreen from './pages/auth/LockScreen'
 
 // Secondary routes are loaded on demand.
 const Watchlist = lazy(() => import('./pages/Watchlist'))
@@ -44,6 +47,8 @@ export default function App() {
               <div className="min-h-full bg-app" /> // checking the session
             ) : user === null ? (
               <Login />
+            ) : user.locked ? (
+              <LockScreen user={user} /> // idle too long: password to continue
             ) : user.mfa_setup_required ? (
               <SetupTwoFactor /> // admins: 2FA first
             ) : user.password_change_required ? (
@@ -60,6 +65,9 @@ export default function App() {
 
 // App shell: persistent top nav + footer, routed pages (full-width layout).
 function Shell({ isAdmin }: { isAdmin: boolean }) {
+  const { lock } = useAuth()
+  const { lockMinutes, loaded } = usePreferences()
+  useIdleLock(loaded ? lockMinutes : 0, lock)
   return (
     <div className="flex min-h-full flex-col bg-app text-ink">
       <NavBar />

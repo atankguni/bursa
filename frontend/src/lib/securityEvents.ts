@@ -17,6 +17,7 @@ const LABELS: Record<SecurityEventKind, string> = {
   account_disabled: 'Account disabled',
   account_enabled: 'Account enabled',
   role_changed: 'Role changed',
+  session_unlocked: 'Unlocked after inactivity',
 }
 
 /** "Signed in (new device)", "Two-factor turned off (email codes)". */

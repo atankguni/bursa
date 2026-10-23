@@ -199,6 +199,21 @@ an admin can reset a user's 2FA from the Users page.
 | `MFA_MAX_ATTEMPTS` | `5` | Wrong codes per sign-in attempt (they also count as failed sign-ins) |
 | `TRUSTED_DEVICE_DAYS` | `30` | How long "Remember this device" lasts |
 | `SECURITY_LOG_DAYS` | `180` | How long the account activity log is kept |
+| `LOCK_DEFAULT_MINUTES` | `15` | A browser locks after this many minutes without use, until the password is entered (no 2FA code). Each user can pick Off, 5, 15, 30 or 60 in Settings → Security |
+| `LOCK_ADMIN_MAX_MINUTES` | `15` | Admin accounts can't turn the lock off or set a longer time |
+| `LOCK_MAX_ATTEMPTS` | `5` | Wrong passwords on the lock screen before that browser is signed out |
+
+### Screen lock
+
+After `LOCK_DEFAULT_MINUTES` (or the user's own choice) without mouse, keyboard or
+touch, the browser shows a lock screen and needs the password again; no 2FA code,
+since that browser already passed it. Background price refreshes don't count as use.
+The server enforces it too: the page reports use about once a minute, and an idle
+session gets `423` on every request until it is unlocked, so removing the lock
+screen in the browser's developer tools doesn't open anything. All tabs of a browser
+lock and unlock together; other devices have their own timer. Locking clears the
+data cached in the page. Unlocks and wrong passwords appear in the activity log, and
+`LOCK_MAX_ATTEMPTS` wrong passwords sign that browser out.
 
 ### Devices and activity
 

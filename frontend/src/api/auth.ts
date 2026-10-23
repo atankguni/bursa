@@ -133,6 +133,22 @@ export async function fetchActivity(): Promise<SecurityEvent[]> {
   return data
 }
 
+/** Someone used this page just now (keeps the inactivity lock away). */
+export async function reportActivity(): Promise<void> {
+  await api.post('/api/auth/active')
+}
+
+/** Lock this browser now; the password unlocks it. */
+export async function lockSession(): Promise<void> {
+  await api.post('/api/auth/lock')
+}
+
+/** Unlock with the password (no 2FA code). 401: signed out after too many tries. */
+export async function unlockSession(password: string): Promise<Me> {
+  const { data } = await api.post<Me>('/api/auth/unlock', { password })
+  return data
+}
+
 export async function logout(): Promise<void> {
   await api.post('/api/auth/logout')
 }

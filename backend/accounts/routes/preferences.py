@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import mail
+from accounts.auth import AuthError, lock_minutes
 from accounts.models import User
 from accounts.preferences import (
     get_alerts_seen_at,
@@ -21,6 +22,7 @@ from accounts.preferences import (
     set_daily_digest,
     set_display,
     set_investing_style,
+    set_lock_minutes,
     set_trading_costs,
 )
 from accounts.schemas import PreferencesIn, PreferencesOut
@@ -40,6 +42,7 @@ async def _current(session: AsyncSession, user: User) -> PreferencesOut:
         alerts_seen_at=await get_alerts_seen_at(session, user.id),
         trading_costs=await get_trading_costs(session, user.id),
         daily_digest=await get_daily_digest(session, user.id),
+        lock_minutes=await lock_minutes(session, user),
     )
 
 
@@ -72,6 +75,11 @@ async def update_preferences(
         await set_trading_costs(session, user.id, payload.trading_costs)
     if payload.daily_digest is not None:
         await set_daily_digest(session, user.id, payload.daily_digest)
+    if payload.lock_minutes is not None:
+        try:
+            await set_lock_minutes(session, user, payload.lock_minutes)
+        except AuthError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     return await _current(session, user)
 
 

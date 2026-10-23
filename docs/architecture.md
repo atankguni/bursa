@@ -165,6 +165,13 @@ Invite-only accounts (`accounts/auth.py`, `accounts/routes/auth.py`, `accounts/r
   "Remember this device" is a separate HttpOnly cookie limited to `/api/auth`.
   `deps.current_user` holds admins without 2FA at the setup (403); `signed_in_user`
   skips that check for `/me` and the 2FA endpoints. Password resets keep 2FA on.
+- **Screen lock**: each session stores `active_at` (reported by the page via
+  `POST /api/auth/active`, so background polling doesn't count) and a sticky `locked`
+  flag. `deps.signed_in_user` locks a session idle longer than the user's limit
+  (`accounts.auth.effective_lock_minutes`) and answers 423; `signed_in_session`
+  still lets `/me`, `/lock` and `/unlock` through. The page (`lib/idleLock.ts`) locks
+  on the same timer, shares activity between tabs in `localStorage` and lock state over
+  a `BroadcastChannel`, and drops its query cache while locked.
 - **Activity log** (`accounts/security_log.py`, table `security_events`): sign-ins,
   failed sign-ins of real accounts, password / 2FA changes, signed-out devices and
   admin actions, with address and browser; kept `SECURITY_LOG_DAYS` (daily purge).

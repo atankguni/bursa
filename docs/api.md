@@ -8,6 +8,9 @@ Every endpoint needs a signed-in session (the `bursa_session` cookie from
 Without one the API answers `401`; **admin** endpoints answer `403` to other users.
 An admin without two-factor authentication gets `403` with detail
 `two_factor_setup_required` everywhere except `/api/auth/me` and `/api/auth/2fa`.
+A browser locked after inactivity gets `423` with detail `session_locked` everywhere
+except `/api/auth/me` (which answers with `locked: true`), `/unlock`, `/lock` and
+`/logout`.
 Watchlist, portfolio, alerts, preferences and the assistant act on the signed-in
 user's own data. Writes from another site's page are refused (`403`).
 
@@ -26,7 +29,10 @@ user's own data. Writes from another site's page are refused (`403`).
 | POST   | `/api/auth/2fa/recovery-codes` | New recovery codes (`password`); shown once |
 | DELETE | `/api/auth/2fa/trusted-devices` | Forget every remembered device |
 | POST   | `/api/auth/logout` | Sign out this browser |
-| GET    | `/api/auth/me` | The signed-in user |
+| GET    | `/api/auth/me` | The signed-in user (`locked`: the lock screen is due) |
+| POST   | `/api/auth/active` | The page reports recent use (mouse, keyboard, touch); `423` once locked |
+| POST   | `/api/auth/lock` | Lock this browser now |
+| POST   | `/api/auth/unlock` | Unlock with `password` (no 2FA code); `LOCK_MAX_ATTEMPTS` wrong ones sign the browser out (`401`) |
 | POST   | `/api/auth/password` | Change password (signs out other browsers) |
 | GET    | `/api/auth/invites/{token}` | Public: check an invite link |
 | POST   | `/api/auth/invites/{token}/accept` | Public: create the account (`name`, `password`; `email` for the setup link) and sign in |

@@ -141,6 +141,19 @@ async def set_daily_digest(session: AsyncSession, user_id: int, enabled: bool) -
     await session.commit()
 
 
+async def set_lock_minutes(session: AsyncSession, user: User, minutes: int) -> None:
+    """Minutes without use before a browser locks (0 = never). Admins must lock,
+    within lock_admin_max_minutes (AuthError otherwise)."""
+    from accounts.auth import AuthError
+    from config import settings
+
+    cap = settings.lock_admin_max_minutes
+    if user.role == "admin" and not 0 < minutes <= cap:
+        raise AuthError(f"Admin accounts lock after {cap} minutes or less")
+    await _save(session, user.id, lock_minutes=minutes)
+    await session.commit()
+
+
 async def users_with_digest(session: AsyncSession) -> list[User]:
     """Active users who turned the daily summary on."""
     return list((

@@ -108,6 +108,8 @@ class UserSettings(Base):
     # TradingCosts); NULL = never saved (defaults apply).
     display: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     trading_costs: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # Minutes without use before a browser locks (0 = never); None = the default.
+    lock_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
     updated_at: Mapped[datetime] = updated_at_column()
 
 
@@ -170,6 +172,12 @@ class UserSession(Base):
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, index=True, nullable=False)
     user_agent: Mapped[str | None] = mapped_column(String(255), nullable=True)
     ip: Mapped[str | None] = mapped_column(String(45), nullable=True)
+    # Last time someone used this browser (reported by the page; background
+    # refreshes don't count), for the inactivity lock.
+    active_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    # Locked until the password is entered again; wrong passwords so far.
+    locked: Mapped[bool] = mapped_column(Boolean, server_default=false(), nullable=False)
+    unlock_failures: Mapped[int] = mapped_column(Integer, server_default="0", nullable=False)
 
 
 class Invite(Base):

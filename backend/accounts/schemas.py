@@ -33,7 +33,11 @@ SecurityEventKind = Literal[
     "account_disabled",
     "account_enabled",
     "role_changed",
+    "session_unlocked",
 ]
+
+# Minutes without use before a browser locks (0 = never), see config.lock_*.
+LockMinutes = Literal[0, 5, 15, 30, 60]
 
 
 _Name = Annotated[str, StringConstraints(max_length=32)]
@@ -90,6 +94,9 @@ class PreferencesOut(Schema):
     alerts_seen_at: datetime | None = None
     trading_costs: TradingCosts = Field(default_factory=TradingCosts)
     daily_digest: bool = False  # the summary email after the close (opt-in)
+    # Lock this browser after this many minutes without use (0 = never). For
+    # admins, already capped at config.lock_admin_max_minutes.
+    lock_minutes: int = 15
 
 
 class PreferencesIn(Schema):
@@ -103,6 +110,7 @@ class PreferencesIn(Schema):
     alerts_seen_at: datetime | None = None
     trading_costs: TradingCosts | None = None
     daily_digest: bool | None = None
+    lock_minutes: LockMinutes | None = None
 
 
 # --------------------------------------------------------------------------- #
@@ -125,6 +133,13 @@ class MeOut(Schema):
     password_weak: bool
     # Admin with a weak password: everything but changing it answers 403.
     password_change_required: bool
+    # Idle too long: everything but /me, unlock, lock and sign-out answers 423
+    # until the password is entered again.
+    locked: bool = False
+
+
+class UnlockIn(Schema):
+    password: str = Field(max_length=1024)
 
 
 TwoFactorMethod = Literal["totp", "email", "recovery"]

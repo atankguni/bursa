@@ -31,6 +31,7 @@ from accounts.models import (
     TrustedDevice,
     User,
     UserSession,
+    UserSettings,
 )
 from clock import utcnow
 from config import settings
@@ -175,7 +176,7 @@ async def create_session(
     now = utcnow()
     session.add(UserSession(
         token_hash=digest, user_id=user.id, created_at=now, last_seen_at=now,
-        expires_at=now + timedelta(days=settings.session_days),
+        active_at=now, expires_at=now + timedelta(days=settings.session_days),
         user_agent=(user_agent or "")[:255] or None, ip=ip,
     ))
     user.last_login_at = now
@@ -184,7 +185,15 @@ async def create_session(
 
 
 async def user_for_token(session: AsyncSession, raw: str) -> User | None:
-    """The active user behind a session cookie; slides the expiry while in use."""
+    """The active user behind a session cookie (locked or not)."""
+    found = await session_for_token(session, raw)
+    return found[1] if found else None
+
+
+async def session_for_token(
+    session: AsyncSession, raw: str
+) -> tuple[UserSession, User] | None:
+    """The session and active user behind a cookie; slides the expiry while in use."""
     row = (
         await session.execute(
             select(UserSession, User)
@@ -202,7 +211,69 @@ async def user_for_token(session: AsyncSession, raw: str) -> User | None:
         sess.last_seen_at = now
         sess.expires_at = now + timedelta(days=settings.session_days)
         await session.commit()
-    return user
+    return sess, user
+
+
+# --------------------------------------------------------------------------- #
+# Inactivity lock
+# --------------------------------------------------------------------------- #
+# Activity reports closer together than this don't need a write.
+_ACTIVE_INTERVAL = timedelta(seconds=30)
+
+
+def effective_lock_minutes(chosen: int | None, role: str) -> int:
+    """Minutes without use before a browser locks (0 = never). Admins always lock,
+    at lock_admin_max_minutes at most."""
+    minutes = settings.lock_default_minutes if chosen is None else chosen
+    if role == "admin":
+        cap = settings.lock_admin_max_minutes
+        return cap if minutes <= 0 else min(minutes, cap)
+    return max(minutes, 0)
+
+
+async def lock_minutes(session: AsyncSession, user: User) -> int:
+    row = await session.get(UserSettings, user.id)
+    return effective_lock_minutes(row.lock_minutes if row else None, user.role)
+
+
+async def is_locked(session: AsyncSession, sess: UserSession, user: User) -> bool:
+    """Whether this browser is locked; locks it once it has been idle too long.
+    The lock stays until unlocked (changing the setting doesn't lift it)."""
+    if sess.locked:
+        return True
+    minutes = await lock_minutes(session, user)
+    if minutes and utcnow() - sess.active_at > timedelta(minutes=minutes):
+        sess.locked = True
+        await session.commit()
+        return True
+    return False
+
+
+async def mark_active(session: AsyncSession, sess: UserSession) -> None:
+    """Someone is using this (unlocked) browser."""
+    now = utcnow()
+    if now - sess.active_at >= _ACTIVE_INTERVAL:
+        sess.active_at = now
+        await session.commit()
+
+
+async def lock(session: AsyncSession, sess: UserSession) -> None:
+    sess.locked = True
+    await session.commit()
+
+
+async def unlock(session: AsyncSession, sess: UserSession, user: User, password: str) -> bool:
+    """Lift the lock with the account password. False on a wrong password (the
+    caller counts it and signs the browser out after lock_max_attempts)."""
+    if not verify_password(user, password):
+        sess.unlock_failures += 1
+        await session.commit()
+        return False
+    sess.locked = False
+    sess.unlock_failures = 0
+    sess.active_at = utcnow()
+    await session.commit()
+    return True
 
 
 async def revoke_session(session: AsyncSession, raw: str) -> None:

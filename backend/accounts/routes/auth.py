@@ -11,6 +11,7 @@ from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,10 +32,11 @@ from accounts.schemas import (
     SecurityEventOut,
     SessionOut,
     TwoFactorChallengeOut,
+    UnlockIn,
 )
 from clock import utcnow
 from config import settings
-from deps import current_user, get_session, session_token, signed_in_user
+from deps import current_user, get_session, session_token, signed_in_session, signed_in_user
 from mail.templates import layout
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
@@ -188,8 +190,80 @@ async def logout(
 
 
 @router.get("/me", response_model=MeOut)
-async def me(user: User = Depends(signed_in_user)) -> MeOut:
-    return MeOut.model_validate(user)
+async def me(
+    current: tuple[UserSession, User] = Depends(signed_in_session),
+    session: AsyncSession = Depends(get_session),
+) -> MeOut:
+    """Who is signed in, also while locked (the page then shows the lock screen)."""
+    sess, user = current
+    locked = await auth.is_locked(session, sess, user)
+    return MeOut.model_validate(user).model_copy(update={"locked": locked})
+
+
+# --- inactivity lock ----------------------------------------------------------
+@router.post("/active", status_code=status.HTTP_204_NO_CONTENT)
+async def report_activity(
+    user: User = Depends(signed_in_user),  # 423 once locked: activity can't lift a lock
+    current: tuple[UserSession, User] = Depends(signed_in_session),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """The page reports that someone used it (mouse, keyboard, touch) recently."""
+    await auth.mark_active(session, current[0])
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/lock", status_code=status.HTTP_204_NO_CONTENT)
+async def lock(
+    current: tuple[UserSession, User] = Depends(signed_in_session),
+    session: AsyncSession = Depends(get_session),
+) -> Response:
+    """Lock this browser now (idle timer in the page, or "Lock now")."""
+    await auth.lock(session, current[0])
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/unlock", response_model=MeOut)
+async def unlock(
+    payload: UnlockIn, request: Request,
+    current: tuple[UserSession, User] = Depends(signed_in_session),
+    session: AsyncSession = Depends(get_session),
+) -> MeOut | JSONResponse:
+    """Unlock with the password (no 2FA code: this browser already passed it).
+    Too many wrong passwords sign the browser out."""
+    sess, user = current
+    if not await auth.is_locked(session, sess, user):  # e.g. unlocked in another tab
+        return MeOut.model_validate(user)
+    ip = client_ip(request)
+    if await auth.login_blocked(user.email, ip):
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Too many failed attempts. Try again in a few minutes.",
+        )
+    if await auth.unlock(session, sess, user, payload.password):
+        await auth.clear_failures(user.email)
+        await log_event(session, user.id, "session_unlocked", request)
+        return MeOut.model_validate(user)
+
+    await auth.record_failure(user.email, ip)
+    await log_event(session, user.id, "sign_in_failed", request,
+                    "wrong password on the lock screen")
+    if sess.unlock_failures >= settings.lock_max_attempts:
+        failures = sess.unlock_failures
+        await session.delete(sess)
+        await log_event(session, user.id, "session_revoked", request,
+                        f"{failures} wrong passwords on the lock screen")
+        response = JSONResponse(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            content={"detail": "Signed out after too many wrong passwords."},
+        )
+        response.delete_cookie(settings.session_cookie_name, path="/")
+        return response
+    left = settings.lock_max_attempts - sess.unlock_failures
+    raise HTTPException(
+        status_code=status.HTTP_400_BAD_REQUEST,
+        detail=f"Wrong password. {left} attempt{'' if left == 1 else 's'} left before "
+               "this browser is signed out.",
+    )
 
 
 @router.post("/password", status_code=status.HTTP_204_NO_CONTENT)

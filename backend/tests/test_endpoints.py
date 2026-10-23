@@ -217,7 +217,7 @@ async def test_assistant_personal_data_is_opt_in_and_partial_updates(client):
                  "assistant_save_chats": True, "display": None, "alerts_seen_at": None,
                  "trading_costs": {"buy_fee_pct": 0.15, "sell_fee_pct": 0.25,
                                    "dividend_tax_pct": 10.0},
-                 "daily_digest": False}
+                 "daily_digest": False, "lock_minutes": 15}
     assert (await client.get("/api/assistant/status")).json()["personal_data"] is False
 
     p = (await client.put("/api/preferences", json={"assistant_personal_data": True})).json()

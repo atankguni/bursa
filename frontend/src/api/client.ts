@@ -13,6 +13,8 @@ export const UNAUTHORIZED_EVENT = 'bursa:unauthorized'
  * weak password (403): /me is re-read, which shows the matching screen. */
 export const MFA_SETUP_EVENT = 'bursa:mfa-setup-required'
 const ACCOUNT_POLICY = ['two_factor_setup_required', 'password_change_required']
+/** Fired when the API answers 423: this browser was locked after inactivity. */
+export const LOCKED_EVENT = 'bursa:locked'
 
 api.interceptors.response.use(undefined, (error: unknown) => {
   const url = isAxiosError(error) ? (error.config?.url ?? '') : ''
@@ -25,6 +27,9 @@ api.interceptors.response.use(undefined, (error: unknown) => {
   const detail = errorDetail(error)
   if (status === 403 && detail && ACCOUNT_POLICY.includes(detail)) {
     window.dispatchEvent(new Event(MFA_SETUP_EVENT))
+  }
+  if (status === 423 && detail === 'session_locked') {
+    window.dispatchEvent(new Event(LOCKED_EVENT))
   }
   return Promise.reject(error)
 })

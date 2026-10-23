@@ -505,6 +505,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/auth/active': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Report Activity
+     * @description The page reports that someone used it (mouse, keyboard, touch) recently.
+     */
+    post: operations['report_activity_api_auth_active_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/auth/activity': {
     parameters: {
       query?: never
@@ -562,6 +582,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/auth/lock': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Lock
+     * @description Lock this browser now (idle timer in the page, or "Lock now").
+     */
+    post: operations['lock_api_auth_lock_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/auth/login': {
     parameters: {
       query?: never
@@ -607,7 +647,10 @@ export interface paths {
       path?: never
       cookie?: never
     }
-    /** Me */
+    /**
+     * Me
+     * @description Who is signed in, also while locked (the page then shows the lock screen).
+     */
     get: operations['me_api_auth_me_get']
     put?: never
     post?: never
@@ -750,6 +793,27 @@ export interface paths {
      * @description Sign out one other browser.
      */
     delete: operations['revoke_one_session_api_auth_sessions__session_id__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/auth/unlock': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Unlock
+     * @description Unlock with the password (no 2FA code: this browser already passed it).
+     *     Too many wrong passwords sign the browser out.
+     */
+    post: operations['unlock_api_auth_unlock_post']
+    delete?: never
     options?: never
     head?: never
     patch?: never
@@ -1551,6 +1615,7 @@ export interface components {
         | 'account_disabled'
         | 'account_enabled'
         | 'role_changed'
+        | 'session_unlocked'
       /** New Device */
       new_device: boolean
       /** User Email */
@@ -2473,6 +2538,11 @@ export interface components {
       has_2fa: boolean
       /** Id */
       id: number
+      /**
+       * Locked
+       * @default false
+       */
+      locked: boolean
       /** Mfa Setup Required */
       mfa_setup_required: boolean
       /** Name */
@@ -2641,6 +2711,8 @@ export interface components {
       display?: components['schemas']['DisplaySettings-Input'] | null
       /** Investing Style */
       investing_style?: ('investor' | 'trader') | null
+      /** Lock Minutes */
+      lock_minutes?: (0 | 5 | 15 | 30 | 60) | null
       trading_costs?: components['schemas']['TradingCosts-Input'] | null
     }
     /**
@@ -2672,6 +2744,11 @@ export interface components {
        * @enum {string}
        */
       investing_style: 'investor' | 'trader'
+      /**
+       * Lock Minutes
+       * @default 15
+       */
+      lock_minutes: number
       trading_costs: components['schemas']['TradingCosts-Output']
     }
     /**
@@ -3021,6 +3098,7 @@ export interface components {
         | 'account_disabled'
         | 'account_enabled'
         | 'role_changed'
+        | 'session_unlocked'
       /** New Device */
       new_device: boolean
     }
@@ -3418,6 +3496,11 @@ export interface components {
       remember_device: boolean
       /** Token */
       token: string
+    }
+    /** UnlockIn */
+    UnlockIn: {
+      /** Password */
+      password: string
     }
     /** UserOut */
     UserOut: {
@@ -4390,6 +4473,24 @@ export interface operations {
       }
     }
   }
+  report_activity_api_auth_active_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
   activity_api_auth_activity_get: {
     parameters: {
       query?: never
@@ -4473,6 +4574,24 @@ export interface operations {
         content: {
           'application/json': components['schemas']['HTTPValidationError']
         }
+      }
+    }
+  }
+  lock_api_auth_lock_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
       }
     }
   }
@@ -4750,6 +4869,39 @@ export interface operations {
           [name: string]: unknown
         }
         content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  unlock_api_auth_unlock_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UnlockIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MeOut']
+        }
       }
       /** @description Validation Error */
       422: {
