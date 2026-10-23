@@ -32,6 +32,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import settings
 from models import Fundamental, Stock, StockProfile
 from schemas import CategoryOut, InvestingStyle, Rating, RecommendationOut, Strength
+from services import data_version
 from services.prices import (
     daily_closes,
     fundamental_series,
@@ -438,9 +439,11 @@ async def compute_universe(
     return await asyncio.to_thread(score_investor)
 
 
-# In-process TTL cache per style: the cross-section only changes when data syncs
+# Per-process TTL cache per style: the cross-section only changes when data syncs
 # (prices every 3 min, fundamentals daily), so recomputing on every poll is wasteful.
-_cache: dict[InvestingStyle, tuple[float, dict[str, RecommendationOut]]] = {}
+# Entries remember the "scores" data version they were made under; a bump (from
+# any process: services/data_version.py) makes them stale at once.
+_cache: dict[InvestingStyle, tuple[float, int, dict[str, RecommendationOut]]] = {}
 # One computation per style at a time: requests that arrive while the cache is
 # being refilled wait for that result instead of each recomputing it.
 _locks: dict[InvestingStyle, asyncio.Lock] = {}
@@ -454,11 +457,15 @@ async def compute_universe_cached(
     `recommendation_cache_seconds`. Callers pass the signed-in user's style
     (`deps`/`services.preferences`), so users with different styles don't mix.
     """
+    version = await data_version.current(session, "scores")
+
     def fresh() -> dict[str, RecommendationOut] | None:
         cached = _cache.get(style)
-        if cached is None or time.monotonic() - cached[0] >= settings.recommendation_cache_seconds:
+        if cached is None or cached[1] != version:
             return None
-        return cached[1]
+        if time.monotonic() - cached[0] >= settings.recommendation_cache_seconds:
+            return None
+        return cached[2]
 
     if (data := fresh()) is not None:
         return data
@@ -467,11 +474,11 @@ async def compute_universe_cached(
             return data
         started = time.monotonic()
         data = await compute_universe(session, style)
-        _cache[style] = (started, data)
+        _cache[style] = (started, version, data)
         return data
 
 
-def invalidate_cache() -> None:
-    """Drop the cached universe scores (e.g. after a manual refresh)."""
+async def invalidate_cache() -> None:
+    """Drop the cached universe scores in every process (e.g. after new fundamentals)."""
     _cache.clear()
-    _locks.clear()
+    await data_version.bump("scores")

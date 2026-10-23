@@ -4,8 +4,10 @@ main.py
 FastAPI application entrypoint for "Bursa" — personal IDX stock monitor.
 
 This module only wires things together: settings, middleware, the lifespan
-(DB init -> seed -> backfill -> scheduler) and the routers. Business logic
-lives in `services/` and market integration in `market/`.
+and the routers. The API only serves requests: prepare.py migrates and seeds
+the database before it starts, and the worker process (worker.py) runs the
+scheduler and every background job. Business logic lives in `services/` and
+market integration in `market/`.
 
 Every /api route needs a signed-in user (session cookie) except /api/health
 and the sign-in flow under /api/auth. Admin-only routes say so in their router.
@@ -25,9 +27,8 @@ DELETE /api/watchlist/{ticker}
 POST   /api/watchlist/refresh
 """
 
-import asyncio
 import logging
-from collections.abc import AsyncGenerator, Awaitable, Callable, Coroutine
+from collections.abc import AsyncGenerator, Awaitable, Callable
 from contextlib import asynccontextmanager
 from urllib.parse import urlsplit
 
@@ -35,13 +36,10 @@ from fastapi import Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
-from sqlalchemy import func, select
 
 import mail as mail_service
 from config import settings
-from database import init_db
 from deps import current_user, require_admin
-from models import StockQuote
 from routers import (
     admin,
     alerts,
@@ -59,22 +57,7 @@ from routers import (
     two_factor,
     watchlist,
 )
-from scheduler import (
-    TICKERS,
-    backfill_active,
-    backfill_daily,
-    catch_up_intraday,
-    refresh_index_quotes,
-    start_scheduler,
-    stop_scheduler,
-    sync_splits_active,
-    sync_watchlist_fundamentals,
-)
-from services.auth import ensure_setup_invite
-from services.bootstrap import seed
 from services.crypto import ensure_secret
-from services.idx_listing import sync_if_stale as sync_idx_listing_if_stale
-from services.market_clock import last_closed_trading_day
 
 logging.basicConfig(
     level=logging.INFO,
@@ -84,70 +67,15 @@ log = logging.getLogger("bursa")
 # Alembic logs a line per autogenerate plugin on import; keep only migration work.
 logging.getLogger("alembic.runtime.plugins").setLevel(logging.WARNING)
 
-# Strong references to fire-and-forget startup jobs: the event loop only keeps
-# weak ones, so an unreferenced task can be garbage-collected mid-run.
-_background: set[asyncio.Task[None]] = set()
-
-
-def _spawn(coro: Coroutine[object, object, None]) -> None:
-    task = asyncio.create_task(coro)
-    _background.add(task)
-    task.add_done_callback(_background.discard)
-
-
-async def _catalog_coverage() -> float:
-    """Fraction of catalog tickers that have the last *finished* trading day's bar."""
-    from database import AsyncSessionLocal
-
-    day = last_closed_trading_day()
-    async with AsyncSessionLocal() as session:
-        have = (
-            await session.execute(
-                select(func.count()).select_from(StockQuote).where(StockQuote.day >= day)
-            )
-        ).scalar_one()
-    return have / max(1, len(TICKERS))
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
-    """Startup: init DB -> seed -> purge stale -> backfill -> start scheduler."""
-    ensure_secret()  # load / create the 2FA server secret before anything uses it
-    await init_db()
-    await seed()
-    # Fresh install: log the one-time link that creates the first admin.
-    await ensure_setup_invite()
+    """Startup checks only; the database is prepared by prepare.py."""
+    ensure_secret()  # load the 2FA server secret now, so a problem shows at once
     if mail_service.configured() and mail_service.status()["provider"] == "console":
         log.warning("DEVELOPMENT EMAIL: messages (2FA codes, reset links) are printed to "
                     "this log, not sent. Never use MAIL_PROVIDER=console on a real server.")
-
-    # Fast startup backfill for the active set; the full catalog sync runs in
-    # the background only when coverage is low (first boot), keeping restarts fast.
-    await backfill_active()
-    # Catalog incomplete for the last finished trading day (first boot, or the
-    # 16:30 job was missed): fetch it in the background.
-    if await _catalog_coverage() < 0.8:
-        _spawn(backfill_daily())
-
-    start_scheduler()
-
-    # Refresh watchlist fundamentals in the background (non-blocking startup).
-    _spawn(sync_watchlist_fundamentals())
-    _spawn(refresh_index_quotes())
-    # Listing boards / IPOs from the IDX site, if more than a week old.
-    _spawn(sync_idx_listing_if_stale())
-    _spawn(sync_splits_active())
-    # Fill 1-minute gaps from while the app was down or the host slept.
-    _spawn(catch_up_intraday("5d"))
-
     log.info("Bursa API ready")
-    try:
-        yield
-    finally:
-        stop_scheduler()
-        # Stop unfinished startup jobs cleanly instead of leaving them pending.
-        for task in _background:
-            task.cancel()
+    yield
 
 
 app = FastAPI(

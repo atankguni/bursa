@@ -48,9 +48,11 @@ RUN mkdir -p /app/data
 
 EXPOSE 8000
 
-# Production server (no --reload). For hot-reload during development, run
-# uvicorn directly with the source mounted (see README "Development").
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--no-access-log"]
+# The API: prepare the database (migrations, seed) once, then serve with
+# API_WORKERS processes (default 1). The worker process uses the same image
+# with `python worker.py` (docker-compose.yml). For hot-reload during
+# development, run uvicorn directly (see docs/getting-started.md).
+CMD ["sh", "-c", "python prepare.py && exec uvicorn main:app --host 0.0.0.0 --port 8000 --no-access-log --workers ${API_WORKERS:-1}"]
 
 # --- test -------------------------------------------------------------------
 # Same packages as production plus dev tools, and the PostgreSQL driver so the

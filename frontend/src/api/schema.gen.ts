@@ -1039,7 +1039,7 @@ export interface paths {
     put?: never
     /**
      * Screener Sync
-     * @description Queue a background fundamentals sync for stocks missing data.
+     * @description Queue a fundamentals sync for stocks missing data (run by the worker).
      */
     post: operations['screener_sync_api_screener_sync_post']
     delete?: never
@@ -2183,6 +2183,13 @@ export interface components {
        * @enum {string}
        */
       status: 'ok' | 'warn' | 'error'
+      /**
+       * Worker Running
+       * @default false
+       */
+      worker_running: boolean
+      /** Worker Seen At */
+      worker_seen_at: string | null
     }
     /**
      * LinkOut

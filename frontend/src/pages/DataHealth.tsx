@@ -115,6 +115,19 @@ export default function DataHealth() {
           </div>
 
           <Card title="Scheduled jobs" status={s.jobs.status}>
+            <p className="mb-2 text-xs">
+              {s.jobs.worker_running ? (
+                <>Worker running · last seen {fmtTimeAgo(s.jobs.worker_seen_at)}</>
+              ) : (
+                <span className="text-bear">
+                  Worker not running
+                  {s.jobs.worker_seen_at
+                    ? ` (last seen ${fmtTimeAgo(s.jobs.worker_seen_at)})`
+                    : ''}
+                  : no syncs, alerts, digests or backups until it starts
+                </span>
+              )}
+            </p>
             <div className="overflow-x-auto">
               <table className="w-full whitespace-nowrap text-left">
                 <thead className="text-[10px] uppercase tracking-wider text-subtle">
@@ -143,7 +156,7 @@ export default function DataHealth() {
                         {j.description}
                       </td>
                       <td className="py-1.5 pr-4">
-                        {j.last_run ? fmtTimeAgo(j.last_run) : 'not since restart'}
+                        {j.last_run ? fmtTimeAgo(j.last_run) : 'not yet'}
                       </td>
                       <td className="py-1.5 pr-4">
                         {j.ok == null ? (

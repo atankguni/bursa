@@ -113,16 +113,20 @@ baseline on 2026-10-23.
 ### Converting an old database
 
 A SQLite database from before the squash is refused on startup with a pointer here.
+Stop both the API and the worker first: nothing may have the file open while it is
+copied. (The same goes for reading the live file with `sqlite3` on the host: the Mac
+and Docker's VM don't share SQLite's WAL index, so query it inside a container instead,
+e.g. `docker compose exec worker python -c "import sqlite3; ..."`.)
 Convert it into a new file (the old one is only read), then swap the files:
 
 ```bash
-docker compose stop backend
+docker compose stop backend worker
 docker compose run --rm --no-deps backend \
   python scripts/convert_db.py data/bursa.db data/bursa.converted.db
 mv backend/data/bursa.db backend/data/bursa.pre-squash.db   # keep as a backup
 rm -f backend/data/bursa.db-wal backend/data/bursa.db-shm
 mv backend/data/bursa.converted.db backend/data/bursa.db
-docker compose start backend
+docker compose start backend worker
 ```
 
 It strips `.JK` from stock codes, splits the price table into daily and intraday

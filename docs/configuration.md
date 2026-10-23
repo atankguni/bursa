@@ -16,6 +16,19 @@ and Docker-ignored, and is passed to the container via `env_file`.
 | IDX lot size | `lot_size` (default 100) in `backend/config.py`; exposed via `/api/status` |
 | Accounts: public URL, cookie, session and link lifetimes | `backend/config.py` (see [Accounts](#accounts)) |
 
+## Processes
+
+`docker compose up` starts the API (`backend`), the `worker` (scheduler and every
+sync) and the frontend; see [Architecture → Processes](architecture.md#processes-api-and-worker).
+The worker starts once the API is healthy (the API migrates the database first).
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `API_WORKERS` | `1` | API processes (uvicorn `--workers`). Raise it if pages get slow under many users; there is always exactly one worker. |
+
+Worker logs: `docker compose logs -f worker`. If it isn't running, **Data health**
+says so and nothing syncs until it is back (`docker compose up -d worker`).
+
 ## Database
 
 SQLite is the default and needs no setup. PostgreSQL is the supported server
@@ -64,14 +77,14 @@ To restore one, stop the backend, unpack the backup into a new file (the restore
 command checks it and never overwrites a file), then swap it in:
 
 ```bash
-docker compose stop backend
+docker compose stop backend worker
 docker compose run --rm --no-deps backend \
   python -m services.backup restore data/backups/bursa-2026-10-22_0230.db.gz data/bursa.restored.db
 mv backend/data/bursa.db backend/data/bursa.before-restore.db   # keep until all is well
 rm -f backend/data/bursa.db-wal backend/data/bursa.db-shm
 mv backend/data/bursa.restored.db backend/data/bursa.db
 cp backend/data/backups/bursa-2026-10-22_0230.secret.key backend/data/secret.key  # if present
-docker compose start backend
+docker compose start backend worker
 ```
 
 A backup from before the 2026-10-23 schema change needs converting after the

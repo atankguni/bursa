@@ -14,7 +14,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from clock import local_today, utcnow
 from config import settings
-from market.providers.governor import governor
 from models import Fundamental, IntradayBar, MarketIndex, Stock, StockQuote
 from schemas import (
     DataHealthOut,
@@ -31,6 +30,7 @@ from schemas import (
     SuspiciousHealth,
     TickerIssue,
 )
+from services import worker_state
 from services.fundamentals import SHARES_TOLERANCE  # the same rule the fix applies
 from services.market_clock import WIB, last_closed_trading_day
 from services.prices import latest_fundamentals
@@ -131,11 +131,18 @@ async def report(session: AsyncSession, jobs: list[JobHealth]) -> DataHealthOut:
                 ))
 
     failing_jobs = [j for j in jobs if j.ok is False]
-    calls = governor.stats()
+    calls = await worker_state.provider_stats(session)
+    worker = await worker_state.status(session)
+    worker_running = worker_state.is_alive(worker)
     return DataHealthOut(
         generated_at=now,
         sections=HealthSections(
-            jobs=JobsHealth(status=_status(not failing_jobs), items=jobs),
+            jobs=JobsHealth(
+                status=_status(worker_running and not failing_jobs),
+                items=jobs,
+                worker_seen_at=worker.seen_at if worker else None,
+                worker_running=worker_running,
+            ),
             providers=ProvidersHealth(
                 status=_status(all(not s.last_error for s in calls.values()), warn=True),
                 items=[ProviderHealth(name=n, **s.model_dump()) for n, s in calls.items()],

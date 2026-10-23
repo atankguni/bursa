@@ -14,7 +14,9 @@ bursa/
 ├── docker-compose.yml
 ├── docs/                  # this documentation
 ├── backend/
-│   ├── main.py            # app factory: settings, middleware, lifespan, routers
+│   ├── main.py            # the API: settings, middleware, routers (serves requests only)
+│   ├── worker.py          # the worker: scheduler + every background job
+│   ├── prepare.py         # before start: secret, migrations, seed, setup link
 │   ├── config.py          # Settings (env-driven)
 │   ├── deps.py            # FastAPI dependencies (DB session, current user, admin, style)
 │   ├── database.py        # async engine + session factory, init_db()
@@ -27,7 +29,7 @@ bursa/
 │   ├── market/            # tickers, holidays, IDX site/listing, indices, providers + sync
 │   ├── assistant/         # AI assistant: provider adapters, read-only tools, service
 │   ├── mail/              # email: provider adapters (SMTP, Resend), service, HTML layout
-│   ├── scheduler.py       # APScheduler jobs (prices, fundamentals, indices, retention)
+│   ├── scheduler.py       # APScheduler jobs (prices, fundamentals, indices, retention); worker only
 │   ├── scripts/           # evaluate_signals.py (backtest), gen_idx_list.py
 │   ├── tests/             # pytest
 │   ├── pyproject.toml     # ruff, pyright and pytest config
@@ -60,7 +62,7 @@ The app uses **tiered sync** so the free Yahoo API is never hammered:
   watchlist, portfolio holdings and user-tracked symbols get **1-minute intraday**
   data every 3 minutes during market hours.
 - **Fundamentals**: fetched on demand (per ticker). The Screener has capped "Sync missing"
-  and paced "Sync all" jobs. The watchlist's fundamentals also refresh daily (~18:00 WIB)
+  and paced "Sync all" jobs, run by the worker. The watchlist's fundamentals also refresh daily (~18:00 WIB)
   and via **Refresh**. Figures are **normalized to IDR**: foreign-currency filers (e.g. PGAS,
   which reports in USD) are converted so PBV is calculated on a consistent basis.
   Share counts are cross-checked against IDX's official register.
@@ -125,7 +127,7 @@ Invite-only accounts (`services/auth.py`, `routers/auth.py`, `routers/admin.py`)
 
 - **Passwords** are hashed with Argon2id (`argon2-cffi`). Sign-in takes the same time
   whether or not the email exists, and failures are throttled per email and per IP
-  (in memory: the app is one process).
+  (stored in `login_failures`, so every API process counts them).
 - **Sessions** are random 256-bit tokens in an `HttpOnly`, `SameSite=Lax` cookie
   (`Secure` with `SESSION_COOKIE_SECURE`). Only the token's SHA-256 is stored, so a
   database copy can't be used to sign in. Sessions slide while in use and are deleted
@@ -183,29 +185,61 @@ Callers never see SMTP or a vendor API. Sender and recipients default to `MAIL_F
 addresses), and logs record only the subject and recipient count, never addresses,
 content or credentials.
 
+## Processes: API and worker
+
+The backend image runs as two services (`docker-compose.yml`):
+
+| Process | Runs | Count |
+|---|---|---|
+| `backend` (API, `main.py`) | `prepare.py` once (secret, migrations, seed), then uvicorn. Serves requests only. | `API_WORKERS` processes (default 1) |
+| `worker` (`worker.py`) | The scheduler, the startup catch-up syncs, and long jobs the API asks for (Sync all). | exactly 1 |
+
+So a slow Yahoo call or a crashing job never slows a page, and restarting the API
+doesn't stop a sync. The two share **nothing but the database**
+(`services/worker_state.py`, `services/sync_job.py`, `services/data_version.py`):
+
+- **Heartbeat:** the worker writes `worker_status` every 30 s (with its provider call
+  counters and last price sync). Data health shows "Worker not running" when it is
+  older than 2 minutes, and the Screener says a queued sync waits for the worker.
+- **Scheduled jobs:** each job's next run and last outcome go to `scheduled_jobs`, which
+  the data-health page reads.
+- **Sync all / Sync missing:** the API writes a request to `worker_tasks`; the worker
+  claims it (a conditional update, so two clicks can't start two runs), saves progress
+  after every stock and checks the cancel flag. If the worker stops mid-run (deploy,
+  crash), the run stays "running" and the next worker resumes it where it left off.
+- **Cache invalidation:** after new fundamentals, `data_versions.scores` is bumped; each
+  API process sees the new number on its next request and recomputes its cached scores.
+- **Per-user limits** (sign-in throttling, the assistant's daily cap) are rows too, so
+  they hold across several API processes.
+
+The API still calls the provider for a few things a click needs at once: symbol search,
+a chart's full history the first time, adding a stock to the watchlist, Refresh.
+
 ## Architecture & rate-limiting
 
 Temporary data lives in two places; no external cache service is used:
 
 - **The database is the durable cache / source of truth.** The API serves reads from
   it, never from the provider, so browsing never hits Yahoo.
-- **In-process TTL caches** for derived/volatile data:
-  - recommendation scores: `recommendation_cache_seconds` (60s);
+- **Per-process TTL caches** for derived/volatile data:
+  - recommendation scores: `recommendation_cache_seconds` (60s), dropped early when
+    the data changes (`data_versions`);
   - FX rates: `fx_cache_hours` (6h);
   - symbol search: `search_cache_seconds` (300s).
 
 **Anti-blacklist:** all outbound provider calls go through a central **governor**
 (`market/providers/governor.py`). It caps concurrency, spaces calls
 (`provider_min_interval_ms`) and dedupes concurrent identical calls (single-flight).
-It also records per-provider metrics, exposed at `GET /api/providers` and summarized
-in a daily log line at 23:00 WIB. Together with batched `yf.download`, market-hours-only
+It also records per-provider metrics, exposed at `GET /api/providers` (the worker's
+and the API's added up) and summarized in a daily log line at 23:00 WIB. The governor
+is per process; the worker makes nearly all calls. Together with batched `yf.download`, market-hours-only
 intraday syncing and DB-backed staleness checks, this prevents bursts.
 
-**Why not Redis?** The app runs as a **single process** (one uvicorn worker with the
-scheduler in-process), so in-process caches are shared by every request. Redis only
-becomes worthwhile when scaling to **multiple workers/replicas** (shared cache) or
-running the scheduler as a **separate service** (distributed lock). That's the
-point to add a shared cache/lock, not before.
+**Why not Redis?** The few things processes must share (job requests, progress,
+heartbeats, cache versions, throttling) are small and change rarely, so they live in
+the database the app already has. Each API process keeps its own cache of the scored
+universe; the shared version number keeps them correct. Redis becomes worthwhile when
+several machines run the API, or for caching heavier than that.
 
 ## Frontend delivery
 
@@ -228,7 +262,7 @@ front of nginx when exposing Bursa beyond your network.
 - Fundamentals are fetched **per ticker** (yfinance has no batch statement API), so syncing is throttled.
 - yfinance may occasionally rate-limit or omit a ticker; failed jobs are retried and never crash the app.
 - Yahoo has no long history for some smaller indices; they build up daily from first sync.
-- Sign-in throttling is kept in memory, so it resets on restart and assumes a single
-  backend process.
+- Run exactly one worker: two would run every scheduled job twice (there is no
+  leader election).
 - No passkeys (WebAuthn) yet; they need HTTPS on the final domain.
 - Telegram delivery uses one server-wide chat, so only admins' alerts are sent there.

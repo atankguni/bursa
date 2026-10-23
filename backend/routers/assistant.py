@@ -39,7 +39,7 @@ async def assistant_status(
         models=models,
         setup_hint=setup_hint(),
         personal_data=await get_assistant_personal_data(session, user.id),
-        remaining_today=service.remaining_today(user.id),
+        remaining_today=await service.remaining_today(user.id),
         daily_limit=settings.assistant_daily_limit,
         save_chats=await get_assistant_save_chats(session, user.id),
         chat_days=max(1, settings.assistant_chat_days),

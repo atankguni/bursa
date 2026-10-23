@@ -6,12 +6,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import settings
 from deps import get_session
-from market.providers.governor import governor
 from market.providers.registry import available as available_providers
-from market.sync import last_synced_at
 from market.tickers import INDEX_ORDER
 from models import Stock, StockIndex
 from schemas import MarketStatusOut, ProviderInfo, ProvidersOut, StatusOut
+from services import worker_state
 from services.market_clock import status as market_status
 
 router = APIRouter(prefix="/api", tags=["meta"])
@@ -31,12 +30,13 @@ async def get_status(session: AsyncSession = Depends(get_session)) -> StatusOut:
     tracked = (
         await session.execute(select(func.count()).select_from(Stock))
     ).scalar_one()
-    calls = {name: s.calls_today for name, s in governor.stats().items()}
+    stats = await worker_state.provider_stats(session)
+    calls = {name: s.calls_today for name, s in stats.items()}
     return StatusOut(
         server_time=st.server_time,
         timezone=st.timezone,
         session=st.session,
-        last_sync=last_synced_at(),
+        last_sync=await worker_state.last_price_sync(session),
         stocks_tracked=int(tracked),
         providers={
             "price": settings.price_provider,
@@ -54,13 +54,13 @@ async def get_market_status() -> MarketStatusOut:
 
 
 @router.get("/providers", response_model=ProvidersOut)
-async def get_providers() -> ProvidersOut:
+async def get_providers(session: AsyncSession = Depends(get_session)) -> ProvidersOut:
     """Active data providers + the full registry (read-only)."""
     return ProvidersOut(
         price=settings.price_provider,
         fundamentals=settings.fundamentals_provider,
         available=[ProviderInfo(**p) for p in available_providers()],
-        metrics=governor.stats(),
+        metrics=await worker_state.provider_stats(session),
     )
 
 

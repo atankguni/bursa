@@ -101,7 +101,7 @@ async def refresh_watchlist(
         await session.execute(select(Watchlist.ticker).where(Watchlist.user_id == user.id))
     ).scalars().all()
     rows = await sync_many(list(tickers), throttle=1.0)
-    invalidate_cache()  # fresh fundamentals -> recompute scores next request
+    await invalidate_cache()  # fresh fundamentals -> recompute scores next request
     return {"tickers": len(tickers), "rows": rows}
 
 
@@ -136,7 +136,7 @@ async def add_to_watchlist(
 
     # Populate fundamentals immediately so the new row is useful at once.
     await sync_ticker(ticker)
-    invalidate_cache()
+    await invalidate_cache()
 
     items = await _build_watchlist(session, user.id, style)
     for item in items:

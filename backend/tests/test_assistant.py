@@ -54,7 +54,6 @@ def _named(name: str) -> type[_Scripted]:
 
 def _chain(monkeypatch, *attempts):
     monkeypatch.setattr(service, "resolve_chain", lambda: list(attempts))
-    monkeypatch.setattr(service, "_usage", {})
 
 
 def _call(name, **args):

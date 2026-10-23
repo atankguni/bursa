@@ -1,19 +1,41 @@
-"""Tests for the screener sync job + fundamentals sync flag."""
+"""Tests for the screener sync job (API asks, worker runs) + fundamentals sync flag."""
+
+import asyncio
 
 import services.fundamentals as fundamentals
 import services.sync_job as sync_job
 from clock import utcnow
+from database import AsyncSessionLocal
+from services import sync_state, worker_state
 
 
-def test_status_shape():
-    st = sync_job.status()
+async def test_status_shape(client):
+    st = await sync_job.status()
     assert set(st.model_dump()) >= {"running", "total", "done", "remaining", "last_error"}
-    assert st.remaining >= 0
+    assert st.running is False and st.remaining == 0
 
 
-def test_start_rejects_while_running(monkeypatch):
-    monkeypatch.setitem(sync_job._state, "running", True)
-    assert sync_job.start(["BBCA"]) is False
+async def test_start_rejects_while_running(client):
+    assert await sync_job.start(["BBCA"]) is True
+    assert await sync_job.start(["TLKM"]) is False
+    assert (await sync_job.start_all()) is False
+
+
+async def test_a_queued_run_waits_for_the_worker(client):
+    await sync_job.start(["BBCA", "TLKM"])
+    st = await sync_job.status()
+    assert st.running and st.total == 2
+    assert "worker isn't running" in (st.note or "")  # no heartbeat yet
+    await worker_state.heartbeat(utcnow())
+    assert (await sync_job.status()).note == "Waiting for the worker…"
+
+
+async def test_cancel_before_the_worker_picks_it_up(client, monkeypatch):
+    calls = await _fake_sync_factory(monkeypatch, lambda t: True)
+    await sync_job.start(["BBCA"])
+    r = (await client.post("/api/screener/sync/cancel")).json()
+    assert r["running"] is False
+    assert await sync_job.run_requested() is False and calls == []
 
 
 async def test_sync_many_passes_with_dividends_flag(monkeypatch):
@@ -38,7 +60,9 @@ async def test_missing_tickers_rotates_tried_ones_to_the_back(client):
     before = await sync_job.missing_tickers()
     first = before[0]
 
-    await sync_job._mark_checked(first)
+    async with AsyncSessionLocal() as s:
+        await sync_state.mark_done(s, "fundamentals", [first])
+        await s.commit()
     after = await sync_job.missing_tickers()
 
     assert after[0] != first
@@ -140,16 +164,6 @@ async def _fake_sync_factory(monkeypatch, gives_data):
     return calls
 
 
-async def _wait_done():
-    import asyncio
-
-    for _ in range(200):
-        if not sync_job.status().running:
-            return
-        await asyncio.sleep(0.05)
-    raise AssertionError("sync job did not finish")
-
-
 async def test_sync_all_works_through_every_never_tried_stock(client, monkeypatch):
     from config import settings
 
@@ -161,7 +175,9 @@ async def test_sync_all_works_through_every_never_tried_stock(client, monkeypatc
 
     r = (await client.post("/api/screener/sync", params={"all": True})).json()
     assert r["running"] and r["total"] == total
-    await _wait_done()
+    assert calls == []  # the API only asks; the worker runs it
+    assert await sync_job.run_requested() is True
+    assert (await sync_job.status()).running is False
     assert len(calls) == total and len(set(calls)) == total  # each once, in batches of 300
     assert await sync_job.never_tried() == []
 
@@ -175,29 +191,63 @@ async def test_sync_all_stops_when_batches_come_back_empty(client, monkeypatch):
         monkeypatch.setattr(settings, k, v)
     calls = await _fake_sync_factory(monkeypatch, lambda t: False)  # "blocked"
     await sync_job.start_all()
-    await _wait_done()
+    await sync_job.run_requested()
     assert len(calls) == 10  # two empty batches of 5, then it gives up
-    assert "rate-limiting" in (sync_job.status().last_error or "")
+    assert "rate-limiting" in ((await sync_job.status()).last_error or "")
 
 
 async def test_sync_all_can_be_cancelled(client, monkeypatch):
-    import asyncio
-
     from config import settings
 
     for k, v in {"screener_sync_limit": 5, "screener_sync_batch_pause": 30,
                  "screener_sync_throttle": 0}.items():
         monkeypatch.setattr(settings, k, v)
     calls = await _fake_sync_factory(monkeypatch, lambda t: True)
+    await worker_state.heartbeat(utcnow())
     await sync_job.start_all()
+    worker = asyncio.create_task(sync_job.run_requested())
     for _ in range(100):  # wait until the first batch is done and it's pausing
         if len(calls) >= 5:
             break
         await asyncio.sleep(0.02)
     r = (await client.post("/api/screener/sync/cancel")).json()
     assert r["note"] == "Stopping…"
-    await _wait_done()  # stops during the 30s pause, not after it
+    await asyncio.wait_for(worker, 10)  # stops during the 30s pause, not after it
     assert len(calls) == 5
+    assert (await sync_job.status()).running is False
+
+
+async def test_a_run_interrupted_by_a_worker_restart_is_resumed(client, monkeypatch):
+    from config import settings
+
+    monkeypatch.setattr(settings, "screener_sync_throttle", 0)
+    tickers = ["AADI", "ACES", "ADRO", "BBCA"]
+    calls = await _fake_sync_factory(monkeypatch, lambda t: True)
+    gate = asyncio.Event()
+    fake = sync_job.sync_ticker
+
+    async def slow_on_third(ticker, with_dividends=True):
+        if len(calls) == 2:
+            await gate.wait()  # the worker is stopped while syncing the 3rd stock
+        return await fake(ticker, with_dividends)
+
+    monkeypatch.setattr(sync_job, "sync_ticker", slow_on_third)
+    await sync_job.start(tickers)
+    worker = asyncio.create_task(sync_job.run_requested())
+    for _ in range(100):
+        if len(calls) == 2:
+            break
+        await asyncio.sleep(0.02)
+    await asyncio.sleep(0.05)
+    worker.cancel()  # SIGTERM: the worker cancels its tasks
+    await asyncio.gather(worker, return_exceptions=True)
+    st = await sync_job.status()
+    assert st.running and st.done == 2  # still running, progress kept
+
+    gate.set()
+    assert await sync_job.resume_interrupted() is True  # the next worker
+    assert calls == tickers  # the first two weren't synced again
+    assert (await sync_job.status()).running is False
 
 
 async def test_history_backfill_marks_done_and_resumes(client, monkeypatch):

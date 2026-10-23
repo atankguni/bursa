@@ -48,6 +48,10 @@ MfaPurpose = Literal["login", "enroll_email"]
 FundamentalSource = Literal["statements", "summary"]
 # Per-stock background work whose last run is remembered (models.SyncState).
 SyncJob = Literal["listing", "history_backfill", "full_history", "splits", "fundamentals"]
+# Long-running work the API asks the worker to do (models.WorkerTask).
+WorkerTaskName = Literal["fundamentals_sync"]
+# Cached results that other processes must drop when the data changes (models.DataVersion).
+DataName = Literal["scores"]
 
 
 class StockBase(Schema):
@@ -953,7 +957,7 @@ class JobHealth(Schema):
     description: str
     next_run: datetime | None = None
     last_run: datetime | None = None
-    ok: bool | None = None  # None: hasn't run since the server started
+    ok: bool | None = None  # None: hasn't run yet
     error: str | None = None
 
 
@@ -969,6 +973,9 @@ class ProviderHealth(ProviderStat):
 class JobsHealth(Schema):
     status: HealthStatus
     items: list[JobHealth]
+    # The worker process's last heartbeat; error status when it is too old.
+    worker_seen_at: datetime | None = None
+    worker_running: bool = False
 
 
 class ProvidersHealth(Schema):

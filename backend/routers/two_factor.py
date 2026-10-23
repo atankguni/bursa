@@ -53,7 +53,7 @@ async def verify(
         user = await two_factor.challenge_user(session, payload.token)
     except auth.AuthError as exc:
         raise _bad(exc) from exc
-    if auth.login_blocked(user.email, ip):
+    if await auth.login_blocked(user.email, ip):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many failed attempts. Try again in a few minutes.",
@@ -61,9 +61,9 @@ async def verify(
     try:
         await two_factor.verify_login(session, payload.token, payload.method, payload.code)
     except auth.AuthError as exc:
-        auth.record_failure(user.email, ip)
+        await auth.record_failure(user.email, ip)
         raise _bad(exc) from exc
-    auth.clear_failures(user.email)
+    await auth.clear_failures(user.email)
     if payload.remember_device:
         set_trusted_cookie(
             response,

@@ -10,7 +10,10 @@ Goals (avoid rate-limit / blacklisting):
   * Record lightweight metrics for observability.
 
 All provider calls go through `governor.call(...)`, so bursts are impossible no
-matter how many endpoints or jobs trigger them.
+matter how many endpoints or jobs trigger them. The governor is per process:
+the worker makes nearly all calls (syncs); an API process only makes the few
+a user's click needs (search, a chart's full history, adding a stock). Its
+counters reach the API through services/worker_state.py.
 """
 
 import asyncio

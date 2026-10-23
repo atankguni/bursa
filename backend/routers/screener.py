@@ -49,7 +49,7 @@ async def screener(
 
 
 async def _sync_status() -> SyncStatusOut:
-    status = sync_job.status()
+    status = await sync_job.status()
     status.missing = await sync_job.missing_count()
     return status
 
@@ -72,10 +72,10 @@ async def screener_sync(
         description="Work through every never-tried stock in paced batches",
     ),
 ) -> SyncStartOut:
-    """Queue a background fundamentals sync for stocks missing data."""
+    """Queue a fundamentals sync for stocks missing data (run by the worker)."""
     if all_missing:
         started = await sync_job.start_all()
-        st = sync_job.status()
+        st = await sync_job.status()
         return SyncStartOut(
             running=st.running, queued=st.total if started else 0,
             total=st.total, remaining=st.remaining,
@@ -86,8 +86,8 @@ async def screener_sync(
     if not tickers:
         return SyncStartOut(running=False, queued=0, total=0, remaining=0)
 
-    started = sync_job.start(tickers)
-    st = sync_job.status()
+    started = await sync_job.start(tickers)
+    st = await sync_job.status()
     return SyncStartOut(
         running=st.running,
         queued=len(tickers) if started else 0,
@@ -101,5 +101,5 @@ async def screener_sync(
 )
 async def screener_sync_cancel() -> SyncStatusOut:
     """Stop the running sync after the current stock."""
-    sync_job.cancel()
+    await sync_job.cancel()
     return await _sync_status()

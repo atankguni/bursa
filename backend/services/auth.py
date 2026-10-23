@@ -14,9 +14,7 @@ password resets.
 import hashlib
 import logging
 import secrets
-import time
-from collections import defaultdict, deque
-from datetime import timedelta
+from datetime import datetime, timedelta
 from typing import Any, Literal, cast
 
 from argon2 import PasswordHasher
@@ -29,6 +27,7 @@ from config import settings
 from mail.base import is_valid_address
 from models import (
     Invite,
+    LoginFailure,
     MfaChallenge,
     PasswordReset,
     TrustedDevice,
@@ -103,36 +102,51 @@ def link(path: str) -> str:
 
 
 # --------------------------------------------------------------------------- #
-# Sign-in throttling (in-process: the app runs as a single process)
+# Sign-in throttling (in the database, so every API process sees every failure;
+# each call has its own session, so a failure is kept even if the request fails)
 # --------------------------------------------------------------------------- #
-_failures: dict[str, deque[float]] = defaultdict(deque)
+def _window_start() -> datetime:
+    return utcnow() - timedelta(minutes=settings.login_window_minutes)
 
 
-def _recent(key: str, now: float) -> deque[float]:
-    window = settings.login_window_minutes * 60
-    q = _failures[key]
-    while q and now - q[0] > window:
-        q.popleft()
-    return q
+async def _recent_failures(key: str) -> int:
+    from database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        return (
+            await session.execute(
+                select(func.count()).select_from(LoginFailure).where(
+                    LoginFailure.key == key, LoginFailure.at > _window_start()
+                )
+            )
+        ).scalar_one()
 
 
-def login_blocked(email: str, ip: str | None) -> bool:
-    now = time.monotonic()
+async def login_blocked(email: str, ip: str | None) -> bool:
     limit = settings.login_max_failures
-    if len(_recent(f"email:{normalize_email(email)}", now)) >= limit:
+    if await _recent_failures(f"email:{normalize_email(email)}") >= limit:
         return True
-    return ip is not None and len(_recent(f"ip:{ip}", now)) >= limit * 3
+    return ip is not None and await _recent_failures(f"ip:{ip}") >= limit * 3
 
 
-def record_failure(email: str, ip: str | None) -> None:
-    now = time.monotonic()
-    _recent(f"email:{normalize_email(email)}", now).append(now)
-    if ip is not None:
-        _recent(f"ip:{ip}", now).append(now)
+async def record_failure(email: str, ip: str | None) -> None:
+    from database import AsyncSessionLocal
+
+    now = utcnow()
+    keys = [f"email:{normalize_email(email)}"] + ([f"ip:{ip}"] if ip is not None else [])
+    async with AsyncSessionLocal() as session:
+        session.add_all(LoginFailure(key=key, at=now) for key in keys)
+        await session.commit()
 
 
-def clear_failures(email: str) -> None:
-    _failures.pop(f"email:{normalize_email(email)}", None)
+async def clear_failures(email: str) -> None:
+    from database import AsyncSessionLocal
+
+    async with AsyncSessionLocal() as session:
+        await session.execute(
+            delete(LoginFailure).where(LoginFailure.key == f"email:{normalize_email(email)}")
+        )
+        await session.commit()
 
 
 # --------------------------------------------------------------------------- #
@@ -349,7 +363,7 @@ async def reset_password(session: AsyncSession, raw: str, password: str) -> User
     # only proves access to the inbox.
     await session.execute(delete(TrustedDevice).where(TrustedDevice.user_id == user.id))
     await session.commit()
-    clear_failures(user.email)
+    await clear_failures(user.email)
     return user
 
 
@@ -367,6 +381,7 @@ async def purge_expired() -> int:
             delete(PasswordReset).where(PasswordReset.expires_at <= now),
             delete(MfaChallenge).where(MfaChallenge.expires_at <= now),
             delete(TrustedDevice).where(TrustedDevice.expires_at <= now),
+            delete(LoginFailure).where(LoginFailure.at <= _window_start()),
         ):
             removed += cast(CursorResult[Any], await session.execute(stmt)).rowcount or 0
         await session.commit()

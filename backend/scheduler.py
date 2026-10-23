@@ -1,7 +1,8 @@
 """
 scheduler.py
 ------------
-Background jobs + lifecycle (APScheduler).
+Background jobs + lifecycle (APScheduler). Runs in the worker process
+(worker.py), never in the API.
 
 Jobs:
   * backfill_daily                -> 1y of daily candles (startup + weekday 09:00)
@@ -20,9 +21,10 @@ The heavy lifting lives in `market.sync` (batched downloads) and
 `services.fundamentals` (per-ticker statements).
 """
 
+import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any, TypedDict, cast
+from typing import Any, cast
 
 from apscheduler.events import EVENT_JOB_ERROR, EVENT_JOB_EXECUTED, JobExecutionEvent
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -36,7 +38,7 @@ from db import maintenance
 from market.sync import DAILY_INTERVAL, INTRADAY_INTERVAL, sync_batch
 from market.tickers import all_tickers
 from models import IntradayBar, Stock, StockIndex, Transaction, Watchlist
-from schemas import JobHealth
+from services import worker_state
 from services.market_clock import is_open
 
 log = logging.getLogger("bursa.scheduler")
@@ -243,39 +245,33 @@ JOB_DEFAULTS = {"misfire_grace_time": 6 * 3600, "coalesce": True}
 scheduler = AsyncIOScheduler(timezone=settings.timezone, job_defaults=JOB_DEFAULTS)
 
 
-class JobRun(TypedDict):
-    last_run: datetime | None
-    ok: bool | None
-    error: str | None
-
-
-# Last outcome per job id, for the data-health page (in-memory; single process).
-job_runs: dict[str, JobRun] = {}
+# Strong references to the writes of job outcomes (see _record_job).
+_recording: set[asyncio.Task[None]] = set()
 
 
 def _record_job(event: JobExecutionEvent) -> None:
-    job_runs[event.job_id] = {
-        "last_run": utcnow(),
-        "ok": event.exception is None,
-        "error": str(event.exception)[:300] if event.exception else None,
-    }
+    """Store a job's outcome for the data-health page (the API reads it from the
+    database: services/worker_state.py). Listeners are plain functions, so the
+    write runs as a task."""
+    job = scheduler.get_job(event.job_id)
+    error = str(event.exception) if event.exception else None
+    task = asyncio.get_running_loop().create_task(
+        worker_state.record_run(event.job_id, error, job.next_run_time if job else None)
+    )
+    _recording.add(task)
+    task.add_done_callback(_recording.discard)
 
 
-def job_report() -> list[JobHealth]:
-    """Every scheduled job with its next run and last outcome (if any yet)."""
+def job_list() -> list[tuple[str, str, datetime | None]]:
+    """(id, description, next run) of every scheduled job."""
     return [
-        JobHealth(
-            id=job.id,
-            description=(job.func.__doc__ or job.id).strip().splitlines()[0],
-            next_run=job.next_run_time,
-            **job_runs.get(job.id, JobRun(last_run=None, ok=None, error=None)),
-        )
-        for job in sorted(scheduler.get_jobs(), key=lambda j: j.id)
+        (job.id, (job.func.__doc__ or job.id).strip().splitlines()[0], job.next_run_time)
+        for job in scheduler.get_jobs()
     ]
 
 
 def start_scheduler() -> None:
-    """Register jobs and start the AsyncIOScheduler (call on app startup)."""
+    """Register jobs and start the AsyncIOScheduler (the worker calls this)."""
     if scheduler.running:
         return
 
@@ -461,6 +457,6 @@ def start_scheduler() -> None:
 
 
 def stop_scheduler() -> None:
-    """Gracefully shut the scheduler down on app shutdown."""
+    """Gracefully shut the scheduler down when the worker stops."""
     if scheduler.running:
         scheduler.shutdown(wait=False)

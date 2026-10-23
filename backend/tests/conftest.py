@@ -79,7 +79,6 @@ async def db():
     """Migrated + seeded database, torn down after the test."""
     await init_db()
     await seed()
-    auth._failures.clear()
     yield
     # Tear down the DB between tests for isolation.
     if engine.dialect.name != "sqlite":

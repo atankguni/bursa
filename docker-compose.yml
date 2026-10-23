@@ -3,6 +3,7 @@
 #   docker compose up --build
 #
 # Backend  : FastAPI      -> http://localhost:8000  (docs at /docs; this machine only)
+# Worker   : scheduler + background jobs (same image; no port)
 # Frontend : nginx static -> http://localhost:5173  (proxies /api to backend)
 # SQLite   : ./backend/data/bursa.db (persisted on the host, WAL mode)
 #
@@ -29,6 +30,33 @@ services:
     # client IP header the backend trusts), never directly.
     ports:
       - "127.0.0.1:8000:8000"
+    # Healthy once prepare.py has migrated the database and the API answers.
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
+      interval: 10s
+      timeout: 5s
+      start_period: 120s
+      retries: 3
+    restart: unless-stopped
+
+  # Scheduler and every background job (syncs, alerts, digests, backups), so a
+  # slow provider or failing job never slows the API. Exactly one: the jobs
+  # would otherwise run twice. Talks to the API only through the database.
+  worker:
+    image: bursa-backend
+    command: ["python", "worker.py"]
+    env_file:
+      - path: ./backend/.env
+        required: false
+    environment:
+      - DATABASE_URL=sqlite+aiosqlite:////app/data/bursa.db
+    volumes:
+      - ./backend/data:/app/data
+    depends_on:
+      backend:
+        condition: service_healthy
+    # Let a running sync save its progress before the container stops.
+    stop_grace_period: 30s
     restart: unless-stopped
 
   frontend:

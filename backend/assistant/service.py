@@ -19,6 +19,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 from pydantic_core import to_jsonable_python
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from assistant.providers import (
@@ -36,6 +37,9 @@ from assistant.providers import (
 from assistant.tools import Tool, ToolContext, available_tools
 from clock import local_today
 from config import settings
+from database import AsyncSessionLocal
+from db.upsert import upsert
+from models import AssistantUsage
 from services.preferences import get_assistant_personal_data, get_investing_style
 
 log = logging.getLogger("bursa.assistant")
@@ -84,18 +88,31 @@ class Answer:
     remaining_today: int = 0
 
 
-# In-memory daily counter per user (single-process app; resets on restart, which
-# only ever loosens the cap - the provider's own quota still applies).
-_usage: dict[tuple[str, int], int] = {}
-
-
-def _today() -> str:
-    return local_today().isoformat()
-
-
-def remaining_today(user_id: int) -> int:
+async def remaining_today(user_id: int) -> int:
     """Questions this user may still ask today (`assistant_daily_limit` is per user)."""
-    return max(0, settings.assistant_daily_limit - _usage.get((_today(), user_id), 0))
+    async with AsyncSessionLocal() as session:
+        used = (
+            await session.execute(
+                select(AssistantUsage.questions).where(
+                    AssistantUsage.user_id == user_id, AssistantUsage.day == local_today()
+                )
+            )
+        ).scalar_one_or_none()
+    return max(0, settings.assistant_daily_limit - (used or 0))
+
+
+async def _count_question(user_id: int) -> None:
+    """One more question today (stored, so every API process shares the cap)."""
+    key = {"user_id": user_id, "day": local_today()}
+    async with AsyncSessionLocal() as session:
+        await upsert(session, AssistantUsage, key | {"questions": 0},
+                     keys=["user_id", "day"], update=[])
+        await session.execute(
+            update(AssistantUsage)
+            .where(AssistantUsage.user_id == user_id, AssistantUsage.day == key["day"])
+            .values(questions=AssistantUsage.questions + 1)
+        )
+        await session.commit()
 
 
 def configured() -> bool:
@@ -154,12 +171,11 @@ async def ask(
     attempts = resolve_chain()
     if not attempts:
         raise AssistantUnavailable(f"The assistant isn't configured: set {setup_hint()}.")
-    if remaining_today(user_id) <= 0:
+    if await remaining_today(user_id) <= 0:
         raise AssistantUnavailable(
             f"Daily limit of {settings.assistant_daily_limit} questions reached."
         )
-    key = (_today(), user_id)
-    _usage[key] = _usage.get(key, 0) + 1
+    await _count_question(user_id)
 
     personal = await get_assistant_personal_data(session, user_id)
     tools = available_tools(personal)
@@ -184,7 +200,7 @@ async def ask(
     for provider, model in attempts:
         try:
             answer = await _attempt(provider, model, system, base, ctx, tools)
-            answer.remaining_today = remaining_today(user_id)
+            answer.remaining_today = await remaining_today(user_id)
             return answer
         except ProviderBusyError as exc:
             log.warning("Assistant attempt %s:%s busy, trying next: %s", provider.name, model, exc)

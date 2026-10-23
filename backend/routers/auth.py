@@ -97,14 +97,14 @@ async def login(
     """Check the password. With 2FA on (and this device not remembered) the answer
     is a challenge for /api/auth/2fa/verify instead of a session."""
     ip = client_ip(request)
-    if auth.login_blocked(payload.email, ip):
+    if await auth.login_blocked(payload.email, ip):
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many failed sign-in attempts. Try again in a few minutes.",
         )
     user = await auth.authenticate(session, payload.email, payload.password)
     if user is None:
-        auth.record_failure(payload.email, ip)
+        await auth.record_failure(payload.email, ip)
         # Same message whether the email exists or not.
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     # The only moment the plain password is known: flag it if today's policy
@@ -124,7 +124,7 @@ async def login(
             email_hint=two_factor.email_hint(user.email),
             email_sent=challenge.email_sent_at is not None,
         ))
-    auth.clear_failures(payload.email)
+    await auth.clear_failures(payload.email)
     return LoginOut(user=await sign_in(session, user, request, response))
 
 

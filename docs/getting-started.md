@@ -53,7 +53,12 @@ dev servers directly (no separate compose file needed):
 # Backend (auto-reload)
 cd backend
 pip install -r requirements.txt
+python prepare.py                  # migrations + seed (again after pulling changes)
 uvicorn main:app --reload --port 8000
+
+# Worker (scheduler + syncs) — in another terminal; restart it after code changes
+cd backend
+python worker.py
 
 # Frontend (Vite HMR) — in another terminal
 cd frontend
@@ -62,6 +67,7 @@ VITE_API_URL=http://localhost:8000 npm run dev
 ```
 
 Vite serves on http://localhost:5173 and, with `VITE_API_URL` set, talks to the
-backend on `:8000` (CORS is already allowed for `localhost:5173`).
+backend on `:8000` (CORS is already allowed for `localhost:5173`). Without the worker
+the app still works, but nothing syncs and Sync all waits for it.
 
 Next: [Development commands](development.md).
