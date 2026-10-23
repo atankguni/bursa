@@ -180,7 +180,8 @@ them with what prices did once the horizon (3 months / 4 weeks) has passed.
 ```bash
 cd frontend
 npm run dev             # Vite HMR
-npm run check           # tsc + oxlint (type-aware) + prettier --check
+npm run check           # tsc + oxlint (type-aware) + prettier --check + tests
+npm test                # Vitest once (npm run test:watch: rerun on save)
 npm run build           # production build
 npm run format          # prettier --write .
 ```

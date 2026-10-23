@@ -3,7 +3,7 @@
 #
 #   make check        everything: types, lint, format, tests (SQLite and
 #                     PostgreSQL), schema drift, API types
-#   make check-fast   the pre-commit subset (no test suite, no rebuild of the types)
+#   make check-fast   the pre-commit subset (no backend test suite, no rebuild of the types)
 #   make api-types    regenerate frontend/src/api/schema.gen.ts from the backend
 #   make hooks        use the repo's git hooks (.githooks/)
 

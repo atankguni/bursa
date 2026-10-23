@@ -138,7 +138,7 @@ const fields = (v: unknown) =>
   new Map<string, unknown>(typeof v === 'object' && v !== null ? Object.entries(v) : [])
 
 /** `base` overlaid with each stored value that still has the expected kind. */
-function fromStorage(base: Settings, stored: unknown): Settings {
+export function fromStorage(base: Settings, stored: unknown): Settings {
   const s = fields(stored)
   const pick = <T,>(key: keyof Settings, ok: (v: unknown) => v is T, fallback: T): T => {
     const v = s.get(key)
