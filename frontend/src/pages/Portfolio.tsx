@@ -2,13 +2,22 @@ import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
 import { deleteTransaction } from '../api'
-import { usePortfolio, usePortfolioHistory, useStatus, useTransactions } from '../hooks'
+import {
+  usePortfolio,
+  usePortfolioHistory,
+  usePreferences,
+  useStatus,
+  useTransactions,
+} from '../hooks'
 import { useSettings } from '../lib/settings'
+import { estimateSale } from '../lib/sellEstimate'
 import { fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
 import DividendCalendar from '../components/DividendCalendar'
 import RiskPanel from '../components/RiskPanel'
+import SellCalculator from '../components/SellCalculator'
 import TransactionModal from '../components/TransactionModal'
+import type { Holding } from '../api'
 
 const PortfolioChart = lazy(() => import('../components/PortfolioChart'))
 
@@ -64,6 +73,13 @@ function Card({
 
 export default function Portfolio() {
   const [adding, setAdding] = useState(false)
+  const [selling, setSelling] = useState<Holding | null>(null)
+  const [recording, setRecording] = useState<{
+    ticker: string
+    lots: number
+    price: number
+  } | null>(null)
+  const { tradingCosts } = usePreferences()
   const qc = useQueryClient()
   const { settings, update } = useSettings()
   const hide = settings.hidePortfolioValues
@@ -239,12 +255,22 @@ export default function Portfolio() {
                     <th scope="col" className="px-4 py-2.5 text-right">
                       Est. income
                     </th>
+                    <th
+                      scope="col"
+                      className="px-4 py-2.5 text-right"
+                      title="Cash you would receive selling all whole lots at the last price, after the sell fee and tax"
+                    >
+                      Net if sold
+                    </th>
+                    <th scope="col" className="px-4 py-2.5">
+                      <span className="sr-only">Actions</span>
+                    </th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line">
                   {holdings.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="px-4 py-10 text-center text-subtle">
+                      <td colSpan={13} className="px-4 py-10 text-center text-subtle">
                         No positions yet — add a transaction to get started.
                       </td>
                     </tr>
@@ -307,6 +333,28 @@ export default function Portfolio() {
                         <Secret hidden={hide}>
                           {h.projected_income ? fmtPrice(h.projected_income) : '—'}
                         </Secret>
+                      </td>
+                      <td className="px-4 py-2 text-right font-medium tabular-nums">
+                        <Secret hidden={hide}>
+                          {h.price != null
+                            ? fmtPrice(
+                                estimateSale({
+                                  shares: Math.floor(h.quantity / lotSize) * lotSize,
+                                  price: h.price,
+                                  avgCost: h.avg_cost,
+                                  sellFeePct: tradingCosts.sell_fee_pct,
+                                }).net,
+                              )
+                            : '—'}
+                        </Secret>
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        <button
+                          onClick={() => setSelling(h)}
+                          className="rounded-sm px-2 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+                        >
+                          Sell…
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -430,6 +478,22 @@ export default function Portfolio() {
       )}
 
       {adding && <TransactionModal onClose={() => setAdding(false)} />}
+      {selling && (
+        <SellCalculator
+          holding={selling}
+          onClose={() => setSelling(null)}
+          onRecord={(sale) => {
+            setRecording({ ticker: selling.ticker, ...sale })
+            setSelling(null)
+          }}
+        />
+      )}
+      {recording && (
+        <TransactionModal
+          initial={{ ...recording, side: 'sell' }}
+          onClose={() => setRecording(null)}
+        />
+      )}
     </main>
   )
 }

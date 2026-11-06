@@ -5,16 +5,23 @@ import { usePreferences, useStatus, useStocks } from '../hooks'
 import Modal from './Modal'
 import { errorMessage } from '../api/client'
 
-export default function TransactionModal({ onClose }: { onClose: () => void }) {
+export default function TransactionModal({
+  onClose,
+  initial,
+}: {
+  onClose: () => void
+  /** Pre-filled trade, e.g. from the sell calculator. */
+  initial?: { ticker: string; side: 'buy' | 'sell'; lots: number; price: number }
+}) {
   const qc = useQueryClient()
   const { data: stocks = [] } = useStocks([])
   const { data: status } = useStatus()
   const lotSize = status?.lot_size ?? 100
-  const [ticker, setTicker] = useState('')
-  const [side, setSide] = useState<'buy' | 'sell'>('buy')
+  const [ticker, setTicker] = useState(initial?.ticker ?? '')
+  const [side, setSide] = useState<'buy' | 'sell'>(initial?.side ?? 'buy')
   const [unit, setUnit] = useState<'lots' | 'shares'>('lots')
-  const [quantity, setQuantity] = useState('')
-  const [price, setPrice] = useState('')
+  const [quantity, setQuantity] = useState(initial ? String(initial.lots) : '')
+  const [price, setPrice] = useState(initial ? String(initial.price) : '')
   // Fee follows Settings → Trading costs until the user types their own.
   const [fees, setFees] = useState<string | null>(null)
   const { tradingCosts } = usePreferences()

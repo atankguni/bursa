@@ -106,6 +106,13 @@ backtest (see [Development](development.md#signal-backtest)).
   - **dividends received**: cash dividends on shares held before each ex-date, after tax;
   - **total return**: P/L after selling costs + realized P/L + dividends;
   - estimated annual income after tax.
+- **Sell calculator** (Portfolio → **Sell…** on a holding): pick the lots and price
+  (default: all whole lots at the last price, checked against IDX's price steps) and
+  see the sale value, the fee and tax at your sell rate, the **cash you receive**,
+  when it arrives (T+2 trading days, IDX holidays included), and the profit or loss
+  against your average cost. **Record this sale** fills in the sell transaction. The
+  holdings table also shows **Net if sold** for every position. An estimate: the
+  actual price and your broker's fee rounding can differ slightly.
 - **Portfolio analytics**:
   - **Return vs IHSG**, time-weighted so buys and sells don't count as gains, with
     dividends (after tax) counted as income. IHSG itself is a price index (no dividends).

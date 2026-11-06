@@ -81,6 +81,33 @@ def last_closed_trading_day(now: datetime | None = None) -> date:
     return d
 
 
+# IDX settles regular-market trades two trading days after the trade (T+2).
+SETTLEMENT_DAYS = 2
+
+
+def next_trade_date(now: datetime | None = None) -> date:
+    """The trading day an order placed now executes on: today until the close,
+    else the next trading day."""
+    now = (now or datetime.now(WIB)).astimezone(WIB)
+    d = now.date()
+    if is_trading_day(d) and now.time() < SESSION2_END:
+        return d
+    d += timedelta(days=1)
+    while not is_trading_day(d):
+        d += timedelta(days=1)
+    return d
+
+
+def settlement_date(trade_date: date) -> date:
+    """When a trade on `trade_date` settles (cash / shares arrive): T+2 trading days."""
+    d, left = trade_date, SETTLEMENT_DAYS
+    while left:
+        d += timedelta(days=1)
+        if is_trading_day(d):
+            left -= 1
+    return d
+
+
 def is_open(now: datetime | None = None) -> bool:
     """True while the exchange is actively trading (either session)."""
     return session(now) == "open"
@@ -116,6 +143,7 @@ def status(now: datetime | None = None) -> MarketStatusOut:
         verb = "opens" if into in ("pre_open", "open") else "closes"
         label = f"{verb} in {_human(nxt - now)}"
 
+    trade_date = next_trade_date(now)
     return MarketStatusOut(
         is_open=current == "open",
         session=current,
@@ -123,4 +151,6 @@ def status(now: datetime | None = None) -> MarketStatusOut:
         server_time=now,
         next_change_at=nxt,
         next_change_label=label,
+        trade_date=trade_date,
+        settlement_date=settlement_date(trade_date),
     )

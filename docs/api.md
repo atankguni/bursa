@@ -59,7 +59,7 @@ All admin only.
 |--------|------|-------------|
 | GET    | `/api/health` | Health check |
 | GET    | `/api/status` | Global status (last sync, provider, session, counts) |
-| GET    | `/api/market-status` | IDX trading status (open / break / closed) |
+| GET    | `/api/market-status` | IDX trading status (open / break / closed), and when an order placed now trades and settles (T+2) |
 | GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |
 | GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values (admin) |

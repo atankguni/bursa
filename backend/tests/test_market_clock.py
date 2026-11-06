@@ -52,3 +52,20 @@ def test_status_shape_and_next_change():
     assert s.session == "open"
     assert s.next_change_at is not None and s.next_change_at > now
     assert s.next_change_label  # e.g. "closes in 2h 0m"
+
+
+def test_sale_settles_two_trading_days_later():
+    from datetime import date
+
+    from market.trading_clock import next_trade_date, settlement_date
+
+    # Monday during trading: today, settles Wednesday.
+    s = status(at(2026, 1, 5, 10, 0))
+    assert (s.trade_date, s.settlement_date) == (date(2026, 1, 5), date(2026, 1, 7))
+    # Thursday before Christmas (Fri holiday + weekend): settles Tuesday.
+    assert settlement_date(date(2026, 12, 24)) == date(2026, 12, 29)
+    # After Thursday's close: trades Monday the 28th, settles Wednesday.
+    assert next_trade_date(at(2026, 12, 24, 16, 30)) == date(2026, 12, 28)
+    # Weekend / New Year's Day: the next trading day.
+    assert next_trade_date(at(2026, 1, 3, 10, 0)) == date(2026, 1, 5)
+    assert next_trade_date(at(2025, 12, 31, 17, 0)) == date(2026, 1, 2)

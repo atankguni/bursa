@@ -2527,8 +2527,12 @@ export interface components {
        * @enum {string}
        */
       session: 'pre_open' | 'open' | 'break' | 'closed'
+      /** Settlement Date */
+      settlement_date: string | null
       /** Timezone */
       timezone: string
+      /** Trade Date */
+      trade_date: string | null
     }
     /** MeOut */
     MeOut: {

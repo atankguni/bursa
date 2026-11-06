@@ -43,6 +43,10 @@ class MarketStatusOut(Schema):
     server_time: datetime
     next_change_at: datetime | None = None
     next_change_label: str = ""
+    # A sale ordered now: the trading day it can execute, and when the cash
+    # arrives (T+2 trading days).
+    trade_date: date | None = None
+    settlement_date: date | None = None
 
 
 class ProviderInfo(Schema):
