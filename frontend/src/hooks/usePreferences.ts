@@ -8,8 +8,8 @@ import {
 import { queryKeys } from './keys'
 
 export const DEFAULT_COSTS: TradingCosts = {
-  buy_fee_pct: 0.15,
-  sell_fee_pct: 0.25,
+  buy_fee_pct: 0.1513,
+  sell_fee_pct: 0.2513,
   dividend_tax_pct: 10,
 }
 

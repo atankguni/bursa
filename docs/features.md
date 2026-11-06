@@ -100,7 +100,7 @@ backtest (see [Development](development.md#signal-backtest)).
   realized P/L and a portfolio value curve. A **hide values** toggle masks amounts
   when others can see your screen.
 - **Trading costs** (Settings → Investing): your broker's buy fee, sell fee (incl. the
-  0.1% sales tax) and dividend tax; defaults 0.15% / 0.25% / 10%. New transactions
+  0.1% sales tax) and dividend tax; defaults 0.1513% / 0.2513% / 10%. New transactions
   pre-fill their fee from them (editable), and the portfolio shows:
   - P/L **after selling costs** (what selling everything now would leave);
   - **dividends received**: cash dividends on shares held before each ex-date, after tax;

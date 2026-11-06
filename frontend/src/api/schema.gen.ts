@@ -3349,13 +3349,13 @@ export interface components {
     /**
      * TradingCosts
      * @description The user's broker costs, in percent. Defaults are typical for Indonesian
-     *     online brokers: 0.15% to buy, 0.25% to sell (including the 0.1% final tax on
-     *     share sales), and the 10% final tax on dividends for residents.
+     *     online brokers: 0.1513% to buy, 0.2513% to sell (including the 0.1% final tax
+     *     on share sales), and the 10% final tax on dividends for residents.
      */
     'TradingCosts-Input': {
       /**
        * Buy Fee Pct
-       * @default 0.15
+       * @default 0.1513
        */
       buy_fee_pct: number
       /**
@@ -3365,20 +3365,20 @@ export interface components {
       dividend_tax_pct: number
       /**
        * Sell Fee Pct
-       * @default 0.25
+       * @default 0.2513
        */
       sell_fee_pct: number
     }
     /**
      * TradingCosts
      * @description The user's broker costs, in percent. Defaults are typical for Indonesian
-     *     online brokers: 0.15% to buy, 0.25% to sell (including the 0.1% final tax on
-     *     share sales), and the 10% final tax on dividends for residents.
+     *     online brokers: 0.1513% to buy, 0.2513% to sell (including the 0.1% final tax
+     *     on share sales), and the 10% final tax on dividends for residents.
      */
     'TradingCosts-Output': {
       /**
        * Buy Fee Pct
-       * @default 0.15
+       * @default 0.1513
        */
       buy_fee_pct: number
       /**
@@ -3388,7 +3388,7 @@ export interface components {
       dividend_tax_pct: number
       /**
        * Sell Fee Pct
-       * @default 0.25
+       * @default 0.2513
        */
       sell_fee_pct: number
     }

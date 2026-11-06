@@ -71,12 +71,12 @@ class DisplaySettings(Schema):
 class TradingCosts(Schema):
     """
     The user's broker costs, in percent. Defaults are typical for Indonesian
-    online brokers: 0.15% to buy, 0.25% to sell (including the 0.1% final tax on
-    share sales), and the 10% final tax on dividends for residents.
+    online brokers: 0.1513% to buy, 0.2513% to sell (including the 0.1% final tax
+    on share sales), and the 10% final tax on dividends for residents.
     """
 
-    buy_fee_pct: float = Field(default=0.15, ge=0, le=5)
-    sell_fee_pct: float = Field(default=0.25, ge=0, le=5)
+    buy_fee_pct: float = Field(default=0.1513, ge=0, le=5)
+    sell_fee_pct: float = Field(default=0.2513, ge=0, le=5)
     dividend_tax_pct: float = Field(default=10.0, ge=0, le=50)
 
 
