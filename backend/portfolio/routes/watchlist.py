@@ -1,15 +1,17 @@
 """Watchlist endpoints (the signed-in user's list)."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+import logging
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from accounts.models import User
 from deps import current_user, get_session, require_admin, user_style
-from market.fundamentals import sync_many, sync_ticker
+from market.fundamentals import is_stale, sync_many, sync_ticker
 from market.metrics import derive_metrics
-from market.models import Stock
+from market.models import Fundamental, Stock
 from market.prices import indices_map, latest_daily, latest_fundamentals
 from market.schemas import FundamentalOut
 from portfolio.models import Watchlist
@@ -17,6 +19,8 @@ from portfolio.schemas import WatchlistItemOut
 from schemas import InvestingStyle, StockCode
 from signals.recommendation import compute_universe_cached, invalidate_cache
 from signals.schemas import RecommendationSummary
+
+log = logging.getLogger("bursa.watchlist")
 
 router = APIRouter(prefix="/api/watchlist", tags=["watchlist"])
 
@@ -111,11 +115,13 @@ async def refresh_watchlist(
 )
 async def add_to_watchlist(
     ticker: StockCode,
+    background: BackgroundTasks,
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_user),
     style: InvestingStyle = Depends(user_style),
 ) -> WatchlistItemOut:
-    """Add a ticker, fetching its fundamentals inline (best-effort)."""
+    """Add a ticker and answer at once. Missing or stale fundamentals are fetched
+    after the response (`syncing`), so the click doesn't wait for the provider."""
     stock = (
         await session.execute(select(Stock).where(Stock.ticker == ticker))
     ).scalar_one_or_none()
@@ -133,15 +139,27 @@ async def add_to_watchlist(
     session.add(Watchlist(user_id=user.id, ticker=ticker))
     await session.commit()
 
-    # Populate fundamentals immediately so the new row is useful at once.
-    await sync_ticker(ticker)
-    await invalidate_cache()
+    rows = list((await session.execute(
+        select(Fundamental).where(Fundamental.ticker == ticker)
+    )).scalars())
+    syncing = is_stale(rows)
+    if syncing:
+        background.add_task(_sync_fundamentals, ticker)
 
     items = await _build_watchlist(session, user.id, style)
     for item in items:
         if item.ticker == ticker:
-            return item
+            return item.model_copy(update={"syncing": syncing})
     raise HTTPException(status_code=500, detail="Failed to build watchlist item")
+
+
+async def _sync_fundamentals(ticker: str) -> None:
+    """Fundamentals for a newly watched stock (after the response; best-effort)."""
+    try:
+        await sync_ticker(ticker)
+        await invalidate_cache()  # its scores change with the new fundamentals
+    except Exception:  # noqa: BLE001 - the daily watchlist sync retries
+        log.warning("Fundamentals for new watchlist stock %s failed", ticker, exc_info=True)
 
 
 @router.delete("/{ticker}", status_code=status.HTTP_204_NO_CONTENT)

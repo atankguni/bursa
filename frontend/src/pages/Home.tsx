@@ -1,17 +1,17 @@
 import { useMemo, useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   ArrowDownRight,
   ArrowUpRight,
   BarChart3,
   Check,
+  Loader2,
   Plus,
   RefreshCw,
   TrendingDown,
   TrendingUp,
 } from 'lucide-react'
-import { DEFAULT_INDEXES, addToWatchlist, type Stock } from '../api'
-import { useIndexes, useStatus, useStocks, useWatchlist } from '../hooks'
+import { DEFAULT_INDEXES, type Stock } from '../api'
+import { useIndexes, useStatus, useStocks, useWatchToggle } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtChange, fmtDateTime, fmtPct, fmtPrice, fmtVolume } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
@@ -35,7 +35,6 @@ export default function Home() {
   const [detailTab, setDetailTab] = useState<DetailTab>('chart')
   const [buyOnly, setBuyOnly] = useState(false)
   const [signalSort, setSignalSort] = useState<SignalSort>('off')
-  const queryClient = useQueryClient()
 
   const hidden = settings.hiddenColumns.home
   const rec = (key: string) => !hidden.includes(key)
@@ -54,13 +53,7 @@ export default function Home() {
   // Real time of the last successful price sync (same source as the footer).
   const { data: status, refetch: refetchStatus } = useStatus()
 
-  const { data: watchlist = [] } = useWatchlist()
-  const watchSet = useMemo(() => new Set(watchlist.map((w) => w.ticker)), [watchlist])
-
-  const add = useMutation({
-    mutationFn: (ticker: string) => addToWatchlist(ticker),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['watchlist'] }),
-  })
+  const watch = useWatchToggle()
 
   const summary = useMemo(() => {
     let gainers = 0
@@ -174,6 +167,11 @@ export default function Home() {
         </div>
       </div>
 
+      {watch.error && (
+        <p role="alert" className="mb-2 text-xs text-bear">
+          {watch.error}
+        </p>
+      )}
       <div className="surface overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
@@ -253,7 +251,8 @@ export default function Home() {
                     : up
                       ? 'text-bull'
                       : 'text-bear'
-                const watched = watchSet.has(s.ticker)
+                const watched = watch.isWatched(s.ticker)
+                const watchBusy = watch.isPending(s.ticker)
                 return (
                   <tr
                     key={s.ticker}
@@ -344,17 +343,26 @@ export default function Home() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (!watched) add.mutate(s.ticker)
+                            watch.add(s.ticker)
                           }}
-                          disabled={watched || add.isPending}
+                          disabled={watched && !watchBusy}
+                          aria-busy={watchBusy}
                           title={watched ? 'On watchlist' : 'Add to watchlist'}
                           className={`inline-flex items-center justify-center rounded-sm p-2 transition ${
-                            watched
-                              ? 'cursor-default text-accent'
-                              : 'text-muted hover:bg-active hover:text-ink'
+                            watchBusy
+                              ? 'cursor-progress text-accent'
+                              : watched
+                                ? 'cursor-default text-accent'
+                                : 'text-muted hover:bg-active hover:text-ink'
                           }`}
                         >
-                          {watched ? <Check size={14} /> : <Plus size={14} />}
+                          {watchBusy ? (
+                            <Loader2 size={14} className="animate-spin" aria-hidden />
+                          ) : watched ? (
+                            <Check size={14} />
+                          ) : (
+                            <Plus size={14} />
+                          )}
                         </button>
                       </div>
                     </td>

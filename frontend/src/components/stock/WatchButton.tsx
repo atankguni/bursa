@@ -1,36 +1,40 @@
 /** Add the stock to the watchlist or remove it (self-contained). */
-import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Star } from 'lucide-react'
-import { addToWatchlist, removeFromWatchlist } from '../../api'
-import { useWatchlist } from '../../hooks'
+import { Loader2, Star } from 'lucide-react'
+import { useWatchToggle } from '../../hooks'
 
 export default function WatchButton({ ticker }: { ticker: string }) {
-  const queryClient = useQueryClient()
-  const watchlist = useWatchlist()
-  const watched = (watchlist.data ?? []).some((w) => w.ticker === ticker)
-  const invalidateWatch = () => queryClient.invalidateQueries({ queryKey: ['watchlist'] })
-  const add = useMutation({
-    mutationFn: () => addToWatchlist(ticker),
-    onSuccess: invalidateWatch,
-  })
-  const remove = useMutation({
-    mutationFn: () => removeFromWatchlist(ticker),
-    onSuccess: invalidateWatch,
-  })
-  const watchPending = add.isPending || remove.isPending
+  const { isWatched, isPending, toggle, error } = useWatchToggle()
+  // Shows the new state at the click; the spinner says it's still being saved.
+  const watched = isWatched(ticker)
+  const busy = isPending(ticker)
   return (
-    <button
-      onClick={() => (watched ? remove.mutate() : add.mutate())}
-      disabled={watchPending}
-      title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
-      className={`flex items-center gap-1 rounded-sm px-2.5 py-1.5 text-xs font-medium ring-1 transition disabled:opacity-50 ${
-        watched
-          ? 'text-accent ring-accent/40 hover:bg-accent/10'
-          : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
-      }`}
-    >
-      <Star size={14} className={watched ? 'fill-current' : ''} />
-      {watched ? 'Watching' : 'Watch'}
-    </button>
+    <span className="flex items-center gap-2">
+      {error && (
+        <span
+          role="alert"
+          className="max-w-48 truncate text-[11px] text-bear"
+          title={error}
+        >
+          {error}
+        </span>
+      )}
+      <button
+        onClick={() => toggle(ticker)}
+        aria-busy={busy}
+        title={watched ? 'Remove from watchlist' : 'Add to watchlist'}
+        className={`flex items-center gap-1 rounded-sm px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
+          watched
+            ? 'text-accent ring-accent/40 hover:bg-accent/10'
+            : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
+        } ${busy ? 'cursor-progress' : ''}`}
+      >
+        {busy ? (
+          <Loader2 size={14} className="animate-spin" aria-hidden />
+        ) : (
+          <Star size={14} className={watched ? 'fill-current' : ''} aria-hidden />
+        )}
+        {watched ? 'Watching' : 'Watch'}
+      </button>
+    </span>
   )
 }

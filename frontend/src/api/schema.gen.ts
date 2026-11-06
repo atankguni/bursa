@@ -1556,7 +1556,8 @@ export interface paths {
     put?: never
     /**
      * Add To Watchlist
-     * @description Add a ticker, fetching its fundamentals inline (best-effort).
+     * @description Add a ticker and answer at once. Missing or stale fundamentals are fetched
+     *     after the response (`syncing`), so the click doesn't wait for the provider.
      */
     post: operations['add_to_watchlist_api_watchlist__ticker__post']
     /** Remove From Watchlist */
@@ -3602,6 +3603,11 @@ export interface components {
       /** Name */
       name: string
       recommendation: components['schemas']['RecommendationSummary'] | null
+      /**
+       * Syncing
+       * @default false
+       */
+      syncing: boolean
       /** Ticker */
       ticker: string
     }

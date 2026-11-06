@@ -109,6 +109,9 @@ class WatchlistItemOut(StockBase):
     fundamental: FundamentalOut | None = None
     metrics: DerivedMetrics = DerivedMetrics()
     recommendation: RecommendationSummary | None = None
+    # Just added: fundamentals are being fetched in the background (re-read the
+    # watchlist in a few seconds for them).
+    syncing: bool = False
 
 
 class HoldingRiskOut(Schema):
