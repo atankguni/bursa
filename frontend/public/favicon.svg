@@ -1,7 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64" role="img" aria-label="Bursa">
   <!-- Static, attribute-based fills: renders identically in every browser
        (no <style>/media queries, which Chromium handles unreliably). -->
-  <rect x="0" y="0" width="64" height="64" rx="14" fill="#16a34a" />
+  <rect x="0" y="0" width="64" height="64" rx="14" fill="#2563eb" />
 
   <!-- Three rising candlesticks (wick + body), painted wick-first -->
   <g fill="#ffffff">

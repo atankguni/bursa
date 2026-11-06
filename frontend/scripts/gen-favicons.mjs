@@ -35,7 +35,8 @@ const SS = 4 // supersample factor for anti-aliasing
 // --------------------------------------------------------------------------- //
 // Design (in a 64x64 coordinate space, matching favicon.svg)
 // --------------------------------------------------------------------------- //
-const GREEN = [22, 163, 74] // #16a34a
+// The app's accent (blue-600), as on the header badge.
+const BLUE = [37, 99, 235] // #2563eb
 const WHITE = [255, 255, 255]
 
 const BADGE = { x: 0, y: 0, w: 64, h: 64, r: 14 }
@@ -80,7 +81,7 @@ function rasterize(size) {
           const v = (ty * SS + sy + 0.5) * scale
 
           let rgba = null
-          if (inRoundRect(u, v, BADGE)) rgba = GREEN
+          if (inRoundRect(u, v, BADGE)) rgba = BLUE
           for (const c of CANDLES) {
             if (inRoundRect(u, v, c)) {
               rgba = WHITE
