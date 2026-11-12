@@ -70,6 +70,9 @@ a consistent copy taken while the app runs, checked with SQLite's integrity chec
 (a damaged copy is never kept), compressed with zstd (`.db.zst`, about a sixth of the
 database's size; older `.db.gz` backups still restore), together with the 2FA server secret (`secret.key`; without it a restored
 database can't read anyone's 2FA). The newest 7 are kept, readable by the owner only.
+If a night is missed (a laptop asleep at 02:30, the app stopped or restarted after it),
+the worker takes one as soon as it sees the newest backup is over a day old: within
+the hour, or about 10 minutes after it starts.
 
 | Setting | Default | Meaning |
 |---|---|---|

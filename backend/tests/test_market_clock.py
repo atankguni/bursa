@@ -62,10 +62,33 @@ def test_sale_settles_two_trading_days_later():
     # Monday during trading: today, settles Wednesday.
     s = status(at(2026, 1, 5, 10, 0))
     assert (s.trade_date, s.settlement_date) == (date(2026, 1, 5), date(2026, 1, 7))
-    # Thursday before Christmas (Fri holiday + weekend): settles Tuesday.
-    assert settlement_date(date(2026, 12, 24)) == date(2026, 12, 29)
-    # After Thursday's close: trades Monday the 28th, settles Wednesday.
-    assert next_trade_date(at(2026, 12, 24, 16, 30)) == date(2026, 12, 28)
+    # Wednesday before Christmas (Thu cuti bersama, Fri Christmas, weekend): Tuesday.
+    assert settlement_date(date(2026, 12, 23)) == date(2026, 12, 29)
+    # After Wednesday's close: trades Monday the 28th.
+    assert next_trade_date(at(2026, 12, 23, 16, 30)) == date(2026, 12, 28)
+    # Before Nyepi and Lebaran (closed 18-24 March 2026): settles the 26th.
+    assert settlement_date(date(2026, 3, 17)) == date(2026, 3, 26)
     # Weekend / New Year's Day: the next trading day.
     assert next_trade_date(at(2026, 1, 3, 10, 0)) == date(2026, 1, 5)
     assert next_trade_date(at(2025, 12, 31, 17, 0)) == date(2026, 1, 2)
+
+
+def test_holiday_calendar_matches_idx():
+    """IDX's announced trading-day totals: catches a dropped or mistyped date."""
+    from datetime import date, timedelta
+
+    from market.holidays import IDX_HOLIDAYS
+    from market.trading_clock import is_trading_day
+
+    days = [date.fromisoformat(d) for d in IDX_HOLIDAYS]
+    assert all(d.weekday() < 5 for d in days)  # weekend holidays aren't listed
+
+    def trading_days(year: int) -> int:
+        d, n = date(year, 1, 1), 0
+        while d.year == year:
+            n += is_trading_day(d)
+            d += timedelta(days=1)
+        return n
+
+    assert trading_days(2026) == 239
+    assert trading_days(2027) == 241

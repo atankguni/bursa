@@ -16,6 +16,7 @@ Jobs:
   * record_ratings                -> both styles' ratings at the close, for the live track record
   * send_digests                  -> the daily summary email to users who turned it on
   * backup_db                     -> compressed SQLite backup, newest BACKUP_KEEP kept (nightly)
+  * backup_catch_up               -> a backup when the newest is over a day old (hourly)
 
 The heavy lifting lives in `market.sync` (batched downloads) and
 `market.fundamentals` (per-ticker statements).
@@ -202,6 +203,13 @@ async def backup_db() -> None:
     from system.backup import run_backup
 
     await run_backup()
+
+
+async def backup_catch_up() -> None:
+    """A backup when the nightly one was missed (host asleep, worker restarted)."""
+    from system.backup import backup_if_due
+
+    await backup_if_due()
 
 
 async def purge_auth() -> None:
@@ -427,6 +435,17 @@ def start_scheduler() -> None:
         backup_db,
         trigger=CronTrigger(hour=2, minute=30),
         id="backup_db",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+    # ...and catch up when it didn't happen: a laptop asleep at 02:30, or a
+    # worker restarted after it, would otherwise skip backups indefinitely.
+    scheduler.add_job(
+        backup_catch_up,
+        trigger=CronTrigger(minute=45),  # hourly, clear of the 02:30 run
+        next_run_time=datetime.now(scheduler.timezone) + timedelta(minutes=10),
+        id="backup_catch_up",
         replace_existing=True,
         max_instances=1,
         coalesce=True,

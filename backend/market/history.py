@@ -8,12 +8,12 @@ history the first time a chart asks for it.
 """
 
 import logging
-from datetime import datetime, timedelta
+from datetime import date, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from clock import utcnow
+from clock import local_today
 from config import settings
 from market.models import Stock
 from market.sync import DAILY_INTERVAL, sync_batch
@@ -28,9 +28,11 @@ RANGE_DAYS: dict[str, int | None] = {
 DEEP_RANGES = {"5y", "max"}  # may be beyond what's stored yet
 
 
-def range_start(range_: str, now: datetime | None = None) -> datetime | None:
+def range_start(range_: str, today: date | None = None) -> date | None:
+    """First day of the range. Counted from the exchange's today: bars are dated
+    in Jakarta, and UTC is still yesterday before 07:00 there."""
     days = RANGE_DAYS[range_]
-    return None if days is None else (now or utcnow()) - timedelta(days=days)
+    return None if days is None else (today or local_today()) - timedelta(days=days)
 
 
 async def ensure_full_history(session: AsyncSession, stock: Stock, range_: str = "max") -> bool:

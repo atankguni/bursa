@@ -14,6 +14,10 @@ readable is kept. This machine can then write backups but not read them; the
 private key, kept elsewhere, is needed to restore. Plain `age` decrypts them too:
 `age -d -i key.txt bursa-<stamp>.db.zst.age | zstd -d -o bursa.db`.
 
+The nightly run is skipped while the host sleeps at 02:30 or when the worker
+restarts after it, so `backup_if_due` (hourly, and soon after startup) takes one
+whenever the newest is over a day old.
+
 They sit next to the database (BACKUP_DIR), which guards against mistakes and
 corruption but not against losing the disk: copy them elsewhere too.
 PostgreSQL is skipped: use its own tools (pg_dump).
@@ -34,7 +38,7 @@ import sqlite3
 import subprocess
 import sys
 from compression import zstd
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import IO
 from zoneinfo import ZoneInfo
@@ -55,6 +59,9 @@ ZSTD_LEVEL = 19
 KEY_SUFFIX = ".secret.key"
 AGE = ".age"
 CHUNK = 1024 * 1024
+STAMP_FORMAT = "%Y-%m-%d_%H%M"
+# The nightly backup counts as missed once the newest is this old.
+CATCH_UP_AFTER = timedelta(hours=26)
 
 
 def sqlite_path(url: str) -> Path | None:
@@ -172,6 +179,22 @@ def _stamp(name: str) -> str | None:
     return None
 
 
+def newest_backup_at(dest: Path) -> datetime | None:
+    """When the newest backup in `dest` was taken (its name's local time)."""
+    if not dest.is_dir():
+        return None
+    times: list[datetime] = []
+    for p in dest.iterdir():
+        if (stamp := _stamp(p.name)) is None:
+            continue
+        try:
+            times.append(datetime.strptime(stamp, STAMP_FORMAT))
+        except ValueError:
+            continue
+    tz = ZoneInfo(settings.timezone)
+    return max(times).replace(tzinfo=tz) if times else None
+
+
 def prune(dest: Path, keep: int) -> list[str]:
     """Delete all but the newest `keep` backups (and their key copies), plain or
     encrypted alike."""
@@ -240,7 +263,7 @@ async def run_backup() -> Path | None:
     if not db.is_file():
         log.warning("Backup skipped: database file %s not found", db)
         return None
-    stamp = datetime.now(ZoneInfo(settings.timezone)).strftime("%Y-%m-%d_%H%M")
+    stamp = datetime.now(ZoneInfo(settings.timezone)).strftime(STAMP_FORMAT)
     recipient = settings.backup_recipient
     target = await asyncio.to_thread(
         backup_sqlite, db, Path(settings.backup_dir), settings.backup_keep, stamp, recipient
@@ -255,6 +278,18 @@ async def run_backup() -> Path | None:
         target, target.stat().st_size / 1e6, settings.backup_keep,
     )
     return target
+
+
+async def backup_if_due(now: datetime | None = None) -> Path | None:
+    """Back up now if the newest backup is over a day old (a missed night)."""
+    if not settings.backup_enabled or sqlite_path(settings.database_url) is None:
+        return None
+    newest = newest_backup_at(Path(settings.backup_dir))
+    now = now or datetime.now(ZoneInfo(settings.timezone))
+    if newest is not None and now - newest < CATCH_UP_AFTER:
+        return None
+    log.info("The newest backup is from %s: backing up now", newest or "never")
+    return await run_backup()
 
 
 if __name__ == "__main__":

@@ -201,3 +201,33 @@ def test_damaged_zstd_backup_is_refused(tmp_path):
     with pytest.raises((EOFError, zstd.ZstdError)):
         backup.restore_sqlite(truncated, tmp_path / "restored2.db")
     assert not list(tmp_path.glob("restored*"))
+
+
+async def test_a_missed_nightly_backup_is_caught_up(tmp_path, monkeypatch):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    db = tmp_path / "bursa.db"
+    _make_db(db)
+    dest = tmp_path / "backups"
+    monkeypatch.setattr(settings, "database_url", f"sqlite+aiosqlite:///{db}")
+    monkeypatch.setattr(settings, "backup_dir", str(dest))
+    monkeypatch.setattr(settings, "backup_enabled", True)
+    monkeypatch.setattr(settings, "backup_recipient", None)
+    monkeypatch.setattr(settings, "secret_key", "from-env")  # no key file copy
+
+    # None yet: back up at once.
+    assert backup.newest_backup_at(dest) is None
+    first = await backup.backup_if_due()
+    assert first is not None and first.exists()
+
+    # Last night's ran: nothing to do.
+    now = datetime(2026, 11, 12, 10, 0, tzinfo=ZoneInfo(settings.timezone))
+    for p in dest.iterdir():
+        p.unlink()
+    backup.backup_sqlite(db, dest, keep=7, stamp="2026-11-12_0230")
+    assert backup.newest_backup_at(dest) == now.replace(hour=2, minute=30)
+    assert await backup.backup_if_due(now) is None
+
+    # Missed two nights: back up now.
+    assert await backup.backup_if_due(now + timedelta(days=2)) is not None

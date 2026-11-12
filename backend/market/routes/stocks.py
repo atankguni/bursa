@@ -221,7 +221,7 @@ async def stock_history(
                 await ensure_full_history(session, stock, range_)
             start = range_start(range_)
             if start is not None:
-                stmt = stmt.where(DailyBar.day >= start.date())
+                stmt = stmt.where(DailyBar.day >= start)
             bars = (await session.execute(stmt.order_by(DailyBar.day))).scalars().all()
         else:
             # The newest `limit` bars, in chronological order.
