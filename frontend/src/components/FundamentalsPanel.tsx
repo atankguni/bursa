@@ -1,6 +1,8 @@
+import type { ReactNode } from 'react'
 import { AlertCircle, RefreshCw } from 'lucide-react'
 import type { Fundamental, FundamentalsResponse } from '../api'
 import { fmtCompact, fmtPercent, fmtRatio } from '../lib/format'
+import Term from './Term'
 
 interface Props {
   data?: FundamentalsResponse | undefined
@@ -14,7 +16,7 @@ interface Props {
 const roeOf = (f: Fundamental) =>
   f.net_income != null && f.equity ? f.net_income / f.equity : null
 
-function Metric({ label, value }: { label: string; value: string }) {
+function Metric({ label, value }: { label: ReactNode; value: string }) {
   return (
     <div className="rounded-md bg-panelalt/70 px-3 py-2.5 ring-1 ring-line">
       <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
@@ -100,9 +102,12 @@ export default function FundamentalsPanel({
 
       {/* Key metric cards */}
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-        <Metric label="Market Cap" value={fmtCompact(metrics.market_cap)} />
-        <Metric label="PBV" value={fmtRatio(metrics.pbv)} />
-        <Metric label="RoE" value={fmtPercent(metrics.roe)} />
+        <Metric
+          label={<Term id="market_cap">Market Cap</Term>}
+          value={fmtCompact(metrics.market_cap)}
+        />
+        <Metric label={<Term id="pbv">PBV</Term>} value={fmtRatio(metrics.pbv)} />
+        <Metric label={<Term id="roe">RoE</Term>} value={fmtPercent(metrics.roe)} />
         <Metric label="Shares" value={fmtCompact(latest.total_shares)} />
       </div>
 
@@ -146,7 +151,9 @@ export default function FundamentalsPanel({
                 <th className="px-3 py-2 text-right">Revenue</th>
                 <th className="px-3 py-2 text-right">Net Income</th>
                 <th className="px-3 py-2 text-right">Equity</th>
-                <th className="px-3 py-2 text-right">RoE</th>
+                <th className="px-3 py-2 text-right">
+                  <Term id="roe">RoE</Term>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">

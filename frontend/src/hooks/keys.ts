@@ -18,6 +18,7 @@ export const queryKeys = {
   dividendCalendar: ['portfolio', 'dividend-calendar'] as const,
   taxSummary: (year: number) => ['portfolio', 'tax-summary', year] as const,
   cash: ['portfolio', 'cash'] as const,
+  notes: ['portfolio', 'notes'] as const,
   screener: (filters: unknown) => ['screener', filters] as const,
   syncStatus: ['screener', 'sync'] as const,
   marketOverview: ['market', 'overview'] as const,

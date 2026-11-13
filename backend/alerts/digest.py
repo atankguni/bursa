@@ -29,7 +29,8 @@ from market.trading_clock import is_trading_day
 from portfolio.dividend_calendar import UpcomingDividend, next_expected
 from portfolio.holdings import build_portfolio
 from portfolio.models import Watchlist
-from portfolio.schemas import PortfolioTotals
+from portfolio.notes import list_notes
+from portfolio.schemas import HoldingNoteOut, PortfolioTotals
 from signals.models import RatingSnapshot
 from signals.recommendation import rating_label
 from signals.schemas import Rating
@@ -64,6 +65,8 @@ class Digest:
         default_factory=list[tuple[str, UpcomingDividend]]
     )
     alerts: int = 0
+    # Held stocks whose note asks for attention (review date, target, stop).
+    notes: list[HoldingNoteOut] = field(default_factory=list[HoldingNoteOut])
 
 
 async def build_digest(session: AsyncSession, user: User, day: date) -> Digest | None:
@@ -128,8 +131,11 @@ async def build_digest(session: AsyncSession, user: User, day: date) -> Digest |
         )
     ).scalar_one()
 
+    notes = [n for n in await list_notes(session, user.id, day, held) if n.flags]
+
     return Digest(
         day=day,
+        notes=notes,
         totals=totals if holdings else None,
         movers=movers[:MOVERS],
         signals=signals,
@@ -149,6 +155,18 @@ def _signed_rp(v: float) -> str:
     return f"{'+' if v >= 0 else '−'}Rp {abs(v):,.0f}"
 
 
+def _note_line(n: HoldingNoteOut) -> str:
+    why: list[str] = []
+    if "target_reached" in n.flags and n.target is not None:
+        why.append(f"reached your target {_rp(n.target)}")
+    if "stop_hit" in n.flags and n.stop is not None:
+        why.append(f"fell to your stop {_rp(n.stop)}")
+    if "review_due" in n.flags and n.review_on is not None:
+        why.append(f"review date {n.review_on:%d %b}")
+    price = f" (last {_rp(n.last_price)})" if n.last_price is not None else ""
+    return f"{n.ticker}: {', '.join(why)}{price}"
+
+
 def subject(d: Digest) -> str:
     parts = [f"Bursa · {d.day:%a %d %b}"]
     if d.totals and d.totals.day_change_pct is not None:
@@ -157,6 +175,8 @@ def subject(d: Digest) -> str:
         parts.append(f"{len(d.signals)} signal change{'s' * (len(d.signals) != 1)}")
     if d.dividends:
         parts.append(f"{len(d.dividends)} dividend{'s' * (len(d.dividends) != 1)} soon")
+    if d.notes:
+        parts.append(f"{len(d.notes)} to review")
     return parts[0] + (": " + ", ".join(parts[1:]) if len(parts) > 1 else "")
 
 
@@ -187,6 +207,8 @@ def sections(d: Digest) -> list[tuple[str, list[str]]]:
             f"about {_rp(u['amount_per_share'])}/share"
             for t, u in d.dividends
         ]))
+    if d.notes:
+        out.append(("Your notes: time to look again", [_note_line(n) for n in d.notes]))
     if d.alerts:
         out.append(("Alerts", [f"{d.alerts} alert{'s' * (d.alerts != 1)} fired today"]))
     return out

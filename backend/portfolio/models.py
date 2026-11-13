@@ -6,11 +6,11 @@ Tables for the portfolio and the watchlist. Conventions: models.py.
 
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, CheckConstraint, Date, Double, Index, String
+from sqlalchemy import BigInteger, CheckConstraint, Date, Double, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from database import Base
-from db.columns import created_at_column, stock_fk, user_fk
+from db.columns import created_at_column, stock_fk, updated_at_column, user_fk
 from db.types import one_of
 from portfolio.schemas import CashKind, TradeSide, TransactionKind
 
@@ -92,3 +92,28 @@ class CashMovement(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<CashMovement {self.kind} {self.amount} {self.day}>"
+
+
+class HoldingNote(Base):
+    """The user's own note on a stock: why they bought it, a target and a stop
+    price, and a date to review it (the daily email reminds them)."""
+
+    __tablename__ = "holding_notes"
+    __table_args__ = (
+        CheckConstraint("target IS NULL OR target > 0", name="target_positive"),
+        CheckConstraint("stop IS NULL OR stop > 0", name="stop_positive"),
+        CheckConstraint(
+            "target IS NULL OR stop IS NULL OR stop < target", name="stop_below_target"
+        ),
+    )
+
+    user_id: Mapped[int] = user_fk(primary_key=True)
+    ticker: Mapped[str] = stock_fk(primary_key=True, index=True)
+    thesis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target: Mapped[float | None] = mapped_column(Double, nullable=True)
+    stop: Mapped[float | None] = mapped_column(Double, nullable=True)
+    review_on: Mapped[date | None] = mapped_column(Date, nullable=True)
+    updated_at: Mapped[datetime] = updated_at_column()
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<HoldingNote {self.user_id} {self.ticker}>"

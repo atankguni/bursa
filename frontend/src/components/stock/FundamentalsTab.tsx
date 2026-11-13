@@ -5,6 +5,7 @@ import { queryKeys, useDividends, useFundamentals, useValuation } from '../../ho
 import { fmtPercent, fmtPrice, fmtRatio } from '../../lib/format'
 import FundamentalsPanel from '../FundamentalsPanel'
 import SubTabs from '../SubTabs'
+import Term from '../Term'
 
 export type FinTab = 'financials' | 'valuation' | 'dividends'
 
@@ -78,7 +79,7 @@ function ValuationCard({ ticker }: { ticker: string }) {
           <div key={row.label} className="text-xs">
             <div className="flex items-baseline justify-between">
               <span className="text-muted">
-                {row.label}{' '}
+                <Term id={row.label === 'PBV' ? 'pbv' : 'roe'}>{row.label}</Term>{' '}
                 <span className="font-medium text-ink">
                   {row.label === 'PBV' ? fmtRatio(row.value) : fmtPercent(row.value)}
                 </span>
@@ -92,8 +93,12 @@ function ValuationCard({ ticker }: { ticker: string }) {
               />
             </div>
             <div className="mt-1 text-[10px] text-subtle">
-              {row.pct != null ? `${row.pct.toFixed(0)}th percentile` : '—'} · vs{' '}
-              {row.window}
+              {row.pct != null ? (
+                <Term id="percentile">{`${row.pct.toFixed(0)}th percentile`}</Term>
+              ) : (
+                '—'
+              )}{' '}
+              · vs {row.window}
             </div>
           </div>
         ))}

@@ -72,6 +72,9 @@ export type TaxSummary = Schemas['TaxSummaryOut']
 export type Cash = Schemas['CashOut']
 export type CashMovement = Schemas['CashMovementOut']
 export type CashMovementInput = Schemas['CashMovementIn']
+/** The user's note on a stock: thesis, target / stop, review date, and flags. */
+export type HoldingNote = Schemas['HoldingNoteOut']
+export type HoldingNoteInput = Schemas['HoldingNoteIn']
 
 // --- Screener / search / market overview -----------------------------------
 export type ScreenerRow = Schemas['ScreenerRow']

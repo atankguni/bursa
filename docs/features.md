@@ -119,6 +119,15 @@ backtest (see [Development](development.md#signal-backtest)).
   cost and lower the average. Bursa refuses bonus shares that the market data already
   shows as a stock split (it applies those automatically). Selling unexercised rights
   isn't covered.
+- **Buy calculator** (Portfolio → **Buy…** on a holding): lots and price in, out come
+  the cash needed with the buy fee, the new average cost, and the break-even price
+  before and after (the lowest valid IDX price where selling everything returns your
+  money after the sell fee and tax). With cash tracked, **Max** fills in the lots your
+  available cash buys. **Record this buy** opens the transaction form, filled in.
+- **Holding notes** (the note icon next to a ticker): why you own it, a target and a
+  stop price, and a review date (+1/3/6/12 months). On the review date, or when the
+  last close reaches the target or the stop, the icon turns amber, a line above the
+  holdings lists it, and the daily email has a "time to look again" section.
 - **Sell calculator** (Portfolio → **Sell…** on a holding): pick the lots and price
   (default: all whole lots at the last price, checked against IDX's price steps) and
   see the sale value, the fee and tax at your sell rate, the **cash you receive**,
@@ -173,6 +182,14 @@ backtest (see [Development](development.md#signal-backtest)).
   host slept) run on wake, and 1-minute gaps are back-filled.
 - **Nightly backups** (SQLite): a compressed copy of the database plus the 2FA secret,
   newest 7 kept in `backend/data/backups/` (see [Configuration](configuration.md#backups)).
+
+## Explanations
+
+A small **?** next to PBV, RoE, market cap, the score, rating,
+conviction, data coverage and each rating category opens a plain-language
+explanation with an example and how to read it (tap on phones; Escape or a tap
+elsewhere closes it). All of them are on one page, **What the numbers mean**
+(`/glossary`, linked in the footer).
 
 ## Phones and tablets
 

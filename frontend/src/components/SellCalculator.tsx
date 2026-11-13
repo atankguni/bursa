@@ -208,7 +208,7 @@ export default function SellCalculator({
   )
 }
 
-function Line({
+export function Line({
   label,
   value,
   hint,

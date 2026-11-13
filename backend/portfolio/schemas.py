@@ -19,6 +19,8 @@ TradeSide = Literal["buy", "sell"]
 # (new shares for free: the count rises, the total cost stays).
 TransactionKind = Literal["trade", "rights", "bonus"]
 CashKind = Literal["deposit", "withdrawal"]
+# Why a holding's note asks for attention (see portfolio/notes.py).
+NoteFlag = Literal["review_due", "target_reached", "stop_hit"]
 
 
 # --------------------------------------------------------------------------- #
@@ -283,3 +285,37 @@ class CashOut(Schema):
     gain_pct: float | None  # of net deposits
     annual_return_pct: float | None  # money-weighted, once a year of history
     since: date | None  # first deposit
+
+
+# --------------------------------------------------------------------------- #
+# Holding notes
+# --------------------------------------------------------------------------- #
+
+
+class HoldingNoteIn(Schema):
+    """Why a stock was bought and when to look again. Prices are per share, as
+    they are now (a later split is not applied to them)."""
+
+    thesis: str | None = Field(default=None, max_length=2000)
+    target: float | None = Field(default=None, gt=0)
+    stop: float | None = Field(default=None, gt=0)
+    review_on: date | None = None
+
+    @model_validator(mode="after")
+    def _stop_below_target(self) -> Self:
+        if self.target is not None and self.stop is not None and self.stop >= self.target:
+            raise ValueError("The stop must be below the target")
+        return self
+
+
+class HoldingNoteOut(Schema):
+    model_config = ConfigDict(from_attributes=True)
+
+    ticker: str
+    thesis: str | None = None
+    target: float | None = None
+    stop: float | None = None
+    review_on: date | None = None
+    updated_at: datetime
+    last_price: float | None = None
+    flags: list[NoteFlag] = Field(default_factory=list[NoteFlag])

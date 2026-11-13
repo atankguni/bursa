@@ -17,6 +17,7 @@ import TickerName from '../components/TickerName'
 import Pagination from '../components/Pagination'
 import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
+import Term from '../components/Term'
 
 const PAGE_SIZES = [50, 100, 200] // the API caps a page at 200
 
@@ -244,10 +245,10 @@ export default function Screener() {
                   Chg %
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right">
-                  PBV
+                  <Term id="pbv">PBV</Term>
                 </th>
                 <th scope="col" className="px-4 py-2.5 text-right">
-                  RoE
+                  <Term id="roe">RoE</Term>
                 </th>
                 <th scope="col" className="px-4 py-2.5">
                   Signal

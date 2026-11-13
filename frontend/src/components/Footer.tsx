@@ -48,6 +48,12 @@ export default function Footer() {
         </span>
 
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <Link
+            to="/glossary"
+            className="underline-offset-2 transition hover:text-ink hover:underline"
+          >
+            What the numbers mean
+          </Link>
           {isAdmin && (
             <Link
               to="/data"

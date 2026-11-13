@@ -123,6 +123,9 @@ All admin only.
 | GET    | `/api/portfolio/cash` | Cash in the trading account (RDN): available, settling (T+2), account value, gain on net deposits, money-weighted annual return (after a year), and the deposits/withdrawals |
 | POST   | `/api/portfolio/cash` | Record a deposit or withdrawal (`kind`, `amount`, `day`, `note`) |
 | DELETE | `/api/portfolio/cash/{id}` | Delete one |
+| GET    | `/api/portfolio/notes` | Your holding notes with the last close and flags (`review_due`, `target_reached`, `stop_hit`) |
+| PUT    | `/api/portfolio/notes/{ticker}` | Create or replace a note (`thesis`, `target`, `stop`, `review_on`) |
+| DELETE | `/api/portfolio/notes/{ticker}` | Delete it |
 | GET    | `/api/portfolio/tax-summary?year=` | A year's holdings on 31 December (acquisition cost, year-end value), sales (0.1% final tax) and dividends, for the SPT |
 
 ## Alerts

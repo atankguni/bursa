@@ -14,6 +14,7 @@ import LockScreen from './pages/auth/LockScreen'
 const Watchlist = lazy(() => import('./pages/Watchlist'))
 const Portfolio = lazy(() => import('./pages/Portfolio'))
 const TaxSummary = lazy(() => import('./pages/TaxSummary'))
+const Glossary = lazy(() => import('./pages/Glossary'))
 const Screener = lazy(() => import('./pages/Screener'))
 const Market = lazy(() => import('./pages/Market'))
 const Alerts = lazy(() => import('./pages/Alerts'))
@@ -80,6 +81,7 @@ function Shell({ isAdmin }: { isAdmin: boolean }) {
             <Route path="/watchlist" element={<Watchlist />} />
             <Route path="/portfolio" element={<Portfolio />} />
             <Route path="/portfolio/tax" element={<TaxSummary />} />
+            <Route path="/glossary" element={<Glossary />} />
             <Route path="/screener" element={<Screener />} />
             <Route path="/market" element={<Market />} />
             <Route path="/alerts" element={<Alerts />} />

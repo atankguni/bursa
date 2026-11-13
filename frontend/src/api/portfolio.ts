@@ -8,6 +8,8 @@ import type {
   Cash,
   CashMovement,
   CashMovementInput,
+  HoldingNote,
+  HoldingNoteInput,
   Transaction,
   TransactionInput,
 } from './types'
@@ -69,4 +71,24 @@ export async function addCashMovement(input: CashMovementInput): Promise<CashMov
 
 export async function deleteCashMovement(id: number): Promise<void> {
   await api.delete(`/api/portfolio/cash/${id}`)
+}
+
+export async function fetchNotes(): Promise<HoldingNote[]> {
+  const { data } = await api.get<HoldingNote[]>('/api/portfolio/notes')
+  return data
+}
+
+export async function saveNote(
+  ticker: string,
+  input: HoldingNoteInput,
+): Promise<HoldingNote> {
+  const { data } = await api.put<HoldingNote>(
+    `/api/portfolio/notes/${encodeURIComponent(ticker)}`,
+    input,
+  )
+  return data
+}
+
+export async function deleteNote(ticker: string): Promise<void> {
+  await api.delete(`/api/portfolio/notes/${encodeURIComponent(ticker)}`)
 }

@@ -3,6 +3,8 @@ import type { InvestingStyle, Recommendation } from '../api'
 import { usePreferences } from '../hooks'
 import { CONVICTION_DOTS, ratingLabel, ratingTone } from '../lib/ratings'
 import TrackRecord from './TrackRecord'
+import Term from './Term'
+import { categoryEntry } from '../lib/glossary'
 
 interface Props {
   data?: Recommendation | undefined
@@ -56,17 +58,19 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
           <span className={`text-3xl font-bold ${ratingTone(data.rating)}`}>
             {data.score.toFixed(0)}
           </span>
-          <span className="text-xs text-subtle">/ 100</span>
+          <span className="text-xs text-subtle">
+            <Term id="score">/ 100</Term>
+          </span>
         </div>
         <div className="flex flex-col">
           <span className={`text-sm font-semibold ${ratingTone(data.rating)}`}>
-            {ratingLabel(data.rating)}
+            <Term id="rating">{ratingLabel(data.rating)}</Term>
             <span className="ml-1.5 text-[11px] font-normal text-subtle">
               vs. other stocks
             </span>
           </span>
           <span className="flex items-center gap-1 text-[11px] text-muted">
-            Conviction: {data.strength}
+            <Term id="conviction">Conviction: {data.strength}</Term>
             <span className="inline-flex gap-0.5">
               {[0, 1, 2, 3].map((i) => (
                 <span
@@ -83,7 +87,9 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
           <div className="mb-1 inline-block rounded-xs bg-panel px-1.5 py-0.5 font-medium text-muted ring-1 ring-line">
             {STYLE_LABEL[data.style ?? 'investor']}
           </div>
-          <div>Data coverage</div>
+          <div>
+            <Term id="coverage">Data coverage</Term>
+          </div>
           <div className="font-medium text-muted">
             {(data.coverage * 100).toFixed(0)}%
           </div>
@@ -94,8 +100,12 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
       <div className="space-y-1.5">
         {data.categories.map((c) => (
           <div key={c.name} className="flex items-center gap-3 text-xs">
-            <span className="w-24 shrink-0 text-muted">
-              {c.name}
+            <span className="w-28 shrink-0 text-muted">
+              {categoryEntry(c.name) ? (
+                <Term id={categoryEntry(c.name) ?? 'score'}>{c.name}</Term>
+              ) : (
+                c.name
+              )}
               <span className="ml-1 text-[10px] text-subtle">
                 {(c.weight * 100).toFixed(0)}%
               </span>

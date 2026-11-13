@@ -1,25 +1,28 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { Eye, EyeOff, FileText, Plus, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, FileText, NotebookPen, Plus, Trash2 } from 'lucide-react'
 import { deleteTransaction } from '../api'
 import {
   usePortfolio,
   usePortfolioHistory,
   usePreferences,
   useStatus,
+  useNotes,
   useTransactions,
 } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { estimateSale } from '../lib/sellEstimate'
 import { fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
+import BuyCalculator from '../components/BuyCalculator'
+import NoteModal, { FLAG_TEXT } from '../components/NoteModal'
 import CashPanel from '../components/CashPanel'
 import DividendCalendar from '../components/DividendCalendar'
 import RiskPanel from '../components/RiskPanel'
 import SellCalculator from '../components/SellCalculator'
 import TransactionModal from '../components/TransactionModal'
-import type { Holding } from '../api'
+import type { Holding, HoldingNote } from '../api'
 
 const PortfolioChart = lazy(() => import('../components/PortfolioChart'))
 
@@ -78,7 +81,10 @@ function Card({
 export default function Portfolio() {
   const [adding, setAdding] = useState(false)
   const [selling, setSelling] = useState<Holding | null>(null)
+  const [buying, setBuying] = useState<Holding | null>(null)
+  const [noting, setNoting] = useState<string | null>(null)
   const [recording, setRecording] = useState<{
+    side: 'buy' | 'sell'
     ticker: string
     lots: number
     price: number
@@ -117,6 +123,10 @@ export default function Portfolio() {
 
   const totals = pf?.totals
   const holdings = pf?.holdings ?? []
+  const { data: notes = [] } = useNotes()
+  const noteBy = new Map(notes.map((n) => [n.ticker, n]))
+  const held = new Set(holdings.map((h) => h.ticker))
+  const attention = notes.filter((n) => n.flags.length > 0 && held.has(n.ticker))
 
   return (
     <main className="w-full animate-fade-in px-4 py-4">
@@ -229,6 +239,24 @@ export default function Portfolio() {
 
           <CashPanel hide={hide} />
 
+          {attention.length > 0 && (
+            <div className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-500/20 dark:text-amber-400">
+              <span className="font-medium">Time to look again:</span>{' '}
+              {attention.map((n, i) => (
+                <span key={n.ticker}>
+                  {i > 0 && ' · '}
+                  <button
+                    onClick={() => setNoting(n.ticker)}
+                    className="font-semibold underline-offset-2 hover:underline"
+                  >
+                    {n.ticker}
+                  </button>{' '}
+                  ({n.flags.map((f) => FLAG_TEXT[f]).join(', ')})
+                </span>
+              ))}
+            </div>
+          )}
+
           {/* Holdings */}
           <div className="surface overflow-hidden">
             <div className="relative overflow-x-auto">
@@ -297,6 +325,10 @@ export default function Portfolio() {
                         <span className="inline-flex items-center gap-1.5">
                           {h.ticker}
                           <BoardBadge board={h.board} compact />
+                          <NoteButton
+                            note={noteBy.get(h.ticker)}
+                            onClick={() => setNoting(h.ticker)}
+                          />
                           {h.split_adjusted && (
                             <span
                               title="Adjusted for a stock split: shares × ratio and price ÷ ratio, so invested capital is unchanged."
@@ -361,7 +393,14 @@ export default function Portfolio() {
                             : '—'}
                         </Secret>
                       </td>
-                      <td className="px-4 py-2 text-right">
+                      <td className="space-x-1.5 px-4 py-2 text-right">
+                        <button
+                          onClick={() => setBuying(h)}
+                          title="Buy more: new average cost and break-even price"
+                          className="rounded-sm px-2 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+                        >
+                          Buy…
+                        </button>
                         <button
                           onClick={() => setSelling(h)}
                           className="rounded-sm px-2 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
@@ -504,17 +543,66 @@ export default function Portfolio() {
           holding={selling}
           onClose={() => setSelling(null)}
           onRecord={(sale) => {
-            setRecording({ ticker: selling.ticker, ...sale })
+            setRecording({ side: 'sell', ticker: selling.ticker, ...sale })
             setSelling(null)
           }}
         />
       )}
-      {recording && (
-        <TransactionModal
-          initial={{ ...recording, side: 'sell' }}
-          onClose={() => setRecording(null)}
+      {buying && (
+        <BuyCalculator
+          holding={buying}
+          onClose={() => setBuying(null)}
+          onRecord={(buy) => {
+            setRecording({ side: 'buy', ticker: buying.ticker, ...buy })
+            setBuying(null)
+          }}
         />
       )}
+      {noting && (
+        <NoteModal
+          ticker={noting}
+          note={noteBy.get(noting)}
+          price={holdings.find((h) => h.ticker === noting)?.price ?? null}
+          onClose={() => setNoting(null)}
+        />
+      )}
+      {recording && (
+        <TransactionModal initial={recording} onClose={() => setRecording(null)} />
+      )}
     </main>
+  )
+}
+
+/** Opens the holding's note: plain when empty, accent with a note, amber when it needs a look. */
+function NoteButton({
+  note,
+  onClick,
+}: {
+  note: HoldingNote | undefined
+  onClick: () => void
+}) {
+  const flagged = (note?.flags.length ?? 0) > 0
+  return (
+    <button
+      onClick={onClick}
+      aria-label={note ? 'Open your note' : 'Add a note'}
+      title={
+        flagged
+          ? `Needs a look: ${note?.flags.map((f) => FLAG_TEXT[f]).join(', ')}`
+          : (note?.thesis ??
+            (note
+              ? 'Your note'
+              : 'Add a note: why you own it, target, stop, review date'))
+      }
+      className={`rounded-xs p-0.5 transition hover:bg-panelalt ${
+        flagged
+          ? 'text-amber-600 dark:text-amber-400'
+          : note
+            ? 'text-accent'
+            : 'text-subtle opacity-60 hover:opacity-100'
+      }`}
+    >
+      <NotebookPen size={12} />
+    </button>
   )
 }

@@ -1093,6 +1093,47 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/portfolio/notes': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Notes
+     * @description Your notes per stock, with the last close and what needs attention.
+     */
+    get: operations['get_notes_api_portfolio_notes_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/portfolio/notes/{ticker}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /**
+     * Put Note
+     * @description Create or replace the note on `ticker`.
+     */
+    put: operations['put_note_api_portfolio_notes__ticker__put']
+    post?: never
+    /** Delete Note */
+    delete: operations['delete_note_api_portfolio_notes__ticker__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/portfolio/risk': {
     parameters: {
       query?: never
@@ -2342,6 +2383,43 @@ export interface components {
       home: string[]
       /** Watchlist */
       watchlist: string[]
+    }
+    /**
+     * HoldingNoteIn
+     * @description Why a stock was bought and when to look again. Prices are per share, as
+     *     they are now (a later split is not applied to them).
+     */
+    HoldingNoteIn: {
+      /** Review On */
+      review_on?: string | null
+      /** Stop */
+      stop?: number | null
+      /** Target */
+      target?: number | null
+      /** Thesis */
+      thesis?: string | null
+    }
+    /** HoldingNoteOut */
+    HoldingNoteOut: {
+      /** Flags */
+      flags: ('review_due' | 'target_reached' | 'stop_hit')[]
+      /** Last Price */
+      last_price: number | null
+      /** Review On */
+      review_on: string | null
+      /** Stop */
+      stop: number | null
+      /** Target */
+      target: number | null
+      /** Thesis */
+      thesis: string | null
+      /** Ticker */
+      ticker: string
+      /**
+       * Updated At
+       * Format: date-time
+       */
+      updated_at: string
     }
     /**
      * HoldingOut
@@ -5551,6 +5629,90 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['EquityPoint'][]
+        }
+      }
+    }
+  }
+  get_notes_api_portfolio_notes_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HoldingNoteOut'][]
+        }
+      }
+    }
+  }
+  put_note_api_portfolio_notes__ticker__put: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticker: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['HoldingNoteIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HoldingNoteOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  delete_note_api_portfolio_notes__ticker__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        ticker: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

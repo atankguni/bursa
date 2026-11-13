@@ -16,7 +16,8 @@ from market.models import Split, Stock
 from portfolio.cash import cash_summary
 from portfolio.dividend_calendar import dividend_calendar
 from portfolio.holdings import build_portfolio, equity_curve
-from portfolio.models import CashMovement, Transaction
+from portfolio.models import CashMovement, HoldingNote, Transaction
+from portfolio.notes import list_notes
 from portfolio.risk import portfolio_risk
 from portfolio.schemas import (
     CashMovementIn,
@@ -24,6 +25,8 @@ from portfolio.schemas import (
     CashOut,
     EquityPoint,
     ExpectedDividendOut,
+    HoldingNoteIn,
+    HoldingNoteOut,
     PortfolioOut,
     PortfolioRiskOut,
     TaxSummaryOut,
@@ -31,6 +34,7 @@ from portfolio.schemas import (
     TransactionOut,
 )
 from portfolio.tax import tax_summary
+from schemas import StockCode
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
@@ -230,5 +234,53 @@ async def delete_cash_movement(
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
     await session.delete(row)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+# --------------------------------------------------------------------------- #
+# Holding notes
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/notes", response_model=list[HoldingNoteOut])
+async def get_notes(
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user)
+) -> list[HoldingNoteOut]:
+    """Your notes per stock, with the last close and what needs attention."""
+    return await list_notes(session, user.id, local_today())
+
+
+@router.put("/notes/{ticker}", response_model=HoldingNoteOut)
+async def put_note(
+    ticker: StockCode,
+    payload: HoldingNoteIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
+) -> HoldingNoteOut:
+    """Create or replace the note on `ticker`."""
+    if await session.get(Stock, ticker) is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, f"Unknown ticker: {ticker}")
+    note = await session.get(HoldingNote, (user.id, ticker))
+    if note is None:
+        note = HoldingNote(user_id=user.id, ticker=ticker)
+        session.add(note)
+    note.thesis = (payload.thesis or "").strip() or None
+    note.target, note.stop, note.review_on = payload.target, payload.stop, payload.review_on
+    await session.commit()
+    [out] = await list_notes(session, user.id, local_today(), {ticker})
+    return out
+
+
+@router.delete("/notes/{ticker}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_note(
+    ticker: StockCode,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
+) -> Response:
+    note = await session.get(HoldingNote, (user.id, ticker))
+    if note is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    await session.delete(note)
     await session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
