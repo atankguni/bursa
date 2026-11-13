@@ -16,6 +16,7 @@ export const queryKeys = {
   portfolioHistory: ['portfolio', 'history'] as const,
   portfolioRisk: ['portfolio', 'risk'] as const,
   dividendCalendar: ['portfolio', 'dividend-calendar'] as const,
+  dividendIncome: ['portfolio', 'dividend-income'] as const,
   taxSummary: (year: number) => ['portfolio', 'tax-summary', year] as const,
   cash: ['portfolio', 'cash'] as const,
   notes: ['portfolio', 'notes'] as const,

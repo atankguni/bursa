@@ -164,6 +164,24 @@ class PortfolioRiskOut(Schema):
     warnings: list[str] = []
 
 
+class DividendMonthOut(Schema):
+    """One month's dividends, net of tax: received (by ex-date) and expected."""
+
+    month: str = Field(pattern=r"^\d{4}-\d{2}$", examples=["2026-11"])
+    received: float
+    expected: float
+
+
+class DividendIncomeOut(Schema):
+    """Net dividend income per month: the last 12 received, the next 6 expected."""
+
+    months: list[DividendMonthOut]
+    current_month: str
+    received_12m: float
+    expected_6m: float
+    dividend_tax_pct: float
+
+
 class ExpectedDividendOut(Schema):
     """A projected (not announced) dividend, from last year's ex-date."""
 

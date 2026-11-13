@@ -7,9 +7,9 @@ const pct = (v: number | null | undefined, digits = 1) =>
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <div className="rounded-md bg-panelalt/50 px-3 py-2.5 ring-1 ring-line">
+    <div className="rounded-md bg-panelalt/60 px-4 py-3">
       <div className="text-2xs font-medium text-muted">{label}</div>
-      <div className="mt-0.5 text-base font-semibold tabular-nums text-ink">{value}</div>
+      <div className="mt-1 text-lg font-semibold tabular-nums text-ink">{value}</div>
       {hint && <div className="mt-0.5 text-2xs text-subtle">{hint}</div>}
     </div>
   )
@@ -21,11 +21,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
   const { settings } = useSettings()
   if (!enabled) return null
   if (isLoading || !r) {
-    return (
-      <div className="surface px-4 py-6 text-center text-xs text-subtle">
-        Analysing risk…
-      </div>
-    )
+    return <div className="surface skeleton h-64" aria-label="Analysing risk…" />
   }
   const tone = (v: number | null) =>
     !settings.colorizeChanges || v == null || v === 0
@@ -35,7 +31,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
         : 'text-bear'
 
   return (
-    <section className="surface p-4" aria-labelledby="risk-title">
+    <section className="surface p-4 sm:p-5" aria-labelledby="risk-title">
       <h3 id="risk-title" className="section-title mb-3">
         Risk
       </h3>
@@ -97,20 +93,27 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
 
       {r.sectors.length > 0 && (
         <div className="mt-4">
-          <div className="mb-1.5 text-2xs font-medium text-muted">Sector exposure</div>
-          <div className="space-y-1.5">
+          <div className="section-title mb-1">Sector exposure</div>
+          <p className="mb-3 text-2xs text-subtle">
+            Share of your portfolio&apos;s value; amber above 40%, where one sector&apos;s
+            bad news moves most of it.
+          </p>
+          <div className="space-y-2.5">
             {r.sectors.map((s) => (
               <div key={s.sector} className="flex items-center gap-3 text-xs">
-                <span className="w-44 shrink-0 truncate text-muted" title={s.sector}>
+                <span
+                  className="w-32 shrink-0 truncate text-ink sm:w-44"
+                  title={s.sector}
+                >
                   {s.sector}
                 </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-xs bg-panelalt">
+                <div className="h-2 flex-1 overflow-hidden rounded-full bg-panelalt">
                   <div
-                    className={`h-full rounded-xs ${s.weight > 40 ? 'bg-amber-500' : 'bg-active'}`}
+                    className={`h-full rounded-full ${s.weight > 40 ? 'bg-amber-500' : 'bg-accent'}`}
                     style={{ width: `${Math.max(s.weight, 2)}%` }}
                   />
                 </div>
-                <span className="w-12 text-right tabular-nums text-ink">
+                <span className="w-12 text-right font-medium tabular-nums text-ink">
                   {s.weight.toFixed(0)}%
                 </span>
               </div>

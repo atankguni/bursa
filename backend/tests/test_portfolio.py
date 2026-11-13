@@ -253,3 +253,45 @@ async def test_portfolio_counts_costs_and_dividends(client):
     assert prefs["trading_costs"]["sell_fee_pct"] == 0.3
     bad = await client.put("/api/preferences", json={"trading_costs": {"sell_fee_pct": 40}})
     assert bad.status_code == 422
+
+
+def test_month_window():
+    from datetime import date
+
+    from portfolio.dividend_income import month_window
+
+    keys, first, last = month_window(date(2026, 11, 13))
+    assert keys[0] == "2025-12" and keys[11] == "2026-11" and keys[-1] == "2027-05"
+    assert len(keys) == 18 and first == date(2025, 12, 1) and last == date(2027, 5, 31)
+
+
+async def test_dividend_income_by_month(client, monkeypatch):
+    from datetime import timedelta
+
+    import portfolio.dividend_calendar as cal
+    from database import AsyncSessionLocal
+    from market.models import Dividend
+    from portfolio.dividend_income import add_months, month_key
+    from portfolio.models import Transaction
+
+    async def no_sync(ticker):
+        return 0
+
+    monkeypatch.setattr(cal, "sync_dividends", no_sync)
+    today = local_today()
+    paid = today - timedelta(days=60)      # received: 1,000 x 50, less 10% tax
+    projected = today - timedelta(days=340)  # last year's -> expected in ~25 days
+    async with AsyncSessionLocal() as s:
+        s.add(Transaction(user_id=client.user_id, ticker="BBCA", side="buy", quantity=1000,
+                          price=9000.0, fees=0.0, trade_date=today - timedelta(days=400)))
+        s.add_all([Dividend(ticker="BBCA", ex_date=paid, amount=50.0),
+                   Dividend(ticker="BBCA", ex_date=projected, amount=20.0)])
+        await s.commit()
+    r = (await client.get("/api/portfolio/dividend-income")).json()
+    by = {m["month"]: m for m in r["months"]}
+    assert len(r["months"]) == 18 and r["current_month"] == month_key(today)
+    assert by[month_key(paid)]["received"] == 45_000.0
+    assert by[month_key(cal._plus_year(projected))]["expected"] == 18_000.0
+    # Last year's dividend is 340 days back: still inside the 12 months shown.
+    assert r["received_12m"] == 45_000.0 + (18_000.0 if projected >= add_months(today, -11) else 0)
+    assert r["expected_6m"] == 18_000.0

@@ -150,6 +150,8 @@ backtest (see [Development](development.md#signal-backtest)).
     dividends (after tax) counted as income. IHSG itself is a price index (no dividends).
   - A **risk view**: diversification, sector exposure, beta vs IHSG, an "if IHSG
     falls 10%" stress test and max drawdown.
+  - **Dividend income per month** (Income tab): net of tax, the last 12 months
+    received and the next 6 expected, as a bar chart.
   - An **expected dividend calendar**, projected from last year's ex-dates.
   - Holdings are **split-adjusted** automatically.
 - **Alerts**: price-above/below, %-change, signal-change and **dividend coming up** rules

@@ -1,6 +1,7 @@
 import { api } from './client'
 import type {
   EquityPoint,
+  DividendIncome,
   ExpectedDividend,
   Portfolio,
   PortfolioRisk,
@@ -40,6 +41,13 @@ export async function fetchPortfolioHistory(): Promise<EquityPoint[]> {
 
 export async function fetchPortfolioRisk(): Promise<PortfolioRisk> {
   const { data } = await api.get<PortfolioRisk>('/api/portfolio/risk')
+  return data
+}
+
+export async function fetchDividendIncome(): Promise<DividendIncome> {
+  const { data } = await api.get<DividendIncome>('/api/portfolio/dividend-income', {
+    timeout: 60_000, // may fetch dividend history for new tickers
+  })
   return data
 }
 

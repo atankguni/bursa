@@ -15,6 +15,7 @@ from market.corporate_actions import adjusted_transactions
 from market.models import Split, Stock
 from portfolio.cash import cash_summary
 from portfolio.dividend_calendar import dividend_calendar
+from portfolio.dividend_income import dividend_income_by_month
 from portfolio.holdings import build_portfolio, equity_curve
 from portfolio.models import CashMovement, HoldingNote, Transaction
 from portfolio.notes import list_notes
@@ -23,6 +24,7 @@ from portfolio.schemas import (
     CashMovementIn,
     CashMovementOut,
     CashOut,
+    DividendIncomeOut,
     EquityPoint,
     ExpectedDividendOut,
     HoldingNoteIn,
@@ -176,6 +178,14 @@ async def get_dividend_calendar(
     """Expected ex-dates for holdings + watchlist, projected from last year's."""
     calendar = await dividend_calendar(session, user.id, days)
     return [ExpectedDividendOut.model_validate(d) for d in calendar]
+
+
+@router.get("/dividend-income", response_model=DividendIncomeOut)
+async def get_dividend_income(
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user)
+) -> DividendIncomeOut:
+    """Net dividends per month: received over the last 12, expected over the next 6."""
+    return await dividend_income_by_month(session, user.id)
 
 
 @router.get("/tax-summary", response_model=TaxSummaryOut)

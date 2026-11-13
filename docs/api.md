@@ -120,6 +120,7 @@ All admin only.
 | GET    | `/api/portfolio/history` | Portfolio value over time |
 | GET    | `/api/portfolio/risk` | Concentration, sectors, beta vs IHSG, stress test, drawdown |
 | GET    | `/api/portfolio/dividend-calendar` | Expected (projected) dividends for holdings + watchlist |
+| GET    | `/api/portfolio/dividend-income` | Net dividends per month: last 12 received (by ex-date), next 6 expected |
 | GET    | `/api/portfolio/cash` | Cash in the trading account (RDN): available, settling (T+2), account value, gain on net deposits, money-weighted annual return (after a year), and the deposits/withdrawals |
 | POST   | `/api/portfolio/cash` | Record a deposit or withdrawal (`kind`, `amount`, `day`, `note`) |
 | DELETE | `/api/portfolio/cash/{id}` | Delete one |

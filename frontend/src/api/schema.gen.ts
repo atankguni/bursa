@@ -1076,6 +1076,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/portfolio/dividend-income': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Dividend Income
+     * @description Net dividends per month: received over the last 12, expected over the next 6.
+     */
+    get: operations['get_dividend_income_api_portfolio_dividend_income_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/portfolio/history': {
     parameters: {
       query?: never
@@ -2226,6 +2246,37 @@ export interface components {
        * @default 60
        */
       refreshSeconds: number
+    }
+    /**
+     * DividendIncomeOut
+     * @description Net dividend income per month: the last 12 received, the next 6 expected.
+     */
+    DividendIncomeOut: {
+      /** Current Month */
+      current_month: string
+      /** Dividend Tax Pct */
+      dividend_tax_pct: number
+      /** Expected 6M */
+      expected_6m: number
+      /** Months */
+      months: components['schemas']['DividendMonthOut'][]
+      /** Received 12M */
+      received_12m: number
+    }
+    /**
+     * DividendMonthOut
+     * @description One month's dividends, net of tax: received (by ex-date) and expected.
+     */
+    DividendMonthOut: {
+      /** Expected */
+      expected: number
+      /**
+       * Month
+       * @example 2026-11
+       */
+      month: string
+      /** Received */
+      received: number
     }
     /** DividendOut */
     DividendOut: {
@@ -5609,6 +5660,26 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  get_dividend_income_api_portfolio_dividend_income_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['DividendIncomeOut']
         }
       }
     }

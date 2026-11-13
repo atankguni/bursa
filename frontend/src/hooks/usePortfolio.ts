@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import {
   fetchDividendCalendar,
+  fetchDividendIncome,
   fetchPortfolio,
   fetchPortfolioHistory,
   fetchPortfolioRisk,
@@ -42,6 +43,14 @@ export function usePortfolioRisk(enabled = true) {
     queryKey: queryKeys.portfolioRisk,
     queryFn: fetchPortfolioRisk,
     enabled,
+  })
+}
+
+/** Net dividends per month: the last 12 received, the next 6 expected. */
+export function useDividendIncome() {
+  return useQuery({
+    queryKey: queryKeys.dividendIncome,
+    queryFn: fetchDividendIncome,
   })
 }
 

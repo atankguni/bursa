@@ -75,7 +75,7 @@ export default function Browse() {
       </div>
 
       <div className="surface overflow-hidden">
-        <div className="relative overflow-x-auto">
+        <div className="table-scroll relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="table-head">
               <tr>

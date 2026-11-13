@@ -12,6 +12,7 @@ import StockDetailModal from '../components/StockDetailModal'
 import SignalBadge from '../components/SignalBadge'
 import SortHeader, { type SortState } from '../components/SortHeader'
 import EmptyState from '../components/ui/EmptyState'
+import PriceFlash from '../components/ui/PriceFlash'
 
 // Value each sortable column sorts by (null = missing data, always listed last).
 const SORT_VALUE = {
@@ -117,7 +118,7 @@ export default function Watchlist() {
       )}
 
       <div className="surface overflow-hidden">
-        <div className="relative overflow-x-auto">
+        <div className="table-scroll relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="table-head">
               <tr>
@@ -262,7 +263,9 @@ export default function Watchlist() {
                       </td>
                     )}
                     <td className="px-4 py-2 text-right font-semibold">
-                      {fmtPrice(it.last_price)}
+                      <PriceFlash value={it.last_price}>
+                        {fmtPrice(it.last_price)}
+                      </PriceFlash>
                     </td>
                     <td className={`px-4 py-2 text-right font-medium ${chgTone}`}>
                       <span className="inline-flex items-center justify-end gap-0.5">

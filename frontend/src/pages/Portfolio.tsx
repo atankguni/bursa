@@ -31,6 +31,7 @@ import BuyCalculator from '../components/BuyCalculator'
 import NoteModal, { FLAG_TEXT } from '../components/NoteModal'
 import CashPanel from '../components/CashPanel'
 import DividendCalendar from '../components/DividendCalendar'
+import DividendIncomeChart from '../components/DividendIncomeChart'
 import RiskPanel from '../components/RiskPanel'
 import SellCalculator from '../components/SellCalculator'
 import SubTabs from '../components/SubTabs'
@@ -40,6 +41,7 @@ import PageHeader from '../components/ui/PageHeader'
 import { SkeletonCard, SkeletonRows } from '../components/ui/Skeleton'
 import Stat from '../components/ui/Stat'
 import type { Holding, HoldingNote } from '../api'
+import PriceFlash from '../components/ui/PriceFlash'
 
 const PortfolioChart = lazy(() => import('../components/PortfolioChart'))
 
@@ -466,7 +468,9 @@ export default function Portfolio() {
                                 <Secret hidden={hide}>{fmtPrice(h.avg_cost)}</Secret>
                               </td>
                               <td className="px-4 py-3 text-right tabular-nums">
-                                {fmtPrice(h.price)}
+                                <PriceFlash value={h.price}>
+                                  {fmtPrice(h.price)}
+                                </PriceFlash>
                               </td>
                               <td className="px-4 py-3 text-right font-medium tabular-nums">
                                 {money(h.market_value)}
@@ -545,7 +549,12 @@ export default function Portfolio() {
               )}
 
               {tab === 'cash' && <CashPanel hide={hide} />}
-              {tab === 'income' && <DividendCalendar hideValues={hide} />}
+              {tab === 'income' && (
+                <div className="space-y-4">
+                  <DividendIncomeChart hideValues={hide} />
+                  <DividendCalendar hideValues={hide} />
+                </div>
+              )}
               {tab === 'risk' &&
                 (holdings.length > 0 ? (
                   <RiskPanel enabled />

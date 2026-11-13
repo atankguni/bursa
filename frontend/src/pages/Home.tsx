@@ -36,6 +36,7 @@ import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
 import PageHeader from '../components/ui/PageHeader'
 import Stat from '../components/ui/Stat'
+import PriceFlash from '../components/ui/PriceFlash'
 
 type DetailTab = 'chart' | 'fundamentals' | 'recommendation'
 type SignalSort = 'off' | 'desc' | 'asc'
@@ -292,7 +293,7 @@ export default function Home() {
         </p>
       )}
       <div className="surface overflow-hidden">
-        <div className="relative overflow-x-auto">
+        <div className="table-scroll relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="table-head">
               <tr>
@@ -403,7 +404,9 @@ export default function Home() {
                       </td>
                     )}
                     <td className="px-4 py-3 text-right font-semibold tabular-nums">
-                      {fmtPrice(s.last_price)}
+                      <PriceFlash value={s.last_price}>
+                        {fmtPrice(s.last_price)}
+                      </PriceFlash>
                     </td>
                     {rec('change') && (
                       <td className={`px-4 py-2 text-right tabular-nums ${tone}`}>

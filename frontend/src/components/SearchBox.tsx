@@ -32,6 +32,8 @@ export default function SearchBox({
   const [selected, setSelected] = useState<Stock | null>(null)
   const [preparing, setPreparing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  // The highlighted result for ↑/↓/Enter, reset to the first whenever the query changes.
+  const [active, setActive] = useState({ q: '', i: 0 })
   const ref = useRef<HTMLDivElement>(null)
   const input = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
@@ -82,6 +84,11 @@ export default function SearchBox({
     enabled: debounced.length >= 2,
   })
 
+  const shown = open && debounced.length >= 2
+  const activeIndex =
+    active.q === debounced ? Math.min(active.i, Math.max(results.length - 1, 0)) : 0
+  const listId = `${full ? 'm' : 'd'}-search-results`
+
   const openPreview = async (r: SearchResult) => {
     setOpen(false)
     setError(null)
@@ -116,8 +123,30 @@ export default function SearchBox({
             if (e.key === 'Escape') {
               setOpen(false)
               e.currentTarget.blur()
+            } else if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+              e.preventDefault()
+              if (!shown) return setOpen(true)
+              if (results.length === 0) return
+              const step = e.key === 'ArrowDown' ? 1 : -1
+              setActive({
+                q: debounced,
+                i: (activeIndex + step + results.length) % results.length,
+              })
+            } else if (e.key === 'Enter' && shown && preparing == null) {
+              const r = results[activeIndex]
+              if (r) {
+                e.preventDefault()
+                void openPreview(r)
+              }
             }
           }}
+          role="combobox"
+          aria-expanded={shown}
+          aria-controls={listId}
+          aria-autocomplete="list"
+          aria-activedescendant={
+            shown && results[activeIndex] ? `${listId}-${activeIndex}` : undefined
+          }
           value={q}
           onChange={(e) => {
             setQ(e.target.value)
@@ -130,7 +159,10 @@ export default function SearchBox({
           className={`${full ? 'min-w-0 flex-1 text-base sm:text-xs' : 'w-36 xl:w-44'} bg-transparent text-ink outline-hidden placeholder:text-subtle`}
         />
         {!full && !q && (
-          <kbd className="hidden rounded-xs bg-panel px-1.5 py-0.5 font-sans text-2xs text-subtle ring-1 ring-line xl:inline">
+          <kbd
+            aria-hidden
+            className="hidden rounded-xs bg-panel px-1.5 py-0.5 font-sans text-2xs text-subtle ring-1 ring-line xl:inline"
+          >
             {mac ? '⌘K' : 'Ctrl K'}
           </kbd>
         )}
@@ -142,8 +174,11 @@ export default function SearchBox({
         </div>
       )}
 
-      {open && debounced.length >= 2 && (
+      {shown && (
         <div
+          id={listId}
+          role="listbox"
+          aria-label="Search results"
           className={`absolute left-0 z-20 mt-1 ${full ? 'right-0' : 'w-80'} animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line`}
         >
           {isAdmin && (
@@ -164,12 +199,19 @@ export default function SearchBox({
           {!isFetching && results.length === 0 && (
             <div className="px-3 py-2 text-xs text-subtle">No matches</div>
           )}
-          {results.map((r) => (
+          {results.map((r, i) => (
             <button
               key={r.symbol}
+              id={`${listId}-${i}`}
+              role="option"
+              aria-selected={i === activeIndex}
+              tabIndex={-1}
               onClick={() => void openPreview(r)}
+              onMouseMove={() => i !== activeIndex && setActive({ q: debounced, i })}
               disabled={preparing != null}
-              className="flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition hover:bg-panelalt disabled:opacity-50"
+              className={`flex w-full items-center justify-between gap-2 rounded-sm px-2.5 py-1.5 text-left text-xs transition disabled:opacity-50 ${
+                i === activeIndex ? 'bg-panelalt' : ''
+              }`}
             >
               <span className="min-w-0">
                 <span className="font-medium text-ink">{r.symbol}</span>

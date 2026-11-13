@@ -64,6 +64,7 @@ export type PortfolioTotals = Schemas['PortfolioTotals']
 export type Portfolio = Schemas['PortfolioOut']
 /** A projected (not announced) dividend, from last year's ex-date. */
 export type ExpectedDividend = Schemas['ExpectedDividendOut']
+export type DividendIncome = Schemas['DividendIncomeOut']
 export type PortfolioRisk = Schemas['PortfolioRiskOut']
 export type EquityPoint = Schemas['EquityPoint']
 /** A year's holdings on 31 December, sales and dividends, for the SPT. */

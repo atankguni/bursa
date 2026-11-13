@@ -14,7 +14,7 @@ Pure helpers (`apply_transactions`) are unit-tested without a database; the
 import logging
 from bisect import bisect_right
 from collections import defaultdict
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
 from datetime import date, timedelta
 from typing import Protocol, TypedDict
 
@@ -95,13 +95,15 @@ def apply_trade(book: Book, t: Trade | Transaction | AdjustedTx) -> float:
 type DividendMap = dict[str, list[tuple[date, float]]]
 
 
-def dividend_income(txs: Sequence[AdjustedTx], dividends: DividendMap) -> dict[str, float]:
+def entitled_dividends(
+    txs: Sequence[AdjustedTx], dividends: DividendMap
+) -> Iterator[tuple[str, date, float]]:
     """
-    Gross cash dividends earned per ticker: for each ex-date, the shares held at
-    the end of the day before (bought on the cum date or earlier) x the amount.
-    `txs` are in today's (split-adjusted) shares, like the provider's amounts.
+    (ticker, ex-date, gross amount) for each dividend the trades earned: the shares
+    held at the end of the day before the ex-date (bought on the cum date or
+    earlier) x the amount per share. `txs` are in today's (split-adjusted) shares,
+    like the provider's amounts.
     """
-    out: dict[str, float] = defaultdict(float)
     for ticker, divs in dividends.items():
         trades = [t for t in txs if t.ticker == ticker]
         for ex_date, amount in divs:
@@ -111,7 +113,14 @@ def dividend_income(txs: Sequence[AdjustedTx], dividends: DividendMap) -> dict[s
                 if t.trade_date < ex_date
             )
             if held > 0:
-                out[ticker] += held * amount
+                yield ticker, ex_date, held * amount
+
+
+def dividend_income(txs: Sequence[AdjustedTx], dividends: DividendMap) -> dict[str, float]:
+    """Gross cash dividends earned per ticker (see `entitled_dividends`)."""
+    out: dict[str, float] = defaultdict(float)
+    for ticker, _, gross in entitled_dividends(txs, dividends):
+        out[ticker] += gross
     return dict(out)
 
 
