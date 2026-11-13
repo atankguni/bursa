@@ -5,6 +5,24 @@ import { usePreferences, useStatus, useStocks } from '../hooks'
 import Modal from './Modal'
 import { errorMessage } from '../api/client'
 
+/** What the form records: trades, plus shares received from corporate actions. */
+type Entry = 'buy' | 'sell' | 'rights' | 'bonus'
+
+const ENTRIES: { id: Entry; label: string; hint?: string }[] = [
+  { id: 'buy', label: 'Buy' },
+  { id: 'sell', label: 'Sell' },
+  {
+    id: 'rights',
+    label: 'Rights issue',
+    hint: 'New shares from an exercised rights issue (HMETD), at the exercise price. They blend into your average cost. Use the date the new shares arrived.',
+  },
+  {
+    id: 'bonus',
+    label: 'Bonus shares',
+    hint: 'Free shares (saham bonus, or a stock dividend): your total cost stays the same, so the average per share falls. Use the ex-date.',
+  },
+]
+
 export default function TransactionModal({
   onClose,
   initial,
@@ -18,7 +36,9 @@ export default function TransactionModal({
   const { data: status } = useStatus()
   const lotSize = status?.lot_size ?? 100
   const [ticker, setTicker] = useState(initial?.ticker ?? '')
-  const [side, setSide] = useState<'buy' | 'sell'>(initial?.side ?? 'buy')
+  const [entry, setEntry] = useState<Entry>(initial?.side ?? 'buy')
+  const side = entry === 'sell' ? 'sell' : 'buy'
+  const free = entry === 'bonus' // no price, no fees
   const [unit, setUnit] = useState<'lots' | 'shares'>('lots')
   const [quantity, setQuantity] = useState(initial ? String(initial.lots) : '')
   const [price, setPrice] = useState(initial ? String(initial.price) : '')
@@ -31,7 +51,13 @@ export default function TransactionModal({
   // Quantity is stored as shares; lots are converted on submit.
   const shares =
     unit === 'lots' ? (Number(quantity) || 0) * lotSize : Number(quantity) || 0
-  const feePct = side === 'buy' ? tradingCosts.buy_fee_pct : tradingCosts.sell_fee_pct
+  // Exercising rights goes through the registrar, not a trade: no broker fee by default.
+  const feePct =
+    entry === 'rights'
+      ? 0
+      : side === 'buy'
+        ? tradingCosts.buy_fee_pct
+        : tradingCosts.sell_fee_pct
   const autoFee = Math.round((shares * (Number(price) || 0) * feePct) / 100)
   const fee = fees ?? String(autoFee)
 
@@ -47,9 +73,10 @@ export default function TransactionModal({
     add.mutate({
       ticker: ticker.trim().toUpperCase(),
       side,
+      kind: entry === 'rights' ? 'rights' : entry === 'bonus' ? 'bonus' : 'trade',
       quantity: shares,
-      price: Number(price),
-      fees: Number(fee) || 0,
+      price: free ? 0 : Number(price),
+      fees: free ? 0 : Number(fee) || 0,
       trade_date: tradeDate,
       note: note.trim() || null,
     })
@@ -75,7 +102,7 @@ export default function TransactionModal({
             </button>
             <button
               onClick={submit}
-              disabled={add.isPending || !ticker || !quantity || !price}
+              disabled={add.isPending || !ticker || !quantity || (!free && !price)}
               className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
             >
               {add.isPending ? 'Saving…' : 'Add'}
@@ -103,21 +130,35 @@ export default function TransactionModal({
           </datalist>
         </div>
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted">Side</span>
-          <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
-            {(['buy', 'sell'] as const).map((s) => (
+        <div>
+          <span className="mb-1 block text-xs text-muted" id="tx-type">
+            Type
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="tx-type"
+            className="grid grid-cols-2 overflow-hidden rounded-sm ring-1 ring-line-strong sm:grid-cols-4"
+          >
+            {ENTRIES.map((e) => (
               <button
-                key={s}
-                onClick={() => setSide(s)}
-                className={`px-3 py-1.5 text-xs font-medium capitalize transition ${
-                  side === s ? 'bg-active text-ink' : 'text-muted hover:text-ink'
+                key={e.id}
+                type="button"
+                role="radio"
+                aria-checked={entry === e.id}
+                onClick={() => setEntry(e.id)}
+                className={`px-3 py-1.5 text-xs font-medium transition ${
+                  entry === e.id ? 'bg-active text-ink' : 'text-muted hover:text-ink'
                 }`}
               >
-                {s}
+                {e.label}
               </button>
             ))}
           </div>
+          {ENTRIES.find((e) => e.id === entry)?.hint && (
+            <p className="mt-1 text-[11px] text-subtle">
+              {ENTRIES.find((e) => e.id === entry)?.hint}
+            </p>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-3">
@@ -152,37 +193,43 @@ export default function TransactionModal({
               </p>
             )}
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-muted">Price</label>
-            <input
-              type="number"
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-          <div>
-            <label className="mb-1 flex justify-between text-xs text-muted">
-              Fees
-              {fees === null ? (
-                <span className="text-subtle">{feePct}% · auto</span>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setFees(null)}
-                  className="text-accent hover:underline"
-                >
-                  Use {feePct}%
-                </button>
-              )}
-            </label>
-            <input
-              type="number"
-              value={fee}
-              onChange={(e) => setFees(e.target.value)}
-              className={inputCls}
-            />
-          </div>
+          {!free && (
+            <div>
+              <label className="mb-1 block text-xs text-muted">
+                {entry === 'rights' ? 'Exercise price' : 'Price'}
+              </label>
+              <input
+                type="number"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          )}
+          {!free && (
+            <div>
+              <label className="mb-1 flex justify-between text-xs text-muted">
+                Fees
+                {fees === null ? (
+                  <span className="text-subtle">{feePct}% · auto</span>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setFees(null)}
+                    className="text-accent hover:underline"
+                  >
+                    Use {feePct}%
+                  </button>
+                )}
+              </label>
+              <input
+                type="number"
+                value={fee}
+                onChange={(e) => setFees(e.target.value)}
+                className={inputCls}
+              />
+            </div>
+          )}
           <div>
             <label className="mb-1 block text-xs text-muted">Date</label>
             <input

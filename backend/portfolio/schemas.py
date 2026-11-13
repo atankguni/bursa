@@ -5,15 +5,19 @@ API models (Pydantic) for the portfolio and the watchlist.
 """
 
 from datetime import date, datetime
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import ConfigDict, Field
+from pydantic import ConfigDict, Field, model_validator
 
 from market.schemas import DerivedMetrics, FundamentalOut, StockBase
 from schemas import Schema, StockCode
 from signals.schemas import RecommendationSummary
 
 TradeSide = Literal["buy", "sell"]
+# How shares were gained: a trade at the exchange, an exercised rights issue
+# (HMETD: new shares at the exercise price), or bonus shares / a stock dividend
+# (new shares for free: the count rises, the total cost stays).
+TransactionKind = Literal["trade", "rights", "bonus"]
 
 
 # --------------------------------------------------------------------------- #
@@ -22,15 +26,28 @@ TradeSide = Literal["buy", "sell"]
 
 
 class TransactionIn(Schema):
-    """Payload for recording a buy/sell (whole shares, as traded)."""
+    """Payload for recording a buy/sell (whole shares, as traded), an exercised
+    rights issue or bonus shares (both: shares received, so `side` is buy)."""
 
     ticker: StockCode
     side: TradeSide
+    kind: TransactionKind = "trade"
     quantity: int = Field(gt=0)
-    price: float = Field(gt=0)
+    price: float = Field(ge=0)  # 0 only for bonus shares
     fees: float = Field(default=0.0, ge=0)
     trade_date: date
-    note: str | None = None
+    note: str | None = Field(default=None, max_length=255)
+
+    @model_validator(mode="after")
+    def _kind_rules(self) -> Self:
+        if self.kind != "trade" and self.side != "buy":
+            raise ValueError("Rights issues and bonus shares are shares received (side: buy)")
+        if self.kind == "bonus":
+            if self.price != 0 or self.fees != 0:
+                raise ValueError("Bonus shares are free: price and fees 0")
+        elif self.price <= 0:
+            raise ValueError("Price must be above 0")
+        return self
 
 
 class TransactionOut(Schema):
@@ -39,6 +56,7 @@ class TransactionOut(Schema):
     id: int
     ticker: str
     side: TradeSide
+    kind: TransactionKind = "trade"
     quantity: float
     price: float
     fees: float

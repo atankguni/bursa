@@ -449,7 +449,11 @@ export default function Portfolio() {
                             t.side === 'buy' ? 'text-bull' : 'text-bear'
                           }`}
                         >
-                          {t.side}
+                          {t.kind === 'rights'
+                            ? 'rights'
+                            : t.kind === 'bonus'
+                              ? 'bonus'
+                              : t.side}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
                           <Secret hidden={hide}>{lotsOf(t.quantity, lotSize)}</Secret>
@@ -460,7 +464,11 @@ export default function Portfolio() {
                           </Secret>
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums">
-                          <Secret hidden={hide}>{fmtPrice(t.price)}</Secret>
+                          {t.kind === 'bonus' ? (
+                            <span className="text-subtle">free</span>
+                          ) : (
+                            <Secret hidden={hide}>{fmtPrice(t.price)}</Secret>
+                          )}
                         </td>
                         <td className="px-4 py-2 text-right tabular-nums text-subtle">
                           <Secret hidden={hide}>{t.fees ? fmtPrice(t.fees) : '—'}</Secret>

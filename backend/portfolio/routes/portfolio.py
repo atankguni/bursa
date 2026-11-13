@@ -1,5 +1,7 @@
 """Portfolio endpoints: the signed-in user's transactions -> holdings + P/L."""
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import select
@@ -10,7 +12,7 @@ from clock import local_today
 from deps import current_user, get_session
 from market import index_quotes as index_service
 from market.corporate_actions import adjusted_transactions
-from market.models import Stock
+from market.models import Split, Stock
 from portfolio.dividend_calendar import dividend_calendar
 from portfolio.holdings import build_portfolio, equity_curve
 from portfolio.models import Transaction
@@ -27,6 +29,9 @@ from portfolio.schemas import (
 from portfolio.tax import tax_summary
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
+
+# A split this close to recorded bonus shares is the same event.
+BONUS_SPLIT_WINDOW = timedelta(days=45)
 
 
 async def _held_quantity(session: AsyncSession, user_id: int, ticker: str) -> float:
@@ -76,6 +81,31 @@ async def add_transaction(
     ).scalar_one_or_none()
     if stock is None:
         raise HTTPException(status_code=404, detail=f"Unknown ticker: {payload.ticker}")
+
+    if payload.kind == "bonus":
+        # Yahoo lists some bonus issues as splits, which Bursa already applies to
+        # every holding: recording them as well would count the shares twice.
+        near = (
+            await session.execute(
+                select(Split.ex_date, Split.ratio).where(
+                    Split.ticker == payload.ticker,
+                    Split.ratio > 1,
+                    Split.ex_date.between(
+                        payload.trade_date - BONUS_SPLIT_WINDOW,
+                        payload.trade_date + BONUS_SPLIT_WINDOW,
+                    ),
+                )
+            )
+        ).first()
+        if near is not None:
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"{payload.ticker} already has a split on {near.ex_date:%d %b %Y} "
+                    f"({near.ratio:g} for 1) from the market data, which Bursa applies "
+                    "to your shares automatically: no need to record the bonus shares."
+                ),
+            )
 
     if payload.side == "sell":
         held = await _held_quantity(session, user.id, payload.ticker)

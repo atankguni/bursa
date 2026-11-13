@@ -252,9 +252,10 @@ export default function TaxSummary() {
           </Section>
 
           <p className="text-[11px] text-subtle">
-            Worked out from the transactions recorded in Bursa: trades not recorded here,
-            rights issues and bonus shares aren&apos;t included. Shares and prices are as
-            they were then, before any later split. This is a worksheet, not tax advice.
+            Worked out from the transactions recorded in Bursa, including rights issues
+            and bonus shares you recorded: trades not recorded here aren&apos;t included.
+            Shares and prices are as they were then, before any later split. This is a
+            worksheet, not tax advice.
           </p>
         </div>
       )}

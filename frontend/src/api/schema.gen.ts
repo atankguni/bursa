@@ -3526,7 +3526,8 @@ export interface components {
     }
     /**
      * TransactionIn
-     * @description Payload for recording a buy/sell (whole shares, as traded).
+     * @description Payload for recording a buy/sell (whole shares, as traded), an exercised
+     *     rights issue or bonus shares (both: shares received, so `side` is buy).
      */
     TransactionIn: {
       /**
@@ -3534,6 +3535,12 @@ export interface components {
        * @default 0
        */
       fees: number
+      /**
+       * Kind
+       * @default trade
+       * @enum {string}
+       */
+      kind: 'trade' | 'rights' | 'bonus'
       /** Note */
       note?: string | null
       /** Price */
@@ -3559,6 +3566,12 @@ export interface components {
       fees: number
       /** Id */
       id: number
+      /**
+       * Kind
+       * @default trade
+       * @enum {string}
+       */
+      kind: 'trade' | 'rights' | 'bonus'
       /** Note */
       note: string | null
       /** Price */

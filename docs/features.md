@@ -106,6 +106,12 @@ backtest (see [Development](development.md#signal-backtest)).
   - **dividends received**: cash dividends on shares held before each ex-date, after tax;
   - **total return**: P/L after selling costs + realized P/L + dividends;
   - estimated annual income after tax.
+- **Rights issues and bonus shares** (Add transaction → Type): an exercised rights issue
+  (HMETD) is recorded as shares received at the exercise price, and blends into the
+  average cost; bonus shares or a stock dividend as free shares, which keep the total
+  cost and lower the average. Bursa refuses bonus shares that the market data already
+  shows as a stock split (it applies those automatically). Selling unexercised rights
+  isn't covered.
 - **Sell calculator** (Portfolio → **Sell…** on a holding): pick the lots and price
   (default: all whole lots at the last price, checked against IDX's price steps) and
   see the sale value, the fee and tax at your sell rate, the **cash you receive**,
