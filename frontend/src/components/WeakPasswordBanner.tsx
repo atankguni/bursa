@@ -27,7 +27,7 @@ export default function WeakPasswordBanner() {
   }
 
   return (
-    <div className="flex items-center gap-2 border-b border-amber-500/20 bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
+    <div className="flex items-center gap-2 border-b border-amber-500/20 print:hidden bg-amber-500/10 px-4 py-2 text-xs text-amber-700 dark:text-amber-400">
       <KeyRound size={14} className="shrink-0" />
       <p className="flex-1">
         Your password is easy to guess or appeared in a data breach.{' '}

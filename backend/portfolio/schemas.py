@@ -156,3 +156,68 @@ class ExpectedDividendOut(Schema):
     expected_income: float | None = None
     in_portfolio: bool
     in_watchlist: bool
+
+
+# --------------------------------------------------------------------------- #
+# Tax summary (SPT Tahunan)
+# --------------------------------------------------------------------------- #
+
+
+class TaxHoldingOut(Schema):
+    """A position on the year's last day, in the shares held then."""
+
+    ticker: str
+    name: str
+    shares: float
+    acquired_year: int  # when the position (since it was last empty) was first bought
+    cost: float  # acquisition cost (harga perolehan), buy fees included
+    close: float | None  # the year's last close, in the prices of then
+    market_value: float | None
+
+
+class TaxSaleOut(Schema):
+    """One ticker's sales in the year."""
+
+    ticker: str
+    name: str
+    shares: float
+    proceeds: float  # gross sale value (shares x price)
+    sales_tax: float  # the 0.1% final tax on it, withheld by the broker
+    fees: float  # everything recorded on the sales (that tax included)
+    realized_pl: float
+
+
+class TaxDividendOut(Schema):
+    """One cash dividend received in the year (by ex-date)."""
+
+    ticker: str
+    name: str
+    ex_date: date
+    shares: float
+    per_share: float
+    gross: float
+    tax: float
+    net: float
+
+
+class TaxTotals(Schema):
+    cost: float
+    market_value: float
+    proceeds: float
+    sales_tax: float
+    realized_pl: float
+    dividends_gross: float
+    dividends_tax: float
+    dividends_net: float
+
+
+class TaxSummaryOut(Schema):
+    year: int
+    as_of: date  # 31 December, or today while the year is running
+    final: bool  # the year has ended
+    years: list[int]  # years with transactions, newest first
+    dividend_tax_pct: float
+    holdings: list[TaxHoldingOut]
+    sales: list[TaxSaleOut]
+    dividends: list[TaxDividendOut]
+    totals: TaxTotals

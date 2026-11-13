@@ -1,6 +1,7 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
+import { Link } from 'react-router-dom'
+import { Eye, EyeOff, FileText, Plus, Trash2 } from 'lucide-react'
 import { deleteTransaction } from '../api'
 import {
   usePortfolio,
@@ -125,6 +126,13 @@ export default function Portfolio() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            to="/portfolio/tax"
+            title="Holdings on 31 December, dividends and sales for your SPT"
+            className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+          >
+            <FileText size={14} /> Tax summary
+          </Link>
           <button
             onClick={() => update({ hidePortfolioValues: !hide })}
             aria-pressed={hide}

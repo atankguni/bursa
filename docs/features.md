@@ -113,6 +113,16 @@ backtest (see [Development](development.md#signal-backtest)).
   against your average cost. **Record this sale** fills in the sell transaction. The
   holdings table also shows **Net if sold** for every position. An estimate: the
   actual price and your broker's fee rounding can differ slightly.
+- **Tax summary** (Portfolio → **Tax summary**, `/portfolio/tax`): a year's figures for
+  the SPT Tahunan, printable and as CSV:
+  - shares held on 31 December, with the year acquired, the **acquisition cost** (harga
+    perolehan, buy fees included) and the year-end close and market value;
+  - cash dividends (by ex-date): gross, tax at your dividend rate, net;
+  - share sales: sale value, the 0.1% final tax, fees and realized P/L.
+
+  Shares and prices are as they were then, before later splits. The current year is
+  marked provisional until 31 December. A worksheet from your recorded trades, not tax
+  advice: check it against your broker's annual statement.
 - **Portfolio analytics**:
   - **Return vs IHSG**, time-weighted so buys and sells don't count as gains, with
     dividends (after tax) counted as income. IHSG itself is a price index (no dividends).

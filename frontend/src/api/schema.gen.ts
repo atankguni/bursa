@@ -1075,6 +1075,26 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/portfolio/tax-summary': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Tax Summary
+     * @description A year's holdings on 31 December, sales and dividends, for the SPT.
+     */
+    get: operations['get_tax_summary_api_portfolio_tax_summary_get']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/portfolio/transactions': {
     parameters: {
       query?: never
@@ -3306,6 +3326,113 @@ export interface components {
        */
       total: number
     }
+    /**
+     * TaxDividendOut
+     * @description One cash dividend received in the year (by ex-date).
+     */
+    TaxDividendOut: {
+      /**
+       * Ex Date
+       * Format: date
+       */
+      ex_date: string
+      /** Gross */
+      gross: number
+      /** Name */
+      name: string
+      /** Net */
+      net: number
+      /** Per Share */
+      per_share: number
+      /** Shares */
+      shares: number
+      /** Tax */
+      tax: number
+      /** Ticker */
+      ticker: string
+    }
+    /**
+     * TaxHoldingOut
+     * @description A position on the year's last day, in the shares held then.
+     */
+    TaxHoldingOut: {
+      /** Acquired Year */
+      acquired_year: number
+      /** Close */
+      close: number | null
+      /** Cost */
+      cost: number
+      /** Market Value */
+      market_value: number | null
+      /** Name */
+      name: string
+      /** Shares */
+      shares: number
+      /** Ticker */
+      ticker: string
+    }
+    /**
+     * TaxSaleOut
+     * @description One ticker's sales in the year.
+     */
+    TaxSaleOut: {
+      /** Fees */
+      fees: number
+      /** Name */
+      name: string
+      /** Proceeds */
+      proceeds: number
+      /** Realized Pl */
+      realized_pl: number
+      /** Sales Tax */
+      sales_tax: number
+      /** Shares */
+      shares: number
+      /** Ticker */
+      ticker: string
+    }
+    /** TaxSummaryOut */
+    TaxSummaryOut: {
+      /**
+       * As Of
+       * Format: date
+       */
+      as_of: string
+      /** Dividend Tax Pct */
+      dividend_tax_pct: number
+      /** Dividends */
+      dividends: components['schemas']['TaxDividendOut'][]
+      /** Final */
+      final: boolean
+      /** Holdings */
+      holdings: components['schemas']['TaxHoldingOut'][]
+      /** Sales */
+      sales: components['schemas']['TaxSaleOut'][]
+      totals: components['schemas']['TaxTotals']
+      /** Year */
+      year: number
+      /** Years */
+      years: number[]
+    }
+    /** TaxTotals */
+    TaxTotals: {
+      /** Cost */
+      cost: number
+      /** Dividends Gross */
+      dividends_gross: number
+      /** Dividends Net */
+      dividends_net: number
+      /** Dividends Tax */
+      dividends_tax: number
+      /** Market Value */
+      market_value: number
+      /** Proceeds */
+      proceeds: number
+      /** Realized Pl */
+      realized_pl: number
+      /** Sales Tax */
+      sales_tax: number
+    }
     /** TickerIssue */
     TickerIssue: {
       /** Issue */
@@ -5239,6 +5366,37 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['PortfolioRiskOut']
+        }
+      }
+    }
+  }
+  get_tax_summary_api_portfolio_tax_summary_get: {
+    parameters: {
+      query: {
+        year: number
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['TaxSummaryOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

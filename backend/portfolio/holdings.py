@@ -62,25 +62,34 @@ def apply_transactions(txs: Sequence[Trade | Transaction | AdjustedTx]) -> dict[
     """
     books: dict[str, Book] = {}
     for t in txs:
-        book = books.setdefault(t.ticker, {"quantity": 0.0, "cost_basis": 0.0, "realized_pl": 0.0})
-        qty = float(t.quantity)
-        price = float(t.price)
-        fees = float(t.fees or 0.0)
-
-        if t.side == "buy":
-            book["quantity"] += qty
-            book["cost_basis"] += qty * price + fees
-        else:  # sell
-            held = book["quantity"]
-            sell_qty = min(qty, held) if held > 0 else 0.0
-            avg = book["cost_basis"] / held if held > 0 else 0.0
-            book["realized_pl"] += sell_qty * price - fees - avg * sell_qty
-            book["cost_basis"] -= avg * sell_qty
-            book["quantity"] = held - sell_qty
-            if book["quantity"] <= 1e-9:
-                book["quantity"] = 0.0
-                book["cost_basis"] = 0.0
+        apply_trade(books.setdefault(t.ticker, new_book()), t)
     return books
+
+
+def new_book() -> Book:
+    return {"quantity": 0.0, "cost_basis": 0.0, "realized_pl": 0.0}
+
+
+def apply_trade(book: Book, t: Trade | Transaction | AdjustedTx) -> float:
+    """Apply one trade to `book` at weighted-average cost; returns the P/L it realized."""
+    qty = float(t.quantity)
+    price = float(t.price)
+    fees = float(t.fees or 0.0)
+    if t.side == "buy":
+        book["quantity"] += qty
+        book["cost_basis"] += qty * price + fees
+        return 0.0
+    held = book["quantity"]
+    sell_qty = min(qty, held) if held > 0 else 0.0
+    avg = book["cost_basis"] / held if held > 0 else 0.0
+    realized = sell_qty * price - fees - avg * sell_qty
+    book["realized_pl"] += realized
+    book["cost_basis"] -= avg * sell_qty
+    book["quantity"] = held - sell_qty
+    if book["quantity"] <= 1e-9:
+        book["quantity"] = 0.0
+        book["cost_basis"] = 0.0
+    return realized
 
 
 type DividendMap = dict[str, list[tuple[date, float]]]

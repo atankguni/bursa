@@ -17,7 +17,7 @@ const linkClass = ({ isActive }: { isActive: boolean }) =>
 /** Full-width, compact top bar: brand, navigation, market status, account menu. */
 export default function NavBar() {
   return (
-    <header className="sticky top-0 z-30 border-b border-line bg-panel/80 backdrop-blur-md">
+    <header className="sticky top-0 z-30 border-b print:hidden border-line bg-panel/80 backdrop-blur-md">
       <div className="flex w-full items-center justify-between gap-4 px-4 py-2.5">
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2.5">

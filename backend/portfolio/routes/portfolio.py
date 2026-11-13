@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from accounts.models import User
+from clock import local_today
 from deps import current_user, get_session
 from market import index_quotes as index_service
 from market.corporate_actions import adjusted_transactions
@@ -19,9 +20,11 @@ from portfolio.schemas import (
     ExpectedDividendOut,
     PortfolioOut,
     PortfolioRiskOut,
+    TaxSummaryOut,
     TransactionIn,
     TransactionOut,
 )
+from portfolio.tax import tax_summary
 
 router = APIRouter(prefix="/api/portfolio", tags=["portfolio"])
 
@@ -135,3 +138,15 @@ async def get_dividend_calendar(
     """Expected ex-dates for holdings + watchlist, projected from last year's."""
     calendar = await dividend_calendar(session, user.id, days)
     return [ExpectedDividendOut.model_validate(d) for d in calendar]
+
+
+@router.get("/tax-summary", response_model=TaxSummaryOut)
+async def get_tax_summary(
+    year: int = Query(ge=2000, le=2100),
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
+) -> TaxSummaryOut:
+    """A year's holdings on 31 December, sales and dividends, for the SPT."""
+    if year > local_today().year:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "That year hasn't started yet")
+    return await tax_summary(session, user.id, year)

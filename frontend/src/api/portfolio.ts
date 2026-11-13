@@ -4,6 +4,7 @@ import type {
   ExpectedDividend,
   Portfolio,
   PortfolioRisk,
+  TaxSummary,
   Transaction,
   TransactionInput,
 } from './types'
@@ -41,6 +42,14 @@ export async function fetchDividendCalendar(days = 180): Promise<ExpectedDividen
   const { data } = await api.get<ExpectedDividend[]>('/api/portfolio/dividend-calendar', {
     params: { days },
     timeout: 60_000, // first call may fetch dividend history for new tickers
+  })
+  return data
+}
+
+export async function fetchTaxSummary(year: number): Promise<TaxSummary> {
+  const { data } = await api.get<TaxSummary>('/api/portfolio/tax-summary', {
+    params: { year },
+    timeout: 60_000, // may fetch dividend history for tickers without it
   })
   return data
 }

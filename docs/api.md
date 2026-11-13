@@ -120,6 +120,7 @@ All admin only.
 | GET    | `/api/portfolio/history` | Portfolio value over time |
 | GET    | `/api/portfolio/risk` | Concentration, sectors, beta vs IHSG, stress test, drawdown |
 | GET    | `/api/portfolio/dividend-calendar` | Expected (projected) dividends for holdings + watchlist |
+| GET    | `/api/portfolio/tax-summary?year=` | A year's holdings on 31 December (acquisition cost, year-end value), sales (0.1% final tax) and dividends, for the SPT |
 
 ## Alerts
 

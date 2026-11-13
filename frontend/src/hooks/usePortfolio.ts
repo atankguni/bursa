@@ -4,6 +4,7 @@ import {
   fetchPortfolio,
   fetchPortfolioHistory,
   fetchPortfolioRisk,
+  fetchTaxSummary,
   fetchTransactions,
 } from '../api'
 import { useSettings } from '../lib/settings'
@@ -47,5 +48,13 @@ export function useDividendCalendar() {
   return useQuery({
     queryKey: queryKeys.dividendCalendar,
     queryFn: () => fetchDividendCalendar(),
+  })
+}
+
+/** A year's figures for the tax return (SPT): holdings on 31 December, sales, dividends. */
+export function useTaxSummary(year: number) {
+  return useQuery({
+    queryKey: queryKeys.taxSummary(year),
+    queryFn: () => fetchTaxSummary(year),
   })
 }
