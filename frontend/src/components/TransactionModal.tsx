@@ -4,6 +4,7 @@ import { addTransaction, type TransactionInput } from '../api'
 import { usePreferences, useStatus, useStocks } from '../hooks'
 import Modal from './Modal'
 import { errorMessage } from '../api/client'
+import { useToast } from '../lib/toast'
 
 /** What the form records: trades, plus shares received from corporate actions. */
 type Entry = 'buy' | 'sell' | 'rights' | 'bonus'
@@ -61,10 +62,18 @@ export default function TransactionModal({
   const autoFee = Math.round((shares * (Number(price) || 0) * feePct) / 100)
   const fee = fees ?? String(autoFee)
 
+  const { toast } = useToast()
   const add = useMutation({
     mutationFn: (input: TransactionInput) => addTransaction(input),
-    onSuccess: () => {
+    onSuccess: (_d, input) => {
       void qc.invalidateQueries({ queryKey: ['portfolio'] })
+      const what =
+        input.kind === 'rights'
+          ? 'rights issue'
+          : input.kind === 'bonus'
+            ? 'bonus shares'
+            : input.side
+      toast(`${input.ticker} ${what} saved`)
       onClose()
     },
   })

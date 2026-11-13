@@ -8,6 +8,7 @@ import { useAuth } from '../lib/auth'
 import { fmtShortDateTime } from '../lib/format'
 import NotificationsCard from '../components/NotificationsCard'
 import { errorMessage } from '../api/client'
+import { useToast } from '../lib/toast'
 
 const TYPES: { value: AlertType; label: string }[] = [
   { value: 'price_above', label: 'Price above' },
@@ -45,12 +46,14 @@ export default function Alerts() {
       }),
     onSuccess: () => {
       void invalidate()
+      toast(`Alert on ${ticker.trim().toUpperCase()} added`)
       setTicker('')
       setThreshold('')
     },
   })
   const toggle = useMutation({ mutationFn: toggleAlert, onSuccess: invalidate })
-  const remove = useMutation({ mutationFn: deleteAlert, onSuccess: invalidate })
+  const { toast, deleteWithUndo, isDeleting } = useToast()
+  const live = alerts.filter((a) => !isDeleting(`alert:${a.id}`))
 
   return (
     <main className="page">
@@ -151,7 +154,7 @@ export default function Alerts() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {alerts.length === 0 && (
+                {live.length === 0 && (
                   <tr>
                     <td colSpan={5}>
                       <EmptyState icon={BellRing} title="No alerts yet">
@@ -161,7 +164,7 @@ export default function Alerts() {
                     </td>
                   </tr>
                 )}
-                {alerts.map((a) => (
+                {live.map((a) => (
                   <tr key={a.id} className="bg-panel">
                     <td className="px-4 py-2 font-semibold">{a.ticker}</td>
                     <td className="px-4 py-2 text-muted">
@@ -186,7 +189,14 @@ export default function Alerts() {
                     </td>
                     <td className="px-4 py-2 text-center">
                       <button
-                        onClick={() => remove.mutate(a.id)}
+                        onClick={() =>
+                          deleteWithUndo({
+                            key: `alert:${a.id}`,
+                            label: `Alert on ${a.ticker}`,
+                            commit: () => deleteAlert(a.id),
+                            onDone: invalidate,
+                          })
+                        }
                         title="Delete"
                         className="rounded-sm p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
                       >

@@ -14,8 +14,9 @@ export default function CompanyPanel({
 }) {
   if (isLoading) {
     return (
-      <div className="flex h-[300px] items-center justify-center text-muted">
-        Loading company info…
+      <div className="space-y-3" aria-busy="true" aria-label="Loading company info…">
+        <div className="skeleton h-40" />
+        <div className="skeleton h-28" />
       </div>
     )
   }

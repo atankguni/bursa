@@ -86,15 +86,19 @@ export default function IndexChartModal({
           </p>
         )}
         {history.isLoading ? (
-          <div className="flex h-[360px] items-center justify-center text-sm text-muted">
-            Loading chart…
-          </div>
+          <div
+            className="skeleton h-[360px]"
+            aria-busy="true"
+            aria-label="Loading chart…"
+          />
         ) : points.length >= 2 ? (
           <Suspense
             fallback={
-              <div className="flex h-[360px] items-center justify-center text-sm text-muted">
-                Loading chart…
-              </div>
+              <div
+                className="skeleton h-[360px]"
+                aria-busy="true"
+                aria-label="Loading chart…"
+              />
             }
           >
             <StockChart

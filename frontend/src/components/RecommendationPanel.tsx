@@ -100,7 +100,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
       <div className="space-y-1.5">
         {data.categories.map((c) => (
           <div key={c.name} className="flex items-center gap-3 text-xs">
-            <span className="w-28 shrink-0 text-muted">
+            <span className="w-36 shrink-0 whitespace-nowrap text-muted">
               {categoryEntry(c.name) ? (
                 <Term id={categoryEntry(c.name) ?? 'score'}>{c.name}</Term>
               ) : (

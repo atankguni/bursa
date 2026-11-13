@@ -1,5 +1,5 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   Briefcase,
@@ -42,6 +42,7 @@ import { SkeletonCard, SkeletonRows } from '../components/ui/Skeleton'
 import Stat from '../components/ui/Stat'
 import type { Holding, HoldingNote } from '../api'
 import PriceFlash from '../components/ui/PriceFlash'
+import { useToast } from '../lib/toast'
 
 const PortfolioChart = lazy(() => import('../components/PortfolioChart'))
 
@@ -103,10 +104,14 @@ export default function Portfolio() {
   // The chart fills the hero's height beside the figures on wide screens.
   const chartHeight = useMediaQuery('(min-width: 64rem)') ? 380 : 240
 
-  const remove = useMutation({
-    mutationFn: deleteTransaction,
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['portfolio'] }),
-  })
+  const { deleteWithUndo, isDeleting } = useToast()
+  const removeTx = (t: (typeof txs)[number]) =>
+    deleteWithUndo({
+      key: `tx:${t.id}`,
+      label: `${t.ticker} ${t.kind === 'trade' ? t.side : t.kind}`,
+      commit: () => deleteTransaction(t.id),
+      onDone: () => qc.invalidateQueries({ queryKey: ['portfolio'] }),
+    })
 
   const tone = (v: number | null | undefined) => {
     if (!settings.colorizeChanges || v == null || v === 0) return 'text-muted'
@@ -605,67 +610,62 @@ export default function Portfolio() {
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-line">
-                          {txs.map((t) => (
-                            <tr
-                              key={t.id}
-                              className="bg-panel transition-colors hover:bg-panelalt/50"
-                            >
-                              <td className="px-4 py-2.5 text-muted tabular-nums">
-                                {t.trade_date}
-                              </td>
-                              <td className="px-4 py-2.5 font-semibold">{t.ticker}</td>
-                              <td className="px-4 py-2.5">
-                                <span
-                                  className={`rounded-full px-2 py-0.5 text-2xs font-medium capitalize ${
-                                    t.kind !== 'trade'
-                                      ? 'bg-accent/10 text-accent'
-                                      : t.side === 'buy'
-                                        ? 'bg-bull/10 text-bull'
-                                        : 'bg-bear/10 text-bear'
-                                  }`}
-                                >
-                                  {t.kind === 'trade' ? t.side : t.kind}
-                                </span>
-                              </td>
-                              <td className="px-4 py-2.5 text-right tabular-nums">
-                                <Secret hidden={hide}>
-                                  {lotsOf(t.quantity, lotSize)}
-                                  <span className="ml-1 text-2xs text-subtle">
-                                    ({t.quantity.toLocaleString('en-US')})
+                          {txs
+                            .filter((t) => !isDeleting(`tx:${t.id}`))
+                            .map((t) => (
+                              <tr
+                                key={t.id}
+                                className="bg-panel transition-colors hover:bg-panelalt/50"
+                              >
+                                <td className="px-4 py-2.5 text-muted tabular-nums">
+                                  {t.trade_date}
+                                </td>
+                                <td className="px-4 py-2.5 font-semibold">{t.ticker}</td>
+                                <td className="px-4 py-2.5">
+                                  <span
+                                    className={`rounded-full px-2 py-0.5 text-2xs font-medium capitalize ${
+                                      t.kind !== 'trade'
+                                        ? 'bg-accent/10 text-accent'
+                                        : t.side === 'buy'
+                                          ? 'bg-bull/10 text-bull'
+                                          : 'bg-bear/10 text-bear'
+                                    }`}
+                                  >
+                                    {t.kind === 'trade' ? t.side : t.kind}
                                   </span>
-                                </Secret>
-                              </td>
-                              <td className="px-4 py-2.5 text-right tabular-nums">
-                                {t.kind === 'bonus' ? (
-                                  <span className="text-subtle">free</span>
-                                ) : (
-                                  <Secret hidden={hide}>{fmtPrice(t.price)}</Secret>
-                                )}
-                              </td>
-                              <td className="px-4 py-2.5 text-right text-subtle tabular-nums">
-                                {t.fees ? money(t.fees) : '—'}
-                              </td>
-                              <td className="max-w-[20rem] truncate px-4 py-2.5 text-subtle">
-                                {t.note ? <Secret hidden={hide}>{t.note}</Secret> : ''}
-                              </td>
-                              <td className="px-2 py-1 text-right">
-                                <button
-                                  onClick={() => {
-                                    if (
-                                      confirm(
-                                        `Delete this ${t.ticker} ${t.kind === 'trade' ? t.side : t.kind}?`,
-                                      )
-                                    )
-                                      remove.mutate(t.id)
-                                  }}
-                                  aria-label={`Delete ${t.ticker} transaction of ${t.trade_date}`}
-                                  className="btn btn-ghost btn-icon hover:text-bear"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              </td>
-                            </tr>
-                          ))}
+                                </td>
+                                <td className="px-4 py-2.5 text-right tabular-nums">
+                                  <Secret hidden={hide}>
+                                    {lotsOf(t.quantity, lotSize)}
+                                    <span className="ml-1 text-2xs text-subtle">
+                                      ({t.quantity.toLocaleString('en-US')})
+                                    </span>
+                                  </Secret>
+                                </td>
+                                <td className="px-4 py-2.5 text-right tabular-nums">
+                                  {t.kind === 'bonus' ? (
+                                    <span className="text-subtle">free</span>
+                                  ) : (
+                                    <Secret hidden={hide}>{fmtPrice(t.price)}</Secret>
+                                  )}
+                                </td>
+                                <td className="px-4 py-2.5 text-right text-subtle tabular-nums">
+                                  {t.fees ? money(t.fees) : '—'}
+                                </td>
+                                <td className="max-w-[20rem] truncate px-4 py-2.5 text-subtle">
+                                  {t.note ? <Secret hidden={hide}>{t.note}</Secret> : ''}
+                                </td>
+                                <td className="px-2 py-1 text-right">
+                                  <button
+                                    onClick={() => removeTx(t)}
+                                    aria-label={`Delete ${t.ticker} transaction of ${t.trade_date}`}
+                                    className="btn btn-ghost btn-icon hover:text-bear"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
                         </tbody>
                       </table>
                     </div>

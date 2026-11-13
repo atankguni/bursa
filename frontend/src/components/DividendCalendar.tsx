@@ -1,6 +1,7 @@
 import { CalendarDays } from 'lucide-react'
 import { useDividendCalendar } from '../hooks'
 import { fmtPrice } from '../lib/format'
+import { SkeletonRows } from './ui/Skeleton'
 
 const MASK = '••••••'
 
@@ -26,7 +27,7 @@ export default function DividendCalendar({ hideValues }: { hideValues: boolean }
         </span>
       </div>
       {isLoading ? (
-        <div className="px-4 py-6 text-center text-xs text-subtle">Loading…</div>
+        <SkeletonRows rows={3} />
       ) : data.length === 0 ? (
         <div className="px-4 py-6 text-center text-xs text-subtle">
           No dividends expected in the next 6 months for your holdings or watchlist.

@@ -6,28 +6,38 @@ import { useHistory, useIndexHistory } from '../../hooks'
 import { useSettings } from '../../lib/settings'
 import { SPANS, spanStart } from '../../lib/spans'
 
-// lightweight-charts is heavy; load it only when a chart is actually shown.
+import { isBool, isFlags, useStoredState } from '../../lib/storedState'
 import type { Indicators } from '../StockChart'
+
+// lightweight-charts is heavy; load it only when a chart is actually shown.
 const StockChart = lazy(() => import('../StockChart'))
 
 /** Classes for one button of a segmented control. */
 const seg = (active: boolean) => `segment ${active ? 'active' : ''}`
 
-/** The chart's options. Kept by the modal, so they survive switching tabs. */
+const isSpan = (v: unknown): v is ChartSpan => SPANS.some((s) => s.value === v)
+const DEFAULT_IND: Indicators = {
+  ma20: false,
+  ma50: false,
+  ma200: false,
+  volume: true,
+  rsi: false,
+}
+const isInd = isFlags<keyof Indicators>(['ma20', 'ma50', 'ma200', 'volume', 'rsi'])
+
+/**
+ * The chart's options. Kept by the modal, so they survive switching tabs. Type and
+ * range start from Settings → Display each time; span, indicators and the IHSG
+ * overlay are remembered across stocks and visits.
+ */
 export function useChartOptions() {
   const { settings } = useSettings()
   const [range, setRange] = useState<'1d' | '1m'>(settings.chartRange)
-  const [span, setSpan] = useState<ChartSpan>('1y')
+  const [span, setSpan] = useStoredState<ChartSpan>('chart.span', '1y', isSpan)
   const [chartType, setChartType] = useState<'candle' | 'line'>(settings.chartType)
-  const [ind, setInd] = useState<Indicators>({
-    ma20: false,
-    ma50: false,
-    ma200: false,
-    volume: true,
-    rsi: false,
-  })
+  const [ind, setInd] = useStoredState<Indicators>('chart.indicators', DEFAULT_IND, isInd)
   // Benchmark overlay: IHSG daily bars for the same span (daily view only).
-  const [vsIhsg, setVsIhsg] = useState(false)
+  const [vsIhsg, setVsIhsg] = useStoredState('chart.vsIhsg', false, isBool)
   return {
     range,
     setRange,
@@ -160,15 +170,19 @@ export default function ChartTab({
           </p>
         )}
         {history.isLoading ? (
-          <div className="flex h-[400px] items-center justify-center text-muted">
-            Loading chart…
-          </div>
+          <div
+            className="skeleton h-[400px]"
+            aria-busy="true"
+            aria-label="Loading chart…"
+          />
         ) : history.data && history.data.points.length > 0 ? (
           <Suspense
             fallback={
-              <div className="flex h-[400px] items-center justify-center text-muted">
-                Loading chart…
-              </div>
+              <div
+                className="skeleton h-[400px]"
+                aria-busy="true"
+                aria-label="Loading chart…"
+              />
             }
           >
             <StockChart

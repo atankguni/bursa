@@ -16,6 +16,7 @@ import InvestingSection from './settings/InvestingSection'
 import TablesSection from './settings/TablesSection'
 import Security from './Security'
 import Users from './Users'
+import { clearStoredViews } from '../lib/storedState'
 
 const SCOPE_LABEL = {
   account: {
@@ -31,18 +32,20 @@ const SCOPE_LABEL = {
 /** Appearance, display and tables share one reset (lib/settings). */
 function ResetSettings() {
   const { reset } = useSettings()
+  const { user } = useAuth()
   const onReset = () => {
     if (
-      window.confirm('Reset appearance, display and table settings to their defaults?')
+      window.confirm(
+        'Reset appearance, display and table settings to their defaults, and forget the sorting, filters and chart choices each page remembers?',
+      )
     ) {
       reset()
+      clearStoredViews(user?.id)
+      window.location.reload() // pages read their remembered choices when they open
     }
   }
   return (
-    <button
-      onClick={onReset}
-      className="inline-flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-    >
+    <button onClick={onReset} className="btn btn-secondary">
       <RotateCcw size={13} /> Reset appearance, display &amp; tables
     </button>
   )

@@ -18,6 +18,8 @@ import Pagination from '../components/Pagination'
 import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
 import Term from '../components/Term'
+import { SkeletonRows } from '../components/ui/Skeleton'
+import { isBool, isString, oneOf, useStoredState } from '../lib/storedState'
 
 const PAGE_SIZES = [50, 100, 200] // the API caps a page at 200
 
@@ -30,19 +32,21 @@ function blankReason(r: ScreenerRow, metric: 'pbv' | 'roe'): string | undefined 
 }
 const inputCls = 'input input-sm'
 
+const isPageSize = oneOf(...PAGE_SIZES)
+
 export default function Screener() {
   const { settings } = useSettings()
   const qc = useQueryClient()
-  const [minScore, setMinScore] = useState('')
-  const [maxPbv, setMaxPbv] = useState('')
-  const [minRoe, setMinRoe] = useState('')
-  const [sector, setSector] = useState('')
-  const [buyOnly, setBuyOnly] = useState(false)
+  const [minScore, setMinScore] = useStoredState('screener.minScore', '', isString)
+  const [maxPbv, setMaxPbv] = useStoredState('screener.maxPbv', '', isString)
+  const [minRoe, setMinRoe] = useStoredState('screener.minRoe', '', isString)
+  const [sector, setSector] = useStoredState('screener.sector', '', isString)
+  const [buyOnly, setBuyOnly] = useStoredState('screener.positiveOnly', false, isBool)
   const [selected, setSelected] = useState<ScreenerRow | null>(null)
   // 0-based page, for the filters it was chosen with: any filter change starts
   // again from the first page.
   const [paging, setPaging] = useState({ filterKey: '', page: 0 })
-  const [pageSize, setPageSize] = useState(100)
+  const [pageSize, setPageSize] = useStoredState('screener.pageSize', 100, isPageSize)
 
   const filters = {
     minScore: minScore ? Number(minScore) : undefined,
@@ -256,8 +260,8 @@ export default function Screener() {
             <tbody className="divide-y divide-line">
               {isLoading && (
                 <tr>
-                  <td colSpan={8} className="px-4 py-10 text-center text-subtle">
-                    Loading…
+                  <td colSpan={8}>
+                    <SkeletonRows rows={8} />
                   </td>
                 </tr>
               )}

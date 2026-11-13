@@ -5,6 +5,7 @@ import { errorMessage } from '../api/client'
 import { queryKeys } from '../hooks'
 import { fmtPrice } from '../lib/format'
 import Modal from './Modal'
+import { useToast } from '../lib/toast'
 
 /** Today + `months`, as YYYY-MM-DD in local time. */
 function monthsAhead(months: number): string {
@@ -47,15 +48,24 @@ export default function NoteModal({
   const [target, setTarget] = useState(note?.target != null ? String(note.target) : '')
   const [stop, setStop] = useState(note?.stop != null ? String(note.stop) : '')
   const [reviewOn, setReviewOn] = useState(note?.review_on ?? '')
-  const done = () => {
-    void qc.invalidateQueries({ queryKey: queryKeys.notes })
-    onClose()
-  }
+  const { toast, deleteWithUndo } = useToast()
   const save = useMutation({
     mutationFn: (input: HoldingNoteInput) => saveNote(ticker, input),
-    onSuccess: done,
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: queryKeys.notes })
+      toast(`Note on ${ticker} saved`)
+      onClose()
+    },
   })
-  const remove = useMutation({ mutationFn: () => deleteNote(ticker), onSuccess: done })
+  const remove = () => {
+    deleteWithUndo({
+      key: `note:${ticker}`,
+      label: `Note on ${ticker}`,
+      commit: () => deleteNote(ticker),
+      onDone: () => qc.invalidateQueries({ queryKey: queryKeys.notes }),
+    })
+    onClose()
+  }
 
   const targetN = target === '' ? null : Number(target)
   const stopN = stop === '' ? null : Number(stop)
@@ -79,9 +89,7 @@ export default function NoteModal({
         <>
           {note ? (
             <button
-              onClick={() => {
-                if (confirm(`Delete your note on ${ticker}?`)) remove.mutate()
-              }}
+              onClick={remove}
               className="rounded-sm px-3 py-1.5 text-xs text-bear ring-1 ring-line-strong transition hover:bg-panelalt"
             >
               Delete
@@ -198,9 +206,9 @@ export default function NoteModal({
           stop{price ? ` (last close Rp ${fmtPrice(price)})` : ''}. Prices are as they are
           now: after a stock split, update them.
         </p>
-        {(save.isError || remove.isError) && (
+        {save.isError && (
           <p className="text-xs text-bear">
-            {errorMessage(save.error ?? remove.error, 'Failed to save.')}
+            {errorMessage(save.error, 'Failed to save.')}
           </p>
         )}
       </div>

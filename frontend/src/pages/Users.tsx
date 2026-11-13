@@ -19,6 +19,7 @@ import {
 import { useAuth } from '../lib/auth'
 import { fmtShortDateTime, fmtTimeAgo, parseServerTime } from '../lib/format'
 import { eventLabel, isNotable } from '../lib/securityEvents'
+import { SkeletonRows } from '../components/ui/Skeleton'
 
 const USERS_KEY = ['admin', 'users'] as const
 const INVITES_KEY = ['admin', 'invites'] as const
@@ -272,8 +273,8 @@ export default function Users() {
           <tbody>
             {users.isPending && (
               <tr>
-                <td colSpan={7} className="px-4 py-3 text-subtle">
-                  Loading…
+                <td colSpan={7}>
+                  <SkeletonRows rows={8} />
                 </td>
               </tr>
             )}
@@ -407,8 +408,8 @@ function SecurityLog() {
           <tbody>
             {log.isPending && (
               <tr>
-                <td colSpan={5} className="px-4 py-3 text-subtle">
-                  Loading…
+                <td colSpan={5}>
+                  <SkeletonRows rows={8} />
                 </td>
               </tr>
             )}

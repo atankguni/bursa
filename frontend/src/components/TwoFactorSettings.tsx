@@ -278,7 +278,7 @@ export default function TwoFactorSettings() {
     onSuccess: refreshStatus,
   })
 
-  if (isPending || !status) return <p className="text-xs text-subtle">Loading…</p>
+  if (isPending || !status) return <div className="skeleton h-32" aria-busy="true" />
 
   if (codes) {
     return (

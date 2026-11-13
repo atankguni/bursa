@@ -10,14 +10,18 @@ import BoardBadge from '../components/BoardBadge'
 import TickerName from '../components/TickerName'
 import Pagination from '../components/Pagination'
 import StockDetailModal from '../components/StockDetailModal'
+import { SkeletonRows } from '../components/ui/Skeleton'
+import { oneOf, useStoredState } from '../lib/storedState'
 
 const PAGE_SIZES = [50, 100, 200] // the API caps a page at 200
+
+const isPageSize = oneOf(...PAGE_SIZES)
 
 export default function Browse() {
   const [q, setQ] = useState('')
   const [debounced, setDebounced] = useState('')
   const [page, setPage] = useState(0) // 0-based
-  const [pageSize, setPageSize] = useState(100)
+  const [pageSize, setPageSize] = useStoredState('browse.pageSize', 100, isPageSize)
   const [selected, setSelected] = useState<CatalogRow | null>(null)
   const qc = useQueryClient()
   const { settings } = useSettings()
@@ -102,8 +106,8 @@ export default function Browse() {
             <tbody className="divide-y divide-line">
               {isLoading && (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-subtle">
-                    Loading catalog…
+                  <td colSpan={6}>
+                    <SkeletonRows rows={8} />
                   </td>
                 </tr>
               )}

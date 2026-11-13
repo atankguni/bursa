@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './lib/auth'
 import { SettingsProvider } from './lib/settings'
+import { ToastProvider } from './lib/toast'
 import '@fontsource-variable/inter/wght.css'
 import './index.css'
 import { errorStatus } from './api/client'
@@ -34,7 +35,9 @@ ReactDOM.createRoot(root).render(
       <AuthProvider>
         <SettingsProvider>
           <BrowserRouter>
-            <App />
+            <ToastProvider>
+              <App />
+            </ToastProvider>
           </BrowserRouter>
         </SettingsProvider>
       </AuthProvider>

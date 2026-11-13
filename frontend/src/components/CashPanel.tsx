@@ -6,6 +6,7 @@ import { errorMessage } from '../api/client'
 import { useCash } from '../hooks'
 import { fmtMoney, fmtMoneySigned } from '../lib/format'
 import Modal from './Modal'
+import { useToast } from '../lib/toast'
 
 const MASK = '••••••'
 const signed = fmtMoneySigned
@@ -52,15 +53,13 @@ export default function CashPanel({ hide }: { hide: boolean }) {
   const [adding, setAdding] = useState(false)
   const [showAll, setShowAll] = useState(false)
   const qc = useQueryClient()
-  const remove = useMutation({
-    mutationFn: deleteCashMovement,
-    onSuccess: () => void qc.invalidateQueries({ queryKey: ['portfolio'] }),
-  })
+  const { deleteWithUndo, isDeleting } = useToast()
   const money = (v: number, fmt: (v: number) => string = fmtMoney) =>
     hide ? MASK : fmt(v)
 
   if (!cash) return null
-  const rows = showAll ? cash.movements : cash.movements.slice(0, 5)
+  const live = cash.movements.filter((m) => !isDeleting(`cash:${m.id}`))
+  const rows = showAll ? live : live.slice(0, 5)
 
   return (
     <div className="surface">
@@ -150,9 +149,15 @@ export default function CashPanel({ hide }: { hide: boolean }) {
                     </td>
                     <td className="px-2 py-1 text-right">
                       <button
-                        onClick={() => {
-                          if (confirm(`Delete this ${m.kind}?`)) remove.mutate(m.id)
-                        }}
+                        onClick={() =>
+                          deleteWithUndo({
+                            key: `cash:${m.id}`,
+                            label: m.kind === 'deposit' ? 'Deposit' : 'Withdrawal',
+                            commit: () => deleteCashMovement(m.id),
+                            onDone: () =>
+                              qc.invalidateQueries({ queryKey: ['portfolio'] }),
+                          })
+                        }
                         className="rounded-sm p-2 text-subtle transition hover:bg-panelalt hover:text-bear"
                         aria-label={`Delete ${m.kind} of ${m.day}`}
                       >
@@ -188,11 +193,13 @@ function CashModal({ onClose }: { onClose: () => void }) {
   const [note, setNote] = useState('')
   const add = useMutation({
     mutationFn: addCashMovement,
-    onSuccess: () => {
+    onSuccess: (_d, input) => {
       void qc.invalidateQueries({ queryKey: ['portfolio'] })
+      toast(input.kind === 'deposit' ? 'Deposit recorded' : 'Withdrawal recorded')
       onClose()
     },
   })
+  const { toast } = useToast()
   const value = Number(amount)
   const inputCls = 'input'
 

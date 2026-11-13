@@ -34,8 +34,13 @@ export default function FundamentalsPanel({
 }: Props) {
   if (isLoading) {
     return (
-      <div className="flex h-[400px] items-center justify-center gap-2 text-muted">
-        <RefreshCw size={16} className="animate-spin" /> Fetching financials…
+      <div className="space-y-3 pt-1" aria-busy="true" aria-label="Fetching financials…">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {[0, 1, 2, 3].map((k) => (
+            <div key={k} className="skeleton h-16" />
+          ))}
+        </div>
+        <div className="skeleton h-64" />
       </div>
     )
   }

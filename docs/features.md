@@ -19,8 +19,8 @@
 
 ## Stocks and charts
 
-- **Search**: find any symbol from the navbar (IDX by default). Click a result to
-  inspect it in the detail modal. New tickers are auto-added to the tracked universe
+- **Search**: find any symbol from the navbar (IDX by default); ⌘K / Ctrl+K or "/"
+  jumps to it, ↑/↓ and Enter pick a result. A result opens in the detail modal. New tickers are auto-added to the tracked universe
   (not your watchlist).
 - **Browse IDX**: the full IDX catalog (~960 listed stocks) with search, pagination and a
   Track toggle. Tracked stocks get intraday updates; clicking a row opens the detail modal.
@@ -164,6 +164,11 @@ backtest (see [Development](development.md#signal-backtest)).
   holdings and watchlist, signal changes, dividends expected in the next 10 days and how
   many alerts fired. "Send now" emails a preview.
 
+- **Saved and Undo**: saving a transaction, cash movement, note or alert shows a short
+  "Saved" message. Deleting one (or removing a stock from the watchlist) takes effect at
+  once with **Undo** for 6 seconds; the delete reaches the server after that, or straight
+  away if you close the tab.
+
 ## Assistant and tools
 
 - **AI assistant**: ask questions in plain language (English or Indonesian) from the
@@ -195,13 +200,16 @@ elsewhere closes it). All of them are on one page, **What the numbers mean**
 
 ## Phones and tablets
 
-- **Phones** (under 768 px): a slim top bar (search opens below it) and the six
-  sections in a **bottom tab bar**. Tables scroll sideways with the ticker column pinned
-  and the company name under the ticker; pop-up windows fill the screen. Form fields use
-  16 px text so iPhones don't zoom in, and the layout keeps clear of the notch and home
-  indicator.
-- **Tablets and laptops** (768–1535 px): the sections on a second row of the top bar.
-- **Wide screens** (1536 px and up): one row.
+- **Phones and tablets** (under 1024 px): a slim top bar (search opens below it) and
+  the six sections in a **bottom tab bar**. On phones Home lists each stock as a
+  two-line card (price, change, signal); other tables scroll sideways with the ticker
+  column pinned. Pop-up windows fill the screen. Form fields use 16 px text so iPhones
+  don't zoom in, and the layout keeps clear of the notch and home indicator.
+- **Laptops and wider** (1024 px and up): one top bar with the sections in it.
+- **Long tables** (Home, Screener, Browse, Watchlist) keep their column names in view
+  while scrolling.
+- **Prices that move** on a refresh flash green or red for a moment (not with Reduce
+  motion).
 
 ## Personalization
 
@@ -228,6 +236,12 @@ elsewhere closes it). All of them are on one page, **What the numbers mean**
   a shared computer doesn't inherit them.
 - **Alerts bell**: which alerts you've seen is saved to your account, so opening the bell on
   one device clears the unread badge everywhere.
+- **Remembered views**: each page reopens as you left it (Home's indices and filters,
+  table sorting, Screener filters, page sizes, the chart's span and indicators). Kept
+  per account in this browser; Settings → Reset forgets them.
+- **Getting started**: a new account sees a four-step checklist on Home (follow a
+  stock, record a transaction, check broker fees, turn on 2FA) that ticks itself off
+  and can be hidden.
 
 ## Accessibility
 

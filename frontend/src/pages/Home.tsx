@@ -37,23 +37,42 @@ import StockDetailModal from '../components/StockDetailModal'
 import PageHeader from '../components/ui/PageHeader'
 import Stat from '../components/ui/Stat'
 import PriceFlash from '../components/ui/PriceFlash'
+import { SkeletonCard, SkeletonRows } from '../components/ui/Skeleton'
+import { isBool, isStringArray, oneOf, useStoredState } from '../lib/storedState'
+import GettingStarted from '../components/GettingStarted'
 
 type DetailTab = 'chart' | 'fundamentals' | 'recommendation'
 type SignalSort = 'off' | 'desc' | 'asc'
+const isSignalSort = oneOf<SignalSort>('off', 'desc', 'asc')
+const isPicked = (v: unknown): v is { defaultsKey: string; indexes: string[] } =>
+  typeof v === 'object' &&
+  v !== null &&
+  'defaultsKey' in v &&
+  typeof v.defaultsKey === 'string' &&
+  'indexes' in v &&
+  isStringArray(v.indexes)
 const NEXT_SORT: Record<SignalSort, SignalSort> = { off: 'desc', desc: 'asc', asc: 'off' }
 
 export default function Home() {
   const { settings } = useSettings()
   // The user's pick, until the default indexes (Settings) change.
   const defaultsKey = settings.defaultIndexes.join(',')
-  const [picked, setPicked] = useState({ defaultsKey, indexes: settings.defaultIndexes })
+  const [picked, setPicked] = useStoredState(
+    'home.indexes',
+    { defaultsKey, indexes: settings.defaultIndexes },
+    isPicked,
+  )
   const selectedIndexes =
     picked.defaultsKey === defaultsKey ? picked.indexes : settings.defaultIndexes
   const setSelectedIndexes = (indexes: string[]) => setPicked({ defaultsKey, indexes })
   const [selected, setSelected] = useState<Stock | null>(null)
   const [detailTab, setDetailTab] = useState<DetailTab>('chart')
-  const [buyOnly, setBuyOnly] = useState(false)
-  const [signalSort, setSignalSort] = useState<SignalSort>('off')
+  const [buyOnly, setBuyOnly] = useStoredState('home.positiveOnly', false, isBool)
+  const [signalSort, setSignalSort] = useStoredState<SignalSort>(
+    'home.signalSort',
+    'off',
+    isSignalSort,
+  )
 
   const hidden = settings.hiddenColumns.home
   const rec = (key: string) => !hidden.includes(key)
@@ -154,6 +173,8 @@ export default function Home() {
         }
       />
 
+      <GettingStarted />
+
       {/* Summary band */}
       <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <div className="surface p-4 sm:p-5">
@@ -170,52 +191,61 @@ export default function Home() {
           />
         </div>
 
-        <div className="surface p-4 sm:p-5">
-          <div className="eyebrow">Breadth · this view</div>
-          <div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
-            <span className="text-bull">{summary.gainers}</span>
-            <span className="mx-1.5 text-subtle">/</span>
-            <span className="text-bear">{summary.losers}</span>
-          </div>
-          <div
-            className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-panelalt"
-            role="img"
-            aria-label={`${summary.gainers} up, ${summary.losers} down, ${summary.unchanged} flat`}
-          >
-            <span
-              className="bg-bull"
-              style={{ width: `${(summary.gainers / total) * 100}%` }}
-            />
-            <span
-              className="bg-bear"
-              style={{ width: `${(summary.losers / total) * 100}%` }}
-            />
-          </div>
-          <div className="mt-1.5 text-2xs text-subtle">
-            up / down · {summary.unchanged} flat
-          </div>
-        </div>
+        {isLoading ? (
+          <>
+            <SkeletonCard />
+            <SkeletonCard />
+          </>
+        ) : (
+          <>
+            <div className="surface p-4 sm:p-5">
+              <div className="eyebrow">Breadth · this view</div>
+              <div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
+                <span className="text-bull">{summary.gainers}</span>
+                <span className="mx-1.5 text-subtle">/</span>
+                <span className="text-bear">{summary.losers}</span>
+              </div>
+              <div
+                className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-panelalt"
+                role="img"
+                aria-label={`${summary.gainers} up, ${summary.losers} down, ${summary.unchanged} flat`}
+              >
+                <span
+                  className="bg-bull"
+                  style={{ width: `${(summary.gainers / total) * 100}%` }}
+                />
+                <span
+                  className="bg-bear"
+                  style={{ width: `${(summary.losers / total) * 100}%` }}
+                />
+              </div>
+              <div className="mt-1.5 text-2xs text-subtle">
+                up / down · {summary.unchanged} flat
+              </div>
+            </div>
 
-        <div
-          className="surface p-4 sm:p-5"
-          title="Signals rank each stock against the others; they are not buy/sell advice"
-        >
-          <Stat
-            label="Positive signals"
-            size="lg"
-            value={signals.strongBuy + signals.buy}
-            sub={`${signals.strongBuy} very positive · of ${rated} rated`}
-          />
-          <button
-            onClick={() => setBuyOnly((v) => !v)}
-            aria-pressed={buyOnly}
-            className={`mt-2 text-2xs font-medium transition-colors ${
-              buyOnly ? 'text-accent' : 'text-muted hover:text-ink'
-            }`}
-          >
-            {buyOnly ? '✓ Showing positive only' : 'Show positive only'}
-          </button>
-        </div>
+            <div
+              className="surface p-4 sm:p-5"
+              title="Signals rank each stock against the others; they are not buy/sell advice"
+            >
+              <Stat
+                label="Positive signals"
+                size="lg"
+                value={signals.strongBuy + signals.buy}
+                sub={`${signals.strongBuy} very positive · of ${rated} rated`}
+              />
+              <button
+                onClick={() => setBuyOnly((v) => !v)}
+                aria-pressed={buyOnly}
+                className={`mt-2 text-2xs font-medium transition-colors ${
+                  buyOnly ? 'text-accent' : 'text-muted hover:text-ink'
+                }`}
+              >
+                {buyOnly ? '✓ Showing positive only' : 'Show positive only'}
+              </button>
+            </div>
+          </>
+        )}
 
         {holdingsCount > 0 && pf ? (
           <Link
@@ -292,7 +322,62 @@ export default function Home() {
           {watch.error}
         </p>
       )}
-      <div className="surface overflow-hidden">
+      {/* Phones: one two-line card per stock instead of a table scrolling sideways. */}
+      <ul
+        className="surface divide-y divide-line overflow-hidden sm:hidden"
+        aria-label="Stocks"
+      >
+        {isLoading && (
+          <li>
+            <SkeletonRows rows={8} />
+          </li>
+        )}
+        {!isLoading && rows.length === 0 && (
+          <li className="px-4 py-10 text-center text-xs text-subtle">
+            {buyOnly
+              ? 'No positive signals in this view.'
+              : 'No stocks match the selected indices.'}
+          </li>
+        )}
+        {rows.map((s) => {
+          const tone = toneOf(s.change_percent)
+          return (
+            <li key={s.ticker}>
+              <button
+                onClick={() => openDetail(s, 'chart')}
+                className="block w-full px-4 py-3 text-left transition-colors active:bg-panelalt"
+              >
+                <span className="flex items-baseline justify-between gap-3">
+                  <span className="flex min-w-0 items-baseline gap-2">
+                    <span className="inline-flex shrink-0 items-center gap-1.5 text-sm font-semibold tracking-tight">
+                      {s.ticker}
+                      <BoardBadge board={s.board} compact />
+                    </span>
+                    <span className="truncate text-2xs text-subtle">{s.name}</span>
+                  </span>
+                  <span className="shrink-0 text-sm font-semibold tabular-nums">
+                    <PriceFlash value={s.last_price}>{fmtPrice(s.last_price)}</PriceFlash>
+                  </span>
+                </span>
+                <span className="mt-1.5 flex items-center justify-between gap-3">
+                  <SignalBadge rec={s.recommendation} />
+                  <span className={`text-xs font-medium tabular-nums ${tone}`}>
+                    {s.change != null ? (
+                      <>
+                        {fmtChange(s.change)} ({fmtPct(s.change_percent)})
+                      </>
+                    ) : (
+                      fmtPct(s.change_percent)
+                    )}
+                  </span>
+                </span>
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+
+      <div className="surface hidden overflow-hidden sm:block">
         <div className="table-scroll relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="table-head">
@@ -348,8 +433,8 @@ export default function Home() {
             <tbody className="divide-y divide-line">
               {isLoading && (
                 <tr>
-                  <td colSpan={colCount} className="px-4 py-10 text-center text-subtle">
-                    Loading market data…
+                  <td colSpan={colCount}>
+                    <SkeletonRows rows={8} />
                   </td>
                 </tr>
               )}

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { History, MonitorSmartphone } from 'lucide-react'
 import {
@@ -41,6 +41,9 @@ export function SignedInDevices() {
   const others = useMutation({ mutationFn: signOutOtherSessions, onSettled: refresh })
   const error = revoke.error ?? others.error
   const otherCount = sessions.data?.filter((s) => !s.current).length ?? 0
+  // A long list (many browsers over time) shows the first few, the rest on request.
+  const [showAll, setShowAll] = useState(false)
+  const SHOWN = 5
 
   return (
     <section className={cardCls}>
@@ -51,12 +54,12 @@ export function SignedInDevices() {
           change your password.
         </p>
         {sessions.isPending ? (
-          <p className="text-subtle">Loading…</p>
+          <div className="skeleton h-24" />
         ) : sessions.isError ? (
           <p className="text-bear">Couldn&apos;t load your devices.</p>
         ) : (
           <ul className="divide-y divide-line rounded-sm ring-1 ring-line">
-            {sessions.data.map((s) => (
+            {(showAll ? sessions.data : sessions.data.slice(0, SHOWN)).map((s) => (
               <li key={s.id} className="flex items-center gap-3 px-3 py-2">
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-ink">
@@ -83,6 +86,16 @@ export function SignedInDevices() {
                 )}
               </li>
             ))}
+            {!showAll && sessions.data.length > SHOWN && (
+              <li>
+                <button
+                  onClick={() => setShowAll(true)}
+                  className="w-full px-3 py-2 text-left text-xs font-medium text-accent hover:underline"
+                >
+                  Show {sessions.data.length - SHOWN} more
+                </button>
+              </li>
+            )}
           </ul>
         )}
         {error && (
@@ -118,7 +131,7 @@ export function RecentActivity() {
           look if they weren&apos;t you.
         </p>
         {activity.isPending ? (
-          <p className="text-subtle">Loading…</p>
+          <div className="skeleton h-24" />
         ) : activity.isError ? (
           <p className="text-bear">Couldn&apos;t load your activity.</p>
         ) : activity.data.length === 0 ? (

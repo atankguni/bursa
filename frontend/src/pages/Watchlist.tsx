@@ -13,6 +13,9 @@ import SignalBadge from '../components/SignalBadge'
 import SortHeader, { type SortState } from '../components/SortHeader'
 import EmptyState from '../components/ui/EmptyState'
 import PriceFlash from '../components/ui/PriceFlash'
+import { SkeletonRows } from '../components/ui/Skeleton'
+import { useToast } from '../lib/toast'
+import { isSortOf, useStoredState } from '../lib/storedState'
 
 // Value each sortable column sorts by (null = missing data, always listed last).
 const SORT_VALUE = {
@@ -35,6 +38,8 @@ const SORT_VALUE = {
 type SortKey = keyof typeof SORT_VALUE
 const TEXT_KEYS: SortKey[] = ['ticker', 'name']
 const DEFAULT_SORT: SortState<SortKey> = { key: 'ticker', dir: 'asc' }
+const SORT_KEYS = Object.keys(SORT_VALUE).filter((k): k is SortKey => k in SORT_VALUE)
+const isSort = isSortOf(SORT_KEYS)
 
 function sortItems(items: WatchlistItem[], { key, dir }: SortState<SortKey>) {
   const value = SORT_VALUE[key]
@@ -63,8 +68,12 @@ export default function Watchlist() {
 
   const { data: items = [], isLoading, isFetching } = useWatchlist({ poll: true })
 
-  const [sort, setSort] = useState<SortState<SortKey>>(DEFAULT_SORT)
-  const sorted = useMemo(() => sortItems(items, sort), [items, sort])
+  const [sort, setSort] = useStoredState('watchlist.sort', DEFAULT_SORT, isSort)
+  const { deleteWithUndo, isDeleting } = useToast()
+  const sorted = useMemo(
+    () => sortItems(items, sort).filter((it) => !isDeleting(`watch:${it.ticker}`)),
+    [items, sort, isDeleting],
+  )
   // Same column flips direction; a new column starts A→Z for text, high→low for numbers.
   const onSort = (key: SortKey) =>
     setSort((s) =>
@@ -74,10 +83,14 @@ export default function Watchlist() {
     )
   const sortProps = { sort, onSort }
 
-  const remove = useMutation({
-    mutationFn: (ticker: string) => removeFromWatchlist(ticker),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['watchlist'] }),
-  })
+  const remove = (ticker: string) =>
+    deleteWithUndo({
+      key: `watch:${ticker}`,
+      label: ticker,
+      message: `${ticker} removed from watchlist`,
+      commit: () => removeFromWatchlist(ticker),
+      onDone: () => queryClient.invalidateQueries({ queryKey: ['watchlist'] }),
+    })
 
   const refresh = useMutation({
     mutationFn: refreshWatchlist,
@@ -206,8 +219,8 @@ export default function Watchlist() {
             <tbody className="divide-y divide-line">
               {isLoading && (
                 <tr>
-                  <td colSpan={colCount} className="px-4 py-10 text-center text-subtle">
-                    Loading watchlist…
+                  <td colSpan={colCount}>
+                    <SkeletonRows rows={8} />
                   </td>
                 </tr>
               )}
@@ -327,9 +340,8 @@ export default function Watchlist() {
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
-                          remove.mutate(it.ticker)
+                          remove(it.ticker)
                         }}
-                        disabled={remove.isPending}
                         title="Remove from watchlist"
                         className="mx-auto flex items-center justify-center rounded-sm p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
                       >
