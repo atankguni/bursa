@@ -42,7 +42,7 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 rounded-sm bg-panelalt/70 py-1 pl-3 pr-2 text-xs font-medium text-ink ring-1 ring-line-strong transition hover:bg-panelalt"
+        className="btn btn-secondary pr-2"
         aria-haspopup="listbox"
         aria-expanded={open}
       >
@@ -54,7 +54,7 @@ export default function IndexMultiSelect({ options, selected, onChange }: Props)
       </button>
 
       {open && (
-        <div className="absolute left-0 z-20 mt-1 w-48 animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong">
+        <div className="absolute left-0 z-20 mt-1 w-48 animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line">
           {options.map((opt) => {
             const active = selected.includes(opt)
             return (

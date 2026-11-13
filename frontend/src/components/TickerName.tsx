@@ -5,7 +5,7 @@
 export default function TickerName({ name }: { name: string | null | undefined }) {
   if (!name) return null
   return (
-    <span className="block max-w-28 truncate text-[10px] font-normal text-subtle md:hidden">
+    <span className="block max-w-28 truncate text-2xs font-normal text-subtle md:hidden">
       {name}
     </span>
   )

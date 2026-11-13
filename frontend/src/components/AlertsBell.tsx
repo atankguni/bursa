@@ -45,24 +45,24 @@ export default function AlertsBell() {
         onClick={toggle}
         title="Alerts"
         aria-label="Alerts"
-        className="relative rounded-sm p-2 text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+        className="btn btn-ghost btn-icon relative"
       >
         <Bell size={15} />
         {unread > 0 && (
-          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-sm bg-bear px-1 text-[9px] font-semibold text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-sm bg-bear px-1 text-2xs font-semibold text-white">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-1 w-80 max-w-[calc(100vw-1.5rem)] animate-fade-in overflow-hidden rounded-md bg-panel shadow-pop ring-1 ring-line-strong">
+        <div className="absolute right-0 z-20 mt-1 w-80 max-w-[calc(100vw-1.5rem)] animate-fade-in overflow-hidden rounded-md bg-panel shadow-pop ring-1 ring-line">
           <div className="flex items-center justify-between border-b border-line px-3 py-2">
             <span className="text-xs font-semibold">Alerts</span>
             <Link
               to="/alerts"
               onClick={() => setOpen(false)}
-              className="text-[11px] text-muted hover:text-ink"
+              className="text-2xs text-muted hover:text-ink"
             >
               Manage →
             </Link>
@@ -76,7 +76,7 @@ export default function AlertsBell() {
             {events.map((e) => (
               <li key={e.id} className="px-3 py-2">
                 <div className="text-xs text-ink">{e.message}</div>
-                <div className="mt-0.5 text-[10px] text-subtle">
+                <div className="mt-0.5 text-2xs text-subtle">
                   {fmtShortDateTime(e.triggered_at)}
                 </div>
               </li>

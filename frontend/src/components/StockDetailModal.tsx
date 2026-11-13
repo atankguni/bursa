@@ -62,23 +62,27 @@ export default function StockDetailModal({
       bodyClassName="flex flex-col"
       header={
         <div>
-          <div className="flex items-center gap-2">
-            <h2 className="text-lg font-semibold">{stock.ticker}</h2>
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-xl font-semibold tracking-tight">{stock.ticker}</h2>
             <BoardBadge board={stock.board} />
             {stock.indices.map((idx) => (
               <span
                 key={idx}
-                className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
+                className="rounded-full bg-panelalt px-2 py-0.5 text-2xs font-medium text-muted"
               >
                 {idx}
               </span>
             ))}
           </div>
           <p className="text-xs text-muted">{stock.name}</p>
-          <div className="mt-1.5 flex items-baseline gap-3">
-            <span className="text-xl font-bold">{fmtPrice(stock.last_price)}</span>
+          <div className="mt-2 flex items-baseline gap-3">
+            <span className="text-3xl font-semibold tracking-tight tabular-nums">
+              {fmtPrice(stock.last_price)}
+            </span>
             {stock.change_percent != null && (
-              <span className={`flex items-center text-xs font-medium ${tone}`}>
+              <span
+                className={`flex items-center text-sm font-medium tabular-nums ${tone}`}
+              >
                 {up ? <ArrowUpRight size={14} /> : <ArrowDownRight size={14} />}
                 {stock.change != null && <>{fmtChange(stock.change)} </>}(
                 {fmtPct(stock.change_percent)})
@@ -91,16 +95,14 @@ export default function StockDetailModal({
     >
       {/* Tabs */}
       <div className="shrink-0">
-        <div className="flex w-fit gap-1 rounded-md bg-panelalt/70 p-1 ring-1 ring-line-strong">
+        <div className="segmented" role="tablist">
           {TABS.map((t) => (
             <button
               key={t.value}
+              role="tab"
+              aria-selected={tab === t.value}
               onClick={() => setTab(t.value)}
-              className={`rounded-sm px-3 py-1.5 text-xs font-medium transition ${
-                tab === t.value
-                  ? 'bg-panel text-ink shadow-card ring-1 ring-line-strong'
-                  : 'text-muted hover:text-ink'
-              }`}
+              className="segment"
             >
               {t.label}
             </button>

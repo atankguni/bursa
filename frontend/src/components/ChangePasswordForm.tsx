@@ -6,8 +6,7 @@ import { usePasswordStrength } from '../lib/passwordStrength'
 import { Field, FormError } from '../pages/auth/AuthLayout'
 import PasswordStrength from './PasswordStrength'
 
-const primaryBtn =
-  'rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50'
+const primaryBtn = 'btn btn-primary'
 const secondaryBtn =
   'rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink'
 

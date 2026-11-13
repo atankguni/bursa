@@ -36,7 +36,7 @@ export default function IhsgTicker() {
         onClick={() => setOpen(true)}
         title={tooltip}
         aria-label={`IHSG ${fmtPrice(ihsg.last)}${pct != null ? `, ${fmtPct(pct)} today` : ''}. Open chart`}
-        className="hidden items-center gap-1.5 rounded-sm bg-panelalt px-2.5 py-1.5 text-xs ring-1 ring-line transition hover:ring-line-strong sm:inline-flex"
+        className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition-colors hover:bg-panelalt"
       >
         <span className="font-semibold text-muted">IHSG</span>
         <span className="font-semibold tabular-nums text-ink">{fmtPrice(ihsg.last)}</span>

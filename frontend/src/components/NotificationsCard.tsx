@@ -40,11 +40,11 @@ export default function NotificationsCard() {
         )}
       </div>
       {test.isSuccess && (
-        <p className="mt-1.5 text-[11px] text-bull">Test sent: check Telegram.</p>
+        <p className="mt-1.5 text-2xs text-bull">Test sent: check Telegram.</p>
       )}
-      {error && <p className="mt-1.5 text-[11px] text-bear">{error}</p>}
+      {error && <p className="mt-1.5 text-2xs text-bear">{error}</p>}
       {status.data && !on && (
-        <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-[11px] text-subtle">
+        <ol className="mt-2 list-decimal space-y-0.5 pl-5 text-2xs text-subtle">
           <li>
             In Telegram, message <b>@BotFather</b>, send <code>/newbot</code>, and copy
             the token.

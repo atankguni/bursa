@@ -53,17 +53,17 @@ export default function Browse() {
   })
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+    <main className="page">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 lg:mb-6">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Browse IDX</h2>
-          <p className="text-[11px] text-subtle">
+          <h2 className="page-title">Browse IDX</h2>
+          <p className="page-sub">
             {isLoading
               ? 'Loading…'
               : `${from}–${to} of ${total}${isFetching ? ' · updating…' : ''} · track a stock for live prices`}
           </p>
         </div>
-        <div className="flex items-center gap-1.5 rounded-sm bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
+        <div className="flex items-center gap-2 rounded-full bg-panel py-1.5 pr-3 pl-3 text-xs ring-1 ring-line-strong transition-shadow focus-within:ring-2 focus-within:ring-accent">
           <Search size={13} className="text-muted" />
           <input
             value={q}
@@ -77,7 +77,7 @@ export default function Browse() {
       <div className="surface overflow-hidden">
         <div className="relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
-            <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+            <thead className="table-head">
               <tr>
                 <th scope="col" className="px-4 py-2.5">
                   Ticker
@@ -151,7 +151,7 @@ export default function Browse() {
                         {r.indices.map((idx) => (
                           <span
                             key={idx}
-                            className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] text-muted"
+                            className="rounded-xs bg-panelalt px-1.5 py-0.5 text-2xs text-muted"
                           >
                             {idx}
                           </span>
@@ -201,7 +201,7 @@ export default function Browse() {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-1.5 text-[11px] text-subtle">
+        <label className="flex items-center gap-1.5 text-2xs text-subtle">
           Rows per page
           <select
             value={pageSize}
@@ -209,7 +209,7 @@ export default function Browse() {
               setPageSize(Number(e.target.value))
               goTo(0)
             }}
-            className="rounded-sm bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
+            className="input input-sm w-auto"
           >
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>
@@ -219,12 +219,12 @@ export default function Browse() {
           </select>
         </label>
         <Pagination page={page} pageCount={pageCount} onChange={goTo} />
-        <span className="text-[11px] tabular-nums text-subtle">
+        <span className="text-2xs tabular-nums text-subtle">
           {total > 0 && `${from}–${to} of ${total}`}
         </span>
       </div>
 
-      <p className="mt-3 text-[11px] text-subtle">
+      <p className="mt-3 text-2xs text-subtle">
         Catalog prices update daily; tracked stocks also get intraday updates.
       </p>
       {selected && (

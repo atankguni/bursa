@@ -4,11 +4,11 @@ import { Plus, Trash2, Wallet } from 'lucide-react'
 import { addCashMovement, deleteCashMovement, type CashMovementInput } from '../api'
 import { errorMessage } from '../api/client'
 import { useCash } from '../hooks'
-import { fmtPrice } from '../lib/format'
+import { fmtMoney, fmtMoneySigned } from '../lib/format'
 import Modal from './Modal'
 
 const MASK = '••••••'
-const signed = (v: number) => `${v > 0 ? '+' : ''}${fmtPrice(v)}`
+const signed = fmtMoneySigned
 const tone = (v: number | null | undefined) =>
   v == null || v === 0 ? 'text-ink' : v > 0 ? 'text-bull' : 'text-bear'
 const fmtDay = (d: string) =>
@@ -31,13 +31,13 @@ function Figure({
 }) {
   return (
     <div>
-      <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
+      <div className="text-2xs font-medium text-muted">{label}</div>
       <div
         className={`mt-0.5 text-sm font-semibold tabular-nums ${className ?? 'text-ink'}`}
       >
         {value}
       </div>
-      {hint && <div className="text-[10px] text-subtle">{hint}</div>}
+      {hint && <div className="text-2xs text-subtle">{hint}</div>}
     </div>
   )
 }
@@ -56,7 +56,7 @@ export default function CashPanel({ hide }: { hide: boolean }) {
     mutationFn: deleteCashMovement,
     onSuccess: () => void qc.invalidateQueries({ queryKey: ['portfolio'] }),
   })
-  const money = (v: number, fmt: (v: number) => string = fmtPrice) =>
+  const money = (v: number, fmt: (v: number) => string = fmtMoney) =>
     hide ? MASK : fmt(v)
 
   if (!cash) return null
@@ -64,14 +64,11 @@ export default function CashPanel({ hide }: { hide: boolean }) {
 
   return (
     <div className="surface">
-      <div className="flex items-center justify-between border-b border-line px-4 py-2.5">
-        <span className="inline-flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted">
+      <div className="flex items-center justify-between border-b border-line px-4 py-3">
+        <span className="section-title inline-flex items-center gap-1.5">
           <Wallet size={13} /> Cash (RDN)
         </span>
-        <button
-          onClick={() => setAdding(true)}
-          className="inline-flex items-center gap-1 rounded-sm px-2 py-1 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-        >
+        <button onClick={() => setAdding(true)} className="btn btn-secondary btn-sm">
           <Plus size={13} /> Deposit / withdrawal
         </button>
       </div>
@@ -84,7 +81,7 @@ export default function CashPanel({ hide }: { hide: boolean }) {
         </p>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3 px-4 py-3 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-x-4 gap-y-4 px-4 py-4 sm:grid-cols-4 sm:px-5">
             <Figure
               label="Cash available"
               value={money(cash.available)}
@@ -197,8 +194,7 @@ function CashModal({ onClose }: { onClose: () => void }) {
     },
   })
   const value = Number(amount)
-  const inputCls =
-    'w-full rounded-sm bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+  const inputCls = 'input'
 
   return (
     <Modal
@@ -209,10 +205,7 @@ function CashModal({ onClose }: { onClose: () => void }) {
         <>
           <span />
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-sm px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-            >
+            <button onClick={onClose} className="btn btn-secondary">
               Cancel
             </button>
             <button
@@ -220,7 +213,7 @@ function CashModal({ onClose }: { onClose: () => void }) {
                 add.mutate({ kind, amount: value, day, note: note.trim() || null })
               }
               disabled={add.isPending || !(value > 0) || !day}
-              className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary"
             >
               {add.isPending ? 'Saving…' : 'Add'}
             </button>
@@ -232,7 +225,7 @@ function CashModal({ onClose }: { onClose: () => void }) {
         <div
           role="radiogroup"
           aria-label="Type"
-          className="grid grid-cols-2 overflow-hidden rounded-sm ring-1 ring-line-strong"
+          className="segmented grid w-full grid-cols-2"
         >
           {(['deposit', 'withdrawal'] as const).map((k) => (
             <button
@@ -241,15 +234,13 @@ function CashModal({ onClose }: { onClose: () => void }) {
               role="radio"
               aria-checked={kind === k}
               onClick={() => setKind(k)}
-              className={`px-3 py-1.5 text-xs font-medium capitalize transition ${
-                kind === k ? 'bg-active text-ink' : 'text-muted hover:text-ink'
-              }`}
+              className={`segment capitalize ${kind === k ? 'active' : ''}`}
             >
               {k}
             </button>
           ))}
         </div>
-        <p className="text-[11px] text-subtle">
+        <p className="text-2xs text-subtle">
           {kind === 'deposit'
             ? 'Money you transferred into your RDN (trading account).'
             : 'Money you took out of your RDN to your own bank account.'}{' '}
@@ -257,7 +248,7 @@ function CashModal({ onClose }: { onClose: () => void }) {
         </p>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="cash-amount" className="mb-1 block text-xs text-muted">
+            <label htmlFor="cash-amount" className="field-label">
               Amount (Rp)
             </label>
             <input
@@ -270,11 +261,11 @@ function CashModal({ onClose }: { onClose: () => void }) {
               className={inputCls}
             />
             {value > 0 && (
-              <p className="mt-1 text-[10px] text-subtle">= Rp {fmtPrice(value)}</p>
+              <p className="mt-1 text-2xs text-subtle">= Rp {fmtMoney(value)}</p>
             )}
           </div>
           <div>
-            <label htmlFor="cash-day" className="mb-1 block text-xs text-muted">
+            <label htmlFor="cash-day" className="field-label">
               Date
             </label>
             <input
@@ -287,7 +278,7 @@ function CashModal({ onClose }: { onClose: () => void }) {
           </div>
         </div>
         <div>
-          <label htmlFor="cash-note" className="mb-1 block text-xs text-muted">
+          <label htmlFor="cash-note" className="field-label">
             Note (optional)
           </label>
           <input

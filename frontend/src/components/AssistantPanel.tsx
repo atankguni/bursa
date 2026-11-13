@@ -218,9 +218,7 @@ export default function AssistantPanel() {
         title="Ask the assistant"
         aria-label="Ask the assistant"
         aria-expanded={open}
-        className={`rounded-sm p-2 ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink ${
-          open ? 'bg-panelalt text-ink' : 'text-muted'
-        }`}
+        className={`btn btn-ghost btn-icon ${open ? 'bg-panelalt text-ink' : ''}`}
       >
         <Sparkles size={15} />
       </button>
@@ -239,8 +237,8 @@ export default function AssistantPanel() {
                   <Sparkles size={14} strokeWidth={2.5} />
                 </div>
                 <div className="leading-tight">
-                  <h2 className="text-sm font-semibold tracking-tight">Assistant</h2>
-                  <p className="text-[10px] text-subtle">
+                  <h2 className="page-title">Assistant</h2>
+                  <p className="text-2xs text-subtle">
                     {s?.configured
                       ? `${s.remaining_today}/${s.daily_limit} questions left today`
                       : 'Answers from Bursa’s data'}
@@ -295,7 +293,7 @@ export default function AssistantPanel() {
                 ) : (
                   groupChats(chats.data).map((g) => (
                     <div key={g.label} className="mb-3">
-                      <h3 className="px-2 pb-1 text-[10px] font-semibold uppercase tracking-wider text-subtle">
+                      <h3 className="px-2 pb-1 text-2xs font-semibold text-subtle">
                         {g.label}
                       </h3>
                       {g.chats.map((c) => (
@@ -311,7 +309,7 @@ export default function AssistantPanel() {
                             className="min-w-0 flex-1 px-2 py-1.5 text-left"
                           >
                             <span className="block truncate text-ink">{c.title}</span>
-                            <span className="text-[10px] text-subtle">
+                            <span className="text-2xs text-subtle">
                               {fmtShortDateTime(c.updated_at)}
                             </span>
                           </button>
@@ -329,7 +327,7 @@ export default function AssistantPanel() {
                     </div>
                   ))
                 )}
-                <div className="space-y-2 border-t border-line px-2 pt-3 text-[11px] text-subtle">
+                <div className="space-y-2 border-t border-line px-2 pt-3 text-2xs text-subtle">
                   <p>
                     Chats are private to you and deleted {status.data?.chat_days ?? 90}{' '}
                     days after their last message. Turn saving off in Settings →
@@ -360,7 +358,7 @@ export default function AssistantPanel() {
                 </div>
               )}
               {outdated && messages.length > 0 && (
-                <div className="rounded-md bg-amber-500/10 px-3 py-2 text-[11px] text-amber-700 ring-1 ring-amber-500/20 dark:text-amber-400">
+                <div className="rounded-md bg-amber-500/10 px-3 py-2 text-2xs text-amber-700 ring-1 ring-amber-500/20 dark:text-amber-400">
                   Continued from {fmtShortDateTime(resumedFrom)}. Prices in earlier
                   answers may be outdated; new questions use fresh data.
                 </div>
@@ -412,7 +410,7 @@ export default function AssistantPanel() {
                       {m.error ? m.content : renderMarkdown(m.content)}
                     </div>
                     {m.tools && m.tools.length > 0 && (
-                      <p className="px-1 text-[10px] text-subtle">
+                      <p className="px-1 text-2xs text-subtle">
                         Looked up: {[...new Set(m.tools)].join(', ').replace(/_/g, ' ')}
                       </p>
                     )}
@@ -468,7 +466,7 @@ export default function AssistantPanel() {
                   <SendHorizontal size={16} />
                 </button>
               </div>
-              <p className="mt-1.5 px-1 text-[10px] text-subtle">
+              <p className="mt-1.5 px-1 text-2xs text-subtle">
                 AI can make mistakes · not financial advice ·{' '}
                 {s?.personal_data
                   ? 'can read your portfolio'

@@ -57,8 +57,7 @@ export default function SellCalculator({
         })
       : null
 
-  const inputCls =
-    'w-full rounded-sm bg-panelalt px-3 py-2 text-sm tabular-nums text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+  const inputCls = 'input tabular-nums'
 
   return (
     <Modal
@@ -69,17 +68,14 @@ export default function SellCalculator({
         <>
           <span />
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-sm px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-            >
+            <button onClick={onClose} className="btn btn-secondary">
               Close
             </button>
             <button
               onClick={() => sale && onRecord({ lots: lotsN, price: priceN })}
               disabled={!sale}
               title="After you sold at your broker: record it in the portfolio"
-              className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary"
             >
               Record this sale
             </button>
@@ -117,7 +113,7 @@ export default function SellCalculator({
                   onChange={(e) => setLots(e.target.value)}
                   className={inputCls}
                 />
-                <p className="mt-1 text-[10px] text-subtle">
+                <p className="mt-1 text-2xs text-subtle">
                   {lotsOk
                     ? `= ${(lotsN * lotSize).toLocaleString('en-US')} shares`
                     : `1 to ${maxLots} lots`}
@@ -144,7 +140,7 @@ export default function SellCalculator({
                   onChange={(e) => setPrice(e.target.value)}
                   className={inputCls}
                 />
-                <p className="mt-1 text-[10px] text-subtle">
+                <p className="mt-1 text-2xs text-subtle">
                   {priceN > 0 && !priceOk
                     ? `IDX prices move in steps of Rp ${priceStep(priceN)} here (e.g. ${fmtPrice(floorToStep(priceN))})`
                     : 'Your limit price, or the last price'}
@@ -195,7 +191,7 @@ export default function SellCalculator({
           </>
         )}
 
-        <p className="text-[11px] text-subtle">
+        <p className="text-2xs text-subtle">
           An estimate from your fee rates: the price you actually get can differ, and some
           brokers round fees or charge a minimum. Check it against your broker&apos;s
           confirmation.
@@ -225,10 +221,10 @@ export function Line({
     <div className="flex items-baseline justify-between gap-3">
       <dt className={strong ? 'font-semibold text-ink' : 'text-muted'}>
         {label}
-        {hint && <div className="text-[10px] font-normal text-subtle">{hint}</div>}
+        {hint && <div className="text-2xs font-normal text-subtle">{hint}</div>}
       </dt>
       <dd
-        className={`tabular-nums ${strong ? 'text-sm font-semibold text-ink' : 'text-ink'} ${tone}`}
+        className={`text-right whitespace-nowrap tabular-nums ${strong ? 'text-sm font-semibold text-ink' : 'text-ink'} ${tone}`}
       >
         {value}
       </dd>

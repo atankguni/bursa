@@ -18,7 +18,7 @@ const cardCls = 'rounded-md bg-panelalt/40 p-4 ring-1 ring-line'
 const secondaryBtn =
   'rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 const smallBtn =
-  'rounded-sm px-2 py-1 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
+  'rounded-sm px-2 py-1 text-2xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 
 function Heading({ icon, title }: { icon: ReactNode; title: string }) {
   return (
@@ -62,12 +62,12 @@ export function SignedInDevices() {
                   <p className="font-medium text-ink">
                     {s.device}
                     {s.current && (
-                      <span className="ml-2 text-[10px] font-medium text-bull">
+                      <span className="ml-2 text-2xs font-medium text-bull">
                         This browser
                       </span>
                     )}
                   </p>
-                  <p className="text-[11px] text-subtle">
+                  <p className="text-2xs text-subtle">
                     {s.ip ?? 'Unknown address'} · signed in{' '}
                     {fmtShortDateTime(s.created_at)} · active {fmtTimeAgo(s.last_seen_at)}
                   </p>
@@ -139,7 +139,7 @@ export function RecentActivity() {
                 >
                   {eventLabel(e)}
                 </span>
-                <span className="hidden shrink-0 text-[11px] text-subtle sm:inline">
+                <span className="hidden shrink-0 text-2xs text-subtle sm:inline">
                   {e.device} · {e.ip ?? '—'}
                 </span>
               </li>

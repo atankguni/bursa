@@ -3,7 +3,6 @@ import {
   Columns3,
   Palette,
   RotateCcw,
-  Settings as SettingsIcon,
   ShieldCheck,
   SlidersHorizontal,
   TrendingUp,
@@ -123,11 +122,10 @@ export default function Settings() {
   if (!section) return <Navigate to="/settings/investing" replace />
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
-      <div className="mb-4 flex items-center gap-2">
-        <SettingsIcon size={16} className="text-accent" />
-        <h2 className="text-sm font-semibold tracking-tight">Settings</h2>
-        <p className="text-[11px] text-subtle">Changes apply instantly</p>
+    <main className="page">
+      <div className="mb-5 lg:mb-6">
+        <h2 className="page-title">Settings</h2>
+        <p className="page-sub">Changes apply instantly</p>
       </div>
 
       <div className="flex flex-col gap-4 md:flex-row md:items-start">
@@ -140,7 +138,7 @@ export default function Settings() {
             <NavLink key={s.id} to={`/settings/${s.id}`} className={navCls}>
               <s.icon size={14} /> {s.label}
               {s.id === 'security' && (user?.password_weak || !user?.has_2fa) && (
-                <span className="ml-auto rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <span className="ml-auto rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-2xs font-medium text-amber-700 dark:text-amber-400">
                   {user?.password_weak ? 'Weak password' : '2FA off'}
                 </span>
               )}
@@ -157,7 +155,7 @@ export default function Settings() {
               {section.scope && (
                 <span
                   title={SCOPE_LABEL[section.scope].hint}
-                  className="rounded-sm bg-panelalt px-1.5 py-0.5 text-[10px] font-medium text-subtle ring-1 ring-line"
+                  className="rounded-sm bg-panelalt px-1.5 py-0.5 text-2xs font-medium text-subtle ring-1 ring-line"
                 >
                   {SCOPE_LABEL[section.scope].label}
                 </span>

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import {
-  ColorType,
   LineStyle,
   createChart,
   type AreaData,
@@ -8,19 +7,11 @@ import {
   type LineData,
 } from 'lightweight-charts'
 import type { EquityPoint } from '../api'
-import { readCssColor, useSettings } from '../lib/settings'
+import { baseChartOptions, chartColors, compactAmount } from '../lib/chartTheme'
+import { useSettings } from '../lib/settings'
 
-// The series colour is the user's accent (readCssColor), not bull green: a
-// rising line shouldn't look like a price signal.
-const SOFT = {
-  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#1e293b' },
-  light: { background: '#ffffff', text: '#475569', grid: '#e2e8f0' },
-} as const
-
-const HIGH = {
-  dark: { background: '#0f172a', text: '#cbd5e1', grid: '#334155' },
-  light: { background: '#ffffff', text: '#334155', grid: '#cbd5e1' },
-} as const
+// The series colour is the user's accent, not bull green: a rising line
+// shouldn't look like a price signal.
 
 /**
  * Portfolio value over time (area series). With `hideValues`, the price axis
@@ -44,19 +35,24 @@ export default function PortfolioChart({
   useEffect(() => {
     const el = ref.current
     if (!el) return
-    const c = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
-    const accent = readCssColor('--c-accent')
+    const c = chartColors()
+    const accent = c.accent
+    const base = baseChartOptions(c)
 
     const chart: IChartApi = createChart(el, {
+      ...base,
       height,
-      layout: {
-        background: { type: ColorType.Solid, color: c.background },
-        textColor: c.text,
+      rightPriceScale: {
+        borderVisible: false,
+        visible: mode === 'return' || !hideValues,
       },
-      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      rightPriceScale: { borderColor: c.grid, visible: mode === 'return' || !hideValues },
-      timeScale: { borderColor: c.grid },
-      crosshair: { horzLine: { labelVisible: mode === 'return' || !hideValues } },
+      crosshair: {
+        ...base.crosshair,
+        horzLine: {
+          ...base.crosshair?.horzLine,
+          labelVisible: mode === 'return' || !hideValues,
+        },
+      },
     })
     if (mode === 'return') {
       // Percentages only (no amounts), so this view is safe in hide-values mode.
@@ -76,7 +72,7 @@ export default function PortfolioChart({
         ),
       )
       const bench = chart.addLineSeries({
-        color: resolvedTheme === 'dark' ? '#cbd5e1' : '#475569',
+        color: c.neutral,
         lineWidth: 2,
         lineStyle: LineStyle.Dashed,
         title: 'IHSG',
@@ -91,9 +87,10 @@ export default function PortfolioChart({
     } else {
       const series = chart.addAreaSeries({
         lineColor: accent,
-        topColor: `${accent}55`,
-        bottomColor: `${accent}05`,
+        topColor: `${accent}40`,
+        bottomColor: `${accent}00`,
         lineWidth: 2,
+        priceFormat: { type: 'custom', formatter: compactAmount, minMove: 1 },
         lastValueVisible: !hideValues,
         priceLineVisible: !hideValues,
       })

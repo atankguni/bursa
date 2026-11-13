@@ -31,7 +31,7 @@ export default function SortHeader<K extends string>({
     >
       <button
         onClick={() => onSort(sortKey)}
-        className={`inline-flex items-center gap-1 uppercase tracking-wider transition hover:text-ink ${
+        className={`inline-flex items-center gap-1 transition hover:text-ink ${
           active ? 'text-ink' : ''
         }`}
       >

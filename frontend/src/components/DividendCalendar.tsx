@@ -17,14 +17,11 @@ export default function DividendCalendar({ hideValues }: { hideValues: boolean }
 
   return (
     <section className="surface overflow-hidden" aria-labelledby="divcal-title">
-      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-2.5">
-        <h3
-          id="divcal-title"
-          className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted"
-        >
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-line px-4 py-3">
+        <h3 id="divcal-title" className="section-title flex items-center gap-1.5">
           <CalendarDays size={12} aria-hidden /> Expected dividends · next 6 months
         </h3>
-        <span className="text-[10px] text-subtle">
+        <span className="text-2xs text-subtle">
           Projected from last year’s ex-dates: estimates, not announcements
         </span>
       </div>
@@ -39,7 +36,7 @@ export default function DividendCalendar({ hideValues }: { hideValues: boolean }
           {data.map((d) => (
             <li
               key={d.ticker + d.expected_ex_date}
-              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-2 text-xs"
+              className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3 text-xs"
             >
               <div className="flex min-w-0 items-center gap-2">
                 <span className="w-24 shrink-0 tabular-nums text-muted">
@@ -47,18 +44,18 @@ export default function DividendCalendar({ hideValues }: { hideValues: boolean }
                 </span>
                 <span className="font-semibold">{d.ticker}</span>
                 {d.in_portfolio && (
-                  <span className="rounded-xs bg-accent/10 px-1 py-0.5 text-[9px] text-accent">
+                  <span className="rounded-xs bg-accent/10 px-1 py-0.5 text-2xs text-accent">
                     holding
                   </span>
                 )}
                 {!d.in_portfolio && d.in_watchlist && (
-                  <span className="rounded-xs bg-panelalt px-1 py-0.5 text-[9px] text-muted">
+                  <span className="rounded-xs bg-panelalt px-1 py-0.5 text-2xs text-muted">
                     watchlist
                   </span>
                 )}
                 <span
                   title={`Last year's ex-date: ${fmtDay(d.based_on)}`}
-                  className="rounded-xs px-1 py-0.5 text-[9px] text-subtle ring-1 ring-line"
+                  className="rounded-xs px-1 py-0.5 text-2xs text-subtle ring-1 ring-line"
                 >
                   {d.regular ? 'regular' : 'estimate'}
                 </span>

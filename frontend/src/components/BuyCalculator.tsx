@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { Holding } from '../api'
 import { useCash, usePreferences, useStatus } from '../hooks'
 import { affordableLots, estimateBuy } from '../lib/buyEstimate'
-import { fmtPrice } from '../lib/format'
+import { fmtMoney, fmtPrice } from '../lib/format'
 import { floorToStep, onPriceStep, priceStep } from '../lib/sellEstimate'
 import Modal from './Modal'
 import { Line } from './SellCalculator'
@@ -50,8 +50,7 @@ export default function BuyCalculator({
       ? affordableLots(available, priceN, lotSize, tradingCosts.buy_fee_pct)
       : null
 
-  const inputCls =
-    'w-full rounded-sm bg-panelalt px-3 py-2 text-sm tabular-nums text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+  const inputCls = 'input tabular-nums'
 
   return (
     <Modal
@@ -62,17 +61,14 @@ export default function BuyCalculator({
         <>
           <span />
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-sm px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-            >
+            <button onClick={onClose} className="btn btn-secondary">
               Close
             </button>
             <button
               onClick={() => buy && onRecord({ lots: lotsN, price: priceN })}
               disabled={!buy}
               title="After you bought at your broker: record it in the portfolio"
-              className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary"
             >
               Record this buy
             </button>
@@ -108,7 +104,7 @@ export default function BuyCalculator({
               onChange={(e) => setLots(e.target.value)}
               className={inputCls}
             />
-            <p className="mt-1 text-[10px] text-subtle">
+            <p className="mt-1 text-2xs text-subtle">
               {lotsN >= 1
                 ? `= ${(lotsN * lotSize).toLocaleString('en-US')} shares`
                 : '1 lot or more'}
@@ -139,7 +135,7 @@ export default function BuyCalculator({
               onChange={(e) => setPrice(e.target.value)}
               className={inputCls}
             />
-            <p className="mt-1 text-[10px] text-subtle">
+            <p className="mt-1 text-2xs text-subtle">
               {priceN > 0 && !priceOk
                 ? `IDX prices move in steps of Rp ${priceStep(priceN)} here (e.g. ${fmtPrice(floorToStep(priceN))})`
                 : 'Your limit price, or the last price'}
@@ -160,7 +156,7 @@ export default function BuyCalculator({
                 <Line
                   label="Cash left after"
                   hint="From the Cash panel"
-                  value={`Rp ${fmtPrice(available - buy.total)}`}
+                  value={`Rp ${fmtMoney(available - buy.total)}`}
                   tone={available - buy.total < 0 ? 'text-bear' : ''}
                 />
               )}
@@ -195,7 +191,7 @@ export default function BuyCalculator({
           </dl>
         )}
 
-        <p className="text-[11px] text-subtle">
+        <p className="text-2xs text-subtle">
           Averaging down lowers the price you need, but puts more money in the same stock:
           check that your reason for owning it still holds. An estimate from your fee
           rates (Settings → Trading costs).

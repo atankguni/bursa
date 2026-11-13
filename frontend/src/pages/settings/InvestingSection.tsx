@@ -164,7 +164,7 @@ function TradingCostSettings() {
     <div className="space-y-2">
       <div>
         <h3 className="text-xs font-semibold text-ink">Trading costs</h3>
-        <p className="text-[11px] text-subtle">
+        <p className="text-2xs text-subtle">
           From your broker&apos;s fee schedule. They pre-fill the fee of new transactions,
           and the portfolio shows profit after selling costs and dividends after tax.
         </p>
@@ -180,7 +180,7 @@ function TradingCostSettings() {
                 onChange={(e) => setDraft((d) => ({ ...d, [key]: e.target.value }))}
                 onBlur={() => save(key, max)}
                 onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                className="w-16 rounded-sm bg-panel px-2 py-1 text-right tabular-nums text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent"
+                className="input input-sm w-20 text-right tabular-nums"
               />
               %
             </span>

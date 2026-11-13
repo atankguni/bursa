@@ -110,7 +110,7 @@ export default function Modal({
   const titleId = `${id}-title`
   return createPortal(
     // No click handler on the backdrop: only ✕ (or Escape) closes the dialog.
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-xs sm:p-4">
+    <div className="fixed inset-0 z-50 flex animate-fade-in items-center justify-center bg-zinc-950/45 backdrop-blur-sm sm:p-6">
       <div
         ref={panel}
         role="dialog"
@@ -118,24 +118,22 @@ export default function Modal({
         aria-labelledby={title && !label ? titleId : undefined}
         aria-label={label}
         tabIndex={-1}
-        className={`flex h-full w-full animate-fade-in flex-col overflow-hidden bg-panel shadow-pop outline-hidden ring-1 ring-line sm:rounded-md ${PANEL[size]}`}
+        className={`flex h-full w-full animate-fade-in flex-col overflow-hidden bg-panel shadow-pop outline-hidden ring-1 ring-line sm:rounded-lg ${PANEL[size]}`}
       >
-        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-5 sm:py-4">
+        <div className="flex shrink-0 items-start justify-between gap-4 border-b border-line px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] sm:px-6 sm:py-4">
           <div className="min-w-0 flex-1">
             {header ?? (
               <div className="flex items-center gap-3">
                 {icon && (
-                  <div className="rounded-md bg-accent p-2 text-accent-ink shadow-card">
+                  <div className="grid h-9 w-9 place-items-center rounded-sm bg-accent/10 text-accent">
                     {icon}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <h2 id={titleId} className="text-sm font-semibold tracking-tight">
+                  <h2 id={titleId} className="text-base font-semibold tracking-tight">
                     {title}
                   </h2>
-                  {description && (
-                    <p className="text-[11px] text-subtle">{description}</p>
-                  )}
+                  {description && <p className="text-xs text-muted">{description}</p>}
                 </div>
               </div>
             )}
@@ -146,7 +144,7 @@ export default function Modal({
               onClick={onClose}
               aria-label="Close"
               title="Close"
-              className="rounded-sm p-2.5 text-muted transition hover:bg-panelalt hover:text-ink sm:p-1.5"
+              className="btn btn-ghost btn-icon -mr-1.5"
             >
               <X size={18} />
             </button>
@@ -154,13 +152,13 @@ export default function Modal({
         </div>
 
         <div
-          className={`min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5 ${bodyClassName}`}
+          className={`min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5 ${bodyClassName}`}
         >
           {children}
         </div>
 
         {footer && (
-          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-panelalt/40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-5 sm:pb-3">
+          <div className="flex shrink-0 items-center justify-between gap-3 border-t border-line bg-panelalt/40 px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-3 sm:px-6 sm:pb-3">
             {footer}
           </div>
         )}

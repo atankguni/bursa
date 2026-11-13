@@ -10,11 +10,7 @@ export default function WatchButton({ ticker }: { ticker: string }) {
   return (
     <span className="flex items-center gap-2">
       {error && (
-        <span
-          role="alert"
-          className="max-w-48 truncate text-[11px] text-bear"
-          title={error}
-        >
+        <span role="alert" className="max-w-48 truncate text-2xs text-bear" title={error}>
           {error}
         </span>
       )}

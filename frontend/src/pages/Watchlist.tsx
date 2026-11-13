@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowDownRight, ArrowUpRight, Info, RefreshCw, Trash2 } from 'lucide-react'
+import { ArrowDownRight, ArrowUpRight, Info, RefreshCw, Star, Trash2 } from 'lucide-react'
 import { refreshWatchlist, removeFromWatchlist, type WatchlistItem } from '../api'
 import { useWatchlist } from '../hooks'
 import { useAuth } from '../lib/auth'
@@ -11,6 +11,7 @@ import TickerName from '../components/TickerName'
 import StockDetailModal from '../components/StockDetailModal'
 import SignalBadge from '../components/SignalBadge'
 import SortHeader, { type SortState } from '../components/SortHeader'
+import EmptyState from '../components/ui/EmptyState'
 
 // Value each sortable column sorts by (null = missing data, always listed last).
 const SORT_VALUE = {
@@ -85,11 +86,11 @@ export default function Watchlist() {
   const colCount = 15 - settings.hiddenColumns.watchlist.length
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-baseline gap-2">
-          <h2 className="text-sm font-semibold tracking-tight">Watchlist</h2>
-          <p className="text-[11px] text-subtle">
+    <main className="page">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 lg:mb-6">
+        <div>
+          <h2 className="page-title">Watchlist</h2>
+          <p className="page-sub">
             Fundamentals are yearly (IDR) · PBV &amp; RoE vs latest price
           </p>
         </div>
@@ -109,7 +110,7 @@ export default function Watchlist() {
       </div>
 
       {refresh.isSuccess && (
-        <div className="mb-3 flex items-center gap-1.5 rounded-sm bg-accent/10 px-3 py-2 text-[11px] text-accent ring-1 ring-accent/20">
+        <div className="mb-3 flex items-center gap-1.5 rounded-sm bg-accent/10 px-3 py-2 text-2xs text-accent ring-1 ring-accent/20">
           <Info size={13} /> Updated {refresh.data.tickers} tickers ({refresh.data.rows}{' '}
           rows).
         </div>
@@ -118,7 +119,7 @@ export default function Watchlist() {
       <div className="surface overflow-hidden">
         <div className="relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
-            <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+            <thead className="table-head">
               <tr>
                 <SortHeader sortKey="ticker" {...sortProps}>
                   Ticker
@@ -211,8 +212,11 @@ export default function Watchlist() {
               )}
               {!isLoading && items.length === 0 && (
                 <tr>
-                  <td colSpan={colCount} className="px-4 py-10 text-center text-subtle">
-                    Watchlist is empty — add stocks from the Home page.
+                  <td colSpan={colCount}>
+                    <EmptyState icon={Star} title="Your watchlist is empty">
+                      Tap the star on any stock (Home, Browse or a stock&apos;s detail) to
+                      follow it here with its fundamentals.
+                    </EmptyState>
                   </td>
                 </tr>
               )}
@@ -239,7 +243,7 @@ export default function Watchlist() {
                         {f?.financial_currency && f.financial_currency !== 'IDR' && (
                           <span
                             title={`Reported in ${f.financial_currency}, converted to IDR`}
-                            className="rounded-xs bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
+                            className="rounded-xs bg-panelalt px-1 py-0.5 text-2xs font-normal text-muted"
                           >
                             {f.financial_currency}
                           </span>
@@ -337,7 +341,7 @@ export default function Watchlist() {
         </div>
       </div>
 
-      <p className="mt-3 text-[11px] text-subtle">
+      <p className="mt-3 text-2xs text-subtle">
         Figures are normalized to IDR (foreign-currency filers converted). PBV = market
         cap ÷ book value. RoE = net income ÷ equity.
       </p>

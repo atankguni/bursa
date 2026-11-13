@@ -18,8 +18,8 @@ const roeOf = (f: Fundamental) =>
 
 function Metric({ label, value }: { label: ReactNode; value: string }) {
   return (
-    <div className="rounded-md bg-panelalt/70 px-3 py-2.5 ring-1 ring-line">
-      <div className="text-[10px] uppercase tracking-wide text-muted">{label}</div>
+    <div className="rounded-md bg-panelalt/60 px-3.5 py-3">
+      <div className="text-2xs font-medium text-muted">{label}</div>
       <div className="mt-0.5 text-sm font-semibold text-ink">{value}</div>
     </div>
   )
@@ -82,7 +82,7 @@ export default function FundamentalsPanel({
           {showCurrency && (
             <span
               title={`Reported in ${currency}, converted to IDR`}
-              className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px]"
+              className="rounded-xs bg-panelalt px-1.5 py-0.5 text-2xs"
             >
               {currency} → IDR
             </span>
@@ -114,7 +114,7 @@ export default function FundamentalsPanel({
       {/* Latest-year breakdown */}
       <div className="relative overflow-x-auto rounded-sm ring-1 ring-line">
         <table className="w-full whitespace-nowrap text-left text-xs">
-          <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
+          <thead className="table-head">
             <tr>
               <th className="px-3 py-2">Metric</th>
               <th className="px-3 py-2 text-right">{latest.fiscal_year}</th>
@@ -145,7 +145,7 @@ export default function FundamentalsPanel({
       {years.length > 1 && (
         <div className="relative overflow-x-auto rounded-sm ring-1 ring-line">
           <table className="w-full whitespace-nowrap text-left text-xs">
-            <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
+            <thead className="table-head">
               <tr>
                 <th className="px-3 py-2">Year</th>
                 <th className="px-3 py-2 text-right">Revenue</th>
@@ -180,13 +180,13 @@ export default function FundamentalsPanel({
       )}
 
       {latest.source === 'summary' && (
-        <p className="rounded-sm bg-panelalt/70 px-2.5 py-1.5 text-[11px] text-muted ring-1 ring-line">
+        <p className="rounded-sm bg-panelalt/70 px-2.5 py-1.5 text-2xs text-muted ring-1 ring-line">
           Yahoo has no financial statements for this company, so these are its summary
           figures: book value from the latest quarter, revenue and net income over the
           trailing 12 months. Assets and liabilities aren’t available.
         </p>
       )}
-      <p className="text-[11px] text-subtle">
+      <p className="text-2xs text-subtle">
         Figures normalized to IDR (foreign filers converted) · PBV = market cap ÷ book
         value · RoE = net income ÷ equity.
       </p>

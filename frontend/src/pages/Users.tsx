@@ -24,10 +24,9 @@ const USERS_KEY = ['admin', 'users'] as const
 const INVITES_KEY = ['admin', 'invites'] as const
 const LOG_KEY = ['admin', 'security-log'] as const
 
-const inputCls =
-  'rounded-sm bg-panelalt px-3 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+const inputCls = 'input input-sm w-auto'
 const smallBtn =
-  'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
+  'inline-flex items-center gap-1 rounded-sm px-2 py-1 text-2xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
 
 /** A one-time link: shown once (only its hash is stored), with a copy button. */
 function LinkNotice({
@@ -52,7 +51,7 @@ function LinkNotice({
     <div className="rounded-sm bg-accent/10 p-3 text-xs ring-1 ring-accent/20">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="font-medium text-ink">{title}</span>
-        <button onClick={onDismiss} className="text-[11px] text-muted hover:text-ink">
+        <button onClick={onDismiss} className="text-2xs text-muted hover:text-ink">
           Dismiss
         </button>
       </div>
@@ -61,7 +60,7 @@ function LinkNotice({
         Send this link yourself if needed. It works once and won&apos;t be shown again.
       </p>
       <div className="flex items-center gap-2">
-        <code className="min-w-0 flex-1 select-all truncate rounded-sm bg-panel px-2 py-1.5 font-mono text-[11px] text-ink ring-1 ring-line">
+        <code className="min-w-0 flex-1 select-all truncate rounded-sm bg-panel px-2 py-1.5 font-mono text-2xs text-ink ring-1 ring-line">
           {result.link}
         </code>
         <button onClick={() => void copy()} className={smallBtn}>
@@ -172,9 +171,7 @@ export default function Users() {
     <div className="space-y-3">
       <form onSubmit={onInvite} className="surface flex flex-wrap items-end gap-3 p-3">
         <label>
-          <span className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-            Email
-          </span>
+          <span className="field-label">Email</span>
           <input
             type="email"
             required
@@ -185,9 +182,7 @@ export default function Users() {
           />
         </label>
         <label>
-          <span className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-            Role
-          </span>
+          <span className="field-label">Role</span>
           <select
             value={role}
             onChange={(e) => setRole(asRole(e.target.value))}
@@ -200,11 +195,11 @@ export default function Users() {
         <button
           type="submit"
           disabled={invite.isPending}
-          className="inline-flex items-center gap-1.5 rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 btn btn-primary"
         >
           <UserPlus size={13} /> {invite.isPending ? 'Creating…' : 'Create invite'}
         </button>
-        <p className="basis-full text-[11px] text-subtle">
+        <p className="basis-full text-2xs text-subtle">
           Admins can also manage users, start data syncs, track symbols and see data
           health.
         </p>
@@ -264,7 +259,7 @@ export default function Users() {
       <div className="surface relative overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-subtle">
+            <tr className="table-head border-b border-line text-left">
               <th className="px-4 py-2 font-medium">Name</th>
               <th className="px-4 py-2 font-medium">Email</th>
               <th className="px-4 py-2 font-medium">Role</th>
@@ -288,9 +283,7 @@ export default function Users() {
                 <tr key={u.id} className="border-b border-line last:border-0">
                   <td className="px-4 py-2 font-medium">
                     {u.name}
-                    {self && (
-                      <span className="ml-1.5 text-[10px] text-subtle">(you)</span>
-                    )}
+                    {self && <span className="ml-1.5 text-2xs text-subtle">(you)</span>}
                   </td>
                   <td className="px-4 py-2 text-muted">{u.email}</td>
                   <td className="px-4 py-2">
@@ -403,7 +396,7 @@ function SecurityLog() {
       <div className="surface max-h-96 overflow-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-subtle">
+            <tr className="table-head border-b border-line text-left">
               <th className="px-4 py-2 font-medium">When</th>
               <th className="px-4 py-2 font-medium">Account</th>
               <th className="px-4 py-2 font-medium">What</th>

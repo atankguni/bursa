@@ -1,4 +1,5 @@
 export * from './keys'
+export * from './useMediaQuery'
 export * from './useIndexes'
 export * from './useStocks'
 export * from './useWatchlist'

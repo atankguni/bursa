@@ -44,18 +44,14 @@ export default function CompanyPanel({
         <>
           {data.description && (
             <div className="surface p-4">
-              <div className="mb-2 text-[10px] uppercase tracking-wider text-muted">
-                About {data.name}
-              </div>
+              <div className="section-title mb-2">About {data.name}</div>
               <p className="text-xs leading-relaxed text-muted">{data.description}</p>
             </div>
           )}
 
           {facts.length > 0 && (
             <div className="surface p-4">
-              <div className="mb-3 text-[10px] uppercase tracking-wider text-muted">
-                Details
-              </div>
+              <div className="section-title mb-3">Details</div>
               <dl className="grid grid-cols-1 gap-x-6 gap-y-2 sm:grid-cols-2">
                 {facts.map((f) => (
                   <div
@@ -84,9 +80,7 @@ export default function CompanyPanel({
 
       {section === 'board' && data.officers.length > 0 && (
         <div className="surface p-4">
-          <div className="mb-3 text-[10px] uppercase tracking-wider text-muted">
-            Board &amp; management
-          </div>
+          <div className="section-title mb-3">Board &amp; management</div>
           <ul className="divide-y divide-line">
             {data.officers.map((o, i) => (
               <li

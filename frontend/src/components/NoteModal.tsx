@@ -68,8 +68,7 @@ export default function NoteModal({
       ? `${((level / price - 1) * 100).toFixed(1)}% from the last price`
       : null
 
-  const inputCls =
-    'w-full rounded-sm bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+  const inputCls = 'input'
 
   return (
     <Modal
@@ -91,10 +90,7 @@ export default function NoteModal({
             <span />
           )}
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-sm px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-            >
+            <button onClick={onClose} className="btn btn-secondary">
               Cancel
             </button>
             <button
@@ -107,7 +103,7 @@ export default function NoteModal({
                 })
               }
               disabled={save.isPending || invalid}
-              className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary"
             >
               {save.isPending ? 'Saving…' : 'Save'}
             </button>
@@ -123,7 +119,7 @@ export default function NoteModal({
           </p>
         )}
         <div>
-          <label htmlFor="note-thesis" className="mb-1 block text-xs text-muted">
+          <label htmlFor="note-thesis" className="field-label">
             Why you own it
           </label>
           <textarea
@@ -138,7 +134,7 @@ export default function NoteModal({
         </div>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="note-target" className="mb-1 block text-xs text-muted">
+            <label htmlFor="note-target" className="field-label">
               Target price
             </label>
             <input
@@ -149,12 +145,12 @@ export default function NoteModal({
               onChange={(e) => setTarget(e.target.value)}
               className={inputCls}
             />
-            <p className="mt-1 text-[10px] text-subtle">
+            <p className="mt-1 text-2xs text-subtle">
               {away(targetN) ?? 'Where you would take profit'}
             </p>
           </div>
           <div>
-            <label htmlFor="note-stop" className="mb-1 block text-xs text-muted">
+            <label htmlFor="note-stop" className="field-label">
               Stop price
             </label>
             <input
@@ -165,7 +161,7 @@ export default function NoteModal({
               onChange={(e) => setStop(e.target.value)}
               className={inputCls}
             />
-            <p className={`mt-1 text-[10px] ${invalid ? 'text-bear' : 'text-subtle'}`}>
+            <p className={`mt-1 text-2xs ${invalid ? 'text-bear' : 'text-subtle'}`}>
               {targetN != null && stopN != null && stopN >= targetN
                 ? 'Must be below the target'
                 : (away(stopN) ?? 'Where you would cut the loss')}
@@ -173,7 +169,7 @@ export default function NoteModal({
           </div>
         </div>
         <div>
-          <label htmlFor="note-review" className="mb-1 block text-xs text-muted">
+          <label htmlFor="note-review" className="field-label">
             Review on
           </label>
           <div className="flex flex-wrap items-center gap-2">
@@ -189,14 +185,14 @@ export default function NoteModal({
                 key={p.months}
                 type="button"
                 onClick={() => setReviewOn(monthsAhead(p.months))}
-                className="rounded-sm px-2 py-1 text-[11px] text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+                className="rounded-sm px-2 py-1 text-2xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
               >
                 +{p.label}
               </button>
             ))}
           </div>
         </div>
-        <p className="text-[11px] text-subtle">
+        <p className="text-2xs text-subtle">
           The Portfolio page flags the stock, and the daily email (Settings → Investing)
           reminds you, on the review date or when the last close reaches the target or the
           stop{price ? ` (last close Rp ${fmtPrice(price)})` : ''}. Prices are as they are

@@ -1,19 +1,31 @@
 import { lazy, Suspense, useState, type ReactNode } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Link } from 'react-router-dom'
-import { Eye, EyeOff, FileText, NotebookPen, Plus, Trash2 } from 'lucide-react'
+import { Link, useSearchParams } from 'react-router-dom'
+import {
+  Briefcase,
+  Eye,
+  EyeOff,
+  FileText,
+  LineChart,
+  NotebookPen,
+  Plus,
+  ReceiptText,
+  Trash2,
+} from 'lucide-react'
 import { deleteTransaction } from '../api'
 import {
+  useCash,
+  useMediaQuery,
+  useNotes,
   usePortfolio,
   usePortfolioHistory,
   usePreferences,
   useStatus,
-  useNotes,
   useTransactions,
 } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { estimateSale } from '../lib/sellEstimate'
-import { fmtPrice } from '../lib/format'
+import { fmtMoney, fmtMoneySigned, fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
 import BuyCalculator from '../components/BuyCalculator'
 import NoteModal, { FLAG_TEXT } from '../components/NoteModal'
@@ -21,15 +33,18 @@ import CashPanel from '../components/CashPanel'
 import DividendCalendar from '../components/DividendCalendar'
 import RiskPanel from '../components/RiskPanel'
 import SellCalculator from '../components/SellCalculator'
+import SubTabs from '../components/SubTabs'
 import TransactionModal from '../components/TransactionModal'
+import EmptyState from '../components/ui/EmptyState'
+import PageHeader from '../components/ui/PageHeader'
+import { SkeletonCard, SkeletonRows } from '../components/ui/Skeleton'
+import Stat from '../components/ui/Stat'
 import type { Holding, HoldingNote } from '../api'
 
 const PortfolioChart = lazy(() => import('../components/PortfolioChart'))
 
-const signed = (v: number | null) =>
-  v == null ? '—' : `${v > 0 ? '+' : ''}${fmtPrice(v)}`
-const signedPct = (v: number | null) =>
-  v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`
+const signedPct = (v: number | null | undefined) =>
+  v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`
 
 // IDX lots: shares / lotSize (integer when whole).
 const lotsOf = (shares: number, lotSize: number) => {
@@ -52,31 +67,9 @@ function Secret({ hidden, children }: { hidden: boolean; children: ReactNode }) 
   )
 }
 
-function Card({
-  label,
-  value,
-  tone,
-  hint,
-  title,
-}: {
-  label: string
-  value: ReactNode
-  tone?: string
-  hint?: ReactNode
-  title?: string
-}) {
-  return (
-    <div className="surface px-3 py-2.5 sm:px-4 sm:py-3" title={title}>
-      <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
-      <div
-        className={`mt-1 text-base font-semibold tabular-nums sm:text-lg ${tone ?? 'text-ink'}`}
-      >
-        {value}
-      </div>
-      {hint && <div className="mt-0.5 text-[10px] text-subtle">{hint}</div>}
-    </div>
-  )
-}
+const TABS = ['holdings', 'cash', 'income', 'risk', 'activity'] as const
+type Tab = (typeof TABS)[number]
+const isTab = (v: string | null): v is Tab => TABS.some((t) => t === v)
 
 export default function Portfolio() {
   const [adding, setAdding] = useState(false)
@@ -89,6 +82,12 @@ export default function Portfolio() {
     lots: number
     price: number
   } | null>(null)
+  const [params, setParams] = useSearchParams()
+  const raw = params.get('tab')
+  const tab: Tab = isTab(raw) ? raw : 'holdings'
+  const setTab = (t: Tab) =>
+    setParams(t === 'holdings' ? {} : { tab: t }, { replace: true })
+
   const { tradingCosts } = usePreferences()
   const qc = useQueryClient()
   const { settings, update } = useSettings()
@@ -96,8 +95,11 @@ export default function Portfolio() {
   const { data: pf, isLoading } = usePortfolio()
   const { data: txs = [] } = useTransactions()
   const { data: history = [] } = usePortfolioHistory()
+  const { data: cash } = useCash()
   const { data: status } = useStatus()
   const lotSize = status?.lot_size ?? 100
+  // The chart fills the hero's height beside the figures on wide screens.
+  const chartHeight = useMediaQuery('(min-width: 64rem)') ? 380 : 240
 
   const remove = useMutation({
     mutationFn: deleteTransaction,
@@ -107,6 +109,10 @@ export default function Portfolio() {
   const tone = (v: number | null | undefined) => {
     if (!settings.colorizeChanges || v == null || v === 0) return 'text-muted'
     return v > 0 ? 'text-bull' : 'text-bear'
+  }
+  const pill = (v: number | null | undefined) => {
+    if (!settings.colorizeChanges || v == null || v === 0) return 'bg-panelalt text-muted'
+    return v > 0 ? 'bg-bull/10 text-bull' : 'bg-bear/10 text-bear'
   }
 
   const [chartMode, setChartMode] = useState<'value' | 'return'>('value')
@@ -127,413 +133,538 @@ export default function Portfolio() {
   const noteBy = new Map(notes.map((n) => [n.ticker, n]))
   const held = new Set(holdings.map((h) => h.ticker))
   const attention = notes.filter((n) => n.flags.length > 0 && held.has(n.ticker))
+  const tracked = cash?.tracked ?? false
+  const money = (v: number | null | undefined) => (
+    <Secret hidden={hide}>{fmtMoney(v)}</Secret>
+  )
+  const moneySigned = (v: number | null | undefined) => (
+    <Secret hidden={hide}>{fmtMoneySigned(v)}</Secret>
+  )
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold tracking-tight">Portfolio</h2>
-          <p className="text-[11px] text-subtle">
-            Average-cost P/L · {holdings.length} position
-            {holdings.length === 1 ? '' : 's'}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link
-            to="/portfolio/tax"
-            title="Holdings on 31 December, dividends and sales for your SPT"
-            className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-          >
-            <FileText size={14} /> Tax summary
-          </Link>
-          <button
-            onClick={() => update({ hidePortfolioValues: !hide })}
-            aria-pressed={hide}
-            title={hide ? 'Show amounts' : 'Hide amounts (for screen sharing)'}
-            className={`inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium ring-1 transition ${
-              hide
-                ? 'bg-panelalt text-ink ring-line-strong'
-                : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
-            }`}
-          >
-            {hide ? <EyeOff size={14} /> : <Eye size={14} />}
-            {hide ? 'Show values' : 'Hide values'}
-          </button>
-          <button
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90"
-          >
-            <Plus size={14} /> Add transaction
-          </button>
-        </div>
-      </div>
+    <main className="page">
+      <PageHeader
+        title="Portfolio"
+        subtitle={`${holdings.length} position${holdings.length === 1 ? '' : 's'} · average-cost P/L`}
+        actions={
+          <>
+            <button
+              onClick={() => update({ hidePortfolioValues: !hide })}
+              aria-pressed={hide}
+              title={hide ? 'Show amounts' : 'Hide amounts (for screen sharing)'}
+              className={`btn btn-ghost ${hide ? 'bg-panelalt text-ink' : ''}`}
+            >
+              {hide ? <EyeOff size={15} /> : <Eye size={15} />}
+              <span className="hidden sm:inline">
+                {hide ? 'Show values' : 'Hide values'}
+              </span>
+            </button>
+            <Link
+              to="/portfolio/tax"
+              title="Holdings on 31 December, dividends and sales for your SPT"
+              className="btn btn-secondary"
+            >
+              <FileText size={15} /> Tax summary
+            </Link>
+            <button onClick={() => setAdding(true)} className="btn btn-primary">
+              <Plus size={15} /> Add transaction
+            </button>
+          </>
+        }
+      />
 
       {isLoading ? (
-        <div className="surface px-4 py-10 text-center text-subtle">Loading…</div>
-      ) : (
-        <div className="space-y-3">
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Card
-              label="Market value"
-              value={<Secret hidden={hide}>{fmtPrice(totals?.market_value ?? 0)}</Secret>}
-            />
-            <Card
-              label="Unrealized P/L"
-              value={
-                <>
-                  <Secret hidden={hide}>{signed(totals?.unrealized_pl ?? 0)}</Secret> (
-                  {signedPct(totals?.unrealized_pl_pct ?? null)})
-                </>
-              }
-              tone={tone(totals?.unrealized_pl)}
-              hint={
-                <>
-                  After selling costs:{' '}
-                  <Secret hidden={hide}>
-                    {signed((totals?.unrealized_pl ?? 0) - (totals?.exit_costs ?? 0))}
-                  </Secret>
-                </>
-              }
-              title="Selling everything now would cost about this much in broker fee + tax (Settings → Trading costs)"
-            />
-            <Card
-              label="Day change"
-              value={
-                <>
-                  <Secret hidden={hide}>{signed(totals?.day_change ?? 0)}</Secret> (
-                  {signedPct(totals?.day_change_pct ?? null)})
-                </>
-              }
-              tone={tone(totals?.day_change)}
-            />
-            <Card
-              label="Invested"
-              value={<Secret hidden={hide}>{fmtPrice(totals?.invested ?? 0)}</Secret>}
-            />
-            <Card
-              label="Realized P/L"
-              value={<Secret hidden={hide}>{signed(totals?.realized_pl ?? 0)}</Secret>}
-              tone={tone(totals?.realized_pl)}
-            />
-            <Card
-              label="Dividends received"
-              value={
-                <Secret hidden={hide}>{fmtPrice(totals?.dividends_received ?? 0)}</Secret>
-              }
-              hint="After tax, on shares held before each ex-date"
-            />
-            <Card
-              label="Total return"
-              value={<Secret hidden={hide}>{signed(totals?.total_return ?? 0)}</Secret>}
-              tone={tone(totals?.total_return)}
-              hint="P/L after selling costs + realized + dividends"
-            />
-            <Card
-              label="Est. annual income"
-              value={
-                <Secret hidden={hide}>{fmtPrice(totals?.projected_income ?? 0)}</Secret>
-              }
-              hint="Last 12 months' dividends, after tax"
-            />
+        <div className="space-y-4">
+          <SkeletonCard className="h-64" />
+          <div className="surface">
+            <SkeletonRows />
           </div>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Hero: the headline number, the supporting figures, the chart. */}
+          <section className="surface overflow-hidden">
+            <div className="grid lg:grid-cols-[minmax(0,24rem)_minmax(0,1fr)]">
+              <div className="border-b border-line p-5 sm:p-6 lg:border-r lg:border-b-0">
+                <Stat
+                  size="hero"
+                  label={tracked ? 'Account value' : 'Market value'}
+                  value={money(tracked ? cash?.account_value : totals?.market_value)}
+                  title={tracked ? 'Shares at the last price + cash' : undefined}
+                />
+                <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium tabular-nums">
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${pill(totals?.day_change)}`}
+                  >
+                    {moneySigned(totals?.day_change)}
+                    <span className="opacity-80">
+                      ({signedPct(totals?.day_change_pct)}) today
+                    </span>
+                  </span>
+                  <span
+                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${pill(totals?.total_return)}`}
+                    title="P/L after selling costs + realized + dividends"
+                  >
+                    {moneySigned(totals?.total_return)}
+                    <span className="opacity-80">total return</span>
+                  </span>
+                </div>
 
-          <CashPanel hide={hide} />
+                <div className="mt-6 grid grid-cols-2 gap-x-4 gap-y-5">
+                  <Stat label="Invested" value={money(totals?.invested)} />
+                  <Stat
+                    label="Unrealized P/L"
+                    value={moneySigned(totals?.unrealized_pl)}
+                    tone={tone(totals?.unrealized_pl)}
+                    sub={
+                      <>
+                        {signedPct(totals?.unrealized_pl_pct)} · after selling costs{' '}
+                        <Secret hidden={hide}>
+                          {fmtMoneySigned(
+                            (totals?.unrealized_pl ?? 0) - (totals?.exit_costs ?? 0),
+                          )}
+                        </Secret>
+                      </>
+                    }
+                  />
+                  <Stat
+                    label="Realized P/L"
+                    value={moneySigned(totals?.realized_pl)}
+                    tone={tone(totals?.realized_pl)}
+                  />
+                  <Stat
+                    label="Dividends received"
+                    value={money(totals?.dividends_received)}
+                    sub="After tax"
+                  />
+                  {tracked && (
+                    <Stat
+                      label="Cash available"
+                      value={money(cash?.available)}
+                      tone={(cash?.available ?? 0) < 0 ? 'text-bear' : 'text-ink'}
+                      sub={
+                        cash && cash.settling > 0 ? (
+                          <>
+                            + <Secret hidden={hide}>{fmtMoney(cash.settling)}</Secret>{' '}
+                            settling
+                          </>
+                        ) : undefined
+                      }
+                    />
+                  )}
+                  <Stat
+                    label="Est. annual income"
+                    value={money(totals?.projected_income)}
+                    sub="Last 12 months' dividends"
+                  />
+                </div>
+              </div>
+
+              <div className="flex min-w-0 flex-col p-4 sm:p-5">
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="section-title">
+                    {chartMode === 'value' ? 'Value over time' : 'Your return vs IHSG'}
+                  </div>
+                  <div className="segmented" role="group" aria-label="Chart">
+                    {(['value', 'return'] as const).map((m) => (
+                      <button
+                        key={m}
+                        onClick={() => setChartMode(m)}
+                        aria-pressed={chartMode === m}
+                        className="segment"
+                      >
+                        {m === 'value' ? 'Value' : 'vs IHSG'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {chartMode === 'return' && versus && (
+                  <p className="mb-3 text-xs text-muted">
+                    Since {versus.since}: you{' '}
+                    <span className={`font-semibold ${tone(versus.mine)}`}>
+                      {signedPct(versus.mine)}
+                    </span>
+                    , IHSG{' '}
+                    <span className={`font-semibold ${tone(versus.ihsg)}`}>
+                      {signedPct(versus.ihsg)}
+                    </span>
+                    : {versus.mine >= versus.ihsg ? 'ahead by' : 'behind by'}{' '}
+                    <span className="font-semibold text-ink">
+                      {Math.abs(versus.mine - versus.ihsg).toFixed(2)} pts
+                    </span>
+                    <span className="text-subtle">
+                      {' '}
+                      · time-weighted, dividends included; IHSG is price only
+                    </span>
+                  </p>
+                )}
+                {history.length > 1 ? (
+                  <Suspense
+                    fallback={
+                      <div className="skeleton" style={{ height: chartHeight }} />
+                    }
+                  >
+                    <PortfolioChart
+                      data={history}
+                      hideValues={hide}
+                      mode={chartMode}
+                      height={chartHeight}
+                    />
+                  </Suspense>
+                ) : (
+                  <div className="grid flex-1 place-items-center">
+                    <EmptyState icon={LineChart} title="Your chart starts here">
+                      It fills in day by day once you hold shares.
+                    </EmptyState>
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
 
           {attention.length > 0 && (
-            <div className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-500/20 dark:text-amber-400">
-              <span className="font-medium">Time to look again:</span>{' '}
+            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-md bg-amber-500/10 px-4 py-3 text-xs text-amber-800 ring-1 ring-amber-500/20 dark:text-amber-300">
+              <NotebookPen size={14} className="shrink-0" />
+              <span className="font-medium">Time to look again:</span>
               {attention.map((n, i) => (
                 <span key={n.ticker}>
-                  {i > 0 && ' · '}
+                  {i > 0 && <span className="mr-2 opacity-50">·</span>}
                   <button
                     onClick={() => setNoting(n.ticker)}
                     className="font-semibold underline-offset-2 hover:underline"
                   >
                     {n.ticker}
                   </button>{' '}
-                  ({n.flags.map((f) => FLAG_TEXT[f]).join(', ')})
+                  <span className="opacity-80">
+                    ({n.flags.map((f) => FLAG_TEXT[f]).join(', ')})
+                  </span>
                 </span>
               ))}
             </div>
           )}
 
-          {/* Holdings */}
-          <div className="surface overflow-hidden">
-            <div className="relative overflow-x-auto">
-              <table className="w-full whitespace-nowrap text-left text-xs">
-                <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
-                  <tr>
-                    <th scope="col" className="px-4 py-2.5">
-                      Ticker
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Lots
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Shares
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Avg
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Price
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Value
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      P/L
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      P/L %
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Day %
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Weight
-                    </th>
-                    <th scope="col" className="px-4 py-2.5 text-right">
-                      Est. income
-                    </th>
-                    <th
-                      scope="col"
-                      className="px-4 py-2.5 text-right"
-                      title="Cash you would receive selling all whole lots at the last price, after the sell fee and tax"
+          <div>
+            <SubTabs<Tab>
+              value={tab}
+              onChange={setTab}
+              options={[
+                {
+                  value: 'holdings',
+                  label: `Holdings${holdings.length ? ` · ${holdings.length}` : ''}`,
+                },
+                { value: 'cash', label: 'Cash' },
+                { value: 'income', label: 'Income' },
+                { value: 'risk', label: 'Risk' },
+                {
+                  value: 'activity',
+                  label: `Activity${txs.length ? ` · ${txs.length}` : ''}`,
+                },
+              ]}
+            />
+            <div className="mt-4">
+              {tab === 'holdings' && (
+                <div className="surface overflow-hidden">
+                  {holdings.length === 0 ? (
+                    <EmptyState
+                      icon={Briefcase}
+                      title="No positions yet"
+                      action={
+                        <button
+                          onClick={() => setAdding(true)}
+                          className="btn btn-primary"
+                        >
+                          <Plus size={15} /> Add your first transaction
+                        </button>
+                      }
                     >
-                      Net if sold
-                    </th>
-                    <th scope="col" className="px-4 py-2.5">
-                      <span className="sr-only">Actions</span>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-line">
-                  {holdings.length === 0 && (
-                    <tr>
-                      <td colSpan={13} className="px-4 py-10 text-center text-subtle">
-                        No positions yet — add a transaction to get started.
-                      </td>
-                    </tr>
-                  )}
-                  {holdings.map((h) => (
-                    <tr
-                      key={h.ticker}
-                      className="bg-panel transition-colors hover:bg-panelalt/60"
-                    >
-                      <td className="px-4 py-2 font-semibold">
-                        <span className="inline-flex items-center gap-1.5">
-                          {h.ticker}
-                          <BoardBadge board={h.board} compact />
-                          <NoteButton
-                            note={noteBy.get(h.ticker)}
-                            onClick={() => setNoting(h.ticker)}
-                          />
-                          {h.split_adjusted && (
-                            <span
-                              title="Adjusted for a stock split: shares × ratio and price ÷ ratio, so invested capital is unchanged."
-                              className="rounded-xs bg-panelalt px-1 py-0.5 text-[9px] font-normal text-muted"
+                      Record a buy, and Bursa tracks its value, P/L, dividends and risk.
+                    </EmptyState>
+                  ) : (
+                    <div className="relative overflow-x-auto">
+                      <table className="w-full text-left text-xs whitespace-nowrap">
+                        <thead className="table-head">
+                          <tr>
+                            <th scope="col" className="px-4 py-3">
+                              Stock
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Lots
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Avg cost
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Price
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Value
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              P/L
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Today
+                            </th>
+                            <th scope="col" className="px-4 py-3">
+                              Weight
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Est. income
+                            </th>
+                            <th
+                              scope="col"
+                              className="px-4 py-3 text-right"
+                              title="Cash you would receive selling all whole lots at the last price, after the sell fee and tax"
                             >
-                              split-adj.
-                            </span>
-                          )}
-                        </span>
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium tabular-nums">
-                        <Secret hidden={hide}>{lotsOf(h.quantity, lotSize)}</Secret>
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted">
-                        <Secret hidden={hide}>
-                          {h.quantity.toLocaleString('en-US')}
-                        </Secret>
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted">
-                        <Secret hidden={hide}>{fmtPrice(h.avg_cost)}</Secret>
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums">
-                        {fmtPrice(h.price)}
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium tabular-nums">
-                        <Secret hidden={hide}>{fmtPrice(h.market_value)}</Secret>
-                      </td>
-                      <td
-                        className={`px-4 py-2 text-right tabular-nums ${tone(h.unrealized_pl)}`}
-                      >
-                        <Secret hidden={hide}>{signed(h.unrealized_pl)}</Secret>
-                      </td>
-                      <td
-                        className={`px-4 py-2 text-right tabular-nums ${tone(h.unrealized_pl)}`}
-                      >
-                        {signedPct(h.unrealized_pl_pct)}
-                      </td>
-                      <td
-                        className={`px-4 py-2 text-right tabular-nums ${tone(h.day_change)}`}
-                      >
-                        {signedPct(h.day_change_pct)}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted">
-                        {h.weight != null ? `${h.weight.toFixed(1)}%` : '—'}
-                      </td>
-                      <td className="px-4 py-2 text-right tabular-nums text-muted">
-                        <Secret hidden={hide}>
-                          {h.projected_income ? fmtPrice(h.projected_income) : '—'}
-                        </Secret>
-                      </td>
-                      <td className="px-4 py-2 text-right font-medium tabular-nums">
-                        <Secret hidden={hide}>
-                          {h.price != null
-                            ? fmtPrice(
-                                estimateSale({
-                                  shares: Math.floor(h.quantity / lotSize) * lotSize,
-                                  price: h.price,
-                                  avgCost: h.avg_cost,
-                                  sellFeePct: tradingCosts.sell_fee_pct,
-                                }).net,
-                              )
-                            : '—'}
-                        </Secret>
-                      </td>
-                      <td className="space-x-1.5 px-4 py-2 text-right">
-                        <button
-                          onClick={() => setBuying(h)}
-                          title="Buy more: new average cost and break-even price"
-                          className="rounded-sm px-2 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-                        >
-                          Buy…
-                        </button>
-                        <button
-                          onClick={() => setSelling(h)}
-                          className="rounded-sm px-2 py-0.5 text-[11px] font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-                        >
-                          Sell…
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                              Net if sold
+                            </th>
+                            <th scope="col" className="px-4 py-3">
+                              <span className="sr-only">Actions</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line">
+                          {holdings.map((h) => (
+                            <tr
+                              key={h.ticker}
+                              className="group bg-panel transition-colors hover:bg-panelalt/50"
+                            >
+                              <td className="px-4 py-3">
+                                <span className="flex items-center gap-1.5">
+                                  <span className="font-semibold text-ink">
+                                    {h.ticker}
+                                  </span>
+                                  <BoardBadge board={h.board} compact />
+                                  <NoteButton
+                                    note={noteBy.get(h.ticker)}
+                                    onClick={() => setNoting(h.ticker)}
+                                  />
+                                  {h.split_adjusted && (
+                                    <span
+                                      title="Adjusted for a stock split: shares × ratio and price ÷ ratio, so invested capital is unchanged."
+                                      className="rounded-xs bg-panelalt px-1 py-0.5 text-2xs text-muted"
+                                    >
+                                      split-adj.
+                                    </span>
+                                  )}
+                                </span>
+                                <span className="block max-w-[14rem] truncate text-2xs text-subtle">
+                                  {h.name}
+                                </span>
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums">
+                                <Secret hidden={hide}>
+                                  <span className="font-medium">
+                                    {lotsOf(h.quantity, lotSize)}
+                                  </span>
+                                  <span className="block text-2xs text-subtle">
+                                    {h.quantity.toLocaleString('en-US')} sh
+                                  </span>
+                                </Secret>
+                              </td>
+                              <td className="px-4 py-3 text-right text-muted tabular-nums">
+                                <Secret hidden={hide}>{fmtPrice(h.avg_cost)}</Secret>
+                              </td>
+                              <td className="px-4 py-3 text-right tabular-nums">
+                                {fmtPrice(h.price)}
+                              </td>
+                              <td className="px-4 py-3 text-right font-medium tabular-nums">
+                                {money(h.market_value)}
+                              </td>
+                              <td
+                                className={`px-4 py-3 text-right tabular-nums ${tone(h.unrealized_pl)}`}
+                              >
+                                {moneySigned(h.unrealized_pl)}
+                                <span className="block text-2xs opacity-80">
+                                  {signedPct(h.unrealized_pl_pct)}
+                                </span>
+                              </td>
+                              <td
+                                className={`px-4 py-3 text-right tabular-nums ${tone(h.day_change)}`}
+                              >
+                                {signedPct(h.day_change_pct)}
+                              </td>
+                              <td className="px-4 py-3">
+                                {h.weight != null ? (
+                                  <span className="flex items-center gap-2">
+                                    <span className="h-1.5 w-14 overflow-hidden rounded-full bg-panelalt">
+                                      <span
+                                        className="block h-full rounded-full bg-accent/70"
+                                        style={{ width: `${Math.min(h.weight, 100)}%` }}
+                                      />
+                                    </span>
+                                    <span className="text-muted tabular-nums">
+                                      {h.weight.toFixed(1)}%
+                                    </span>
+                                  </span>
+                                ) : (
+                                  '—'
+                                )}
+                              </td>
+                              <td className="px-4 py-3 text-right text-muted tabular-nums">
+                                {h.projected_income ? money(h.projected_income) : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-right font-medium tabular-nums">
+                                {h.price != null
+                                  ? money(
+                                      estimateSale({
+                                        shares:
+                                          Math.floor(h.quantity / lotSize) * lotSize,
+                                        price: h.price,
+                                        avgCost: h.avg_cost,
+                                        sellFeePct: tradingCosts.sell_fee_pct,
+                                      }).net,
+                                    )
+                                  : '—'}
+                              </td>
+                              <td className="px-4 py-3 text-right">
+                                <span className="inline-flex gap-1.5">
+                                  <button
+                                    onClick={() => setBuying(h)}
+                                    title="Buy more: new average cost and break-even price"
+                                    className="btn btn-secondary btn-sm"
+                                  >
+                                    Buy
+                                  </button>
+                                  <button
+                                    onClick={() => setSelling(h)}
+                                    title="What selling would bring in, after fees and tax"
+                                    className="btn btn-secondary btn-sm"
+                                  >
+                                    Sell
+                                  </button>
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {tab === 'cash' && <CashPanel hide={hide} />}
+              {tab === 'income' && <DividendCalendar hideValues={hide} />}
+              {tab === 'risk' &&
+                (holdings.length > 0 ? (
+                  <RiskPanel enabled />
+                ) : (
+                  <div className="surface">
+                    <EmptyState icon={Briefcase} title="Nothing to measure yet">
+                      Risk (concentration, volatility, drawdown) appears once you hold
+                      shares.
+                    </EmptyState>
+                  </div>
+                ))}
+
+              {tab === 'activity' && (
+                <div className="surface overflow-hidden">
+                  {txs.length === 0 ? (
+                    <EmptyState icon={ReceiptText} title="No transactions yet">
+                      Buys, sales, rights issues and bonus shares you record appear here.
+                    </EmptyState>
+                  ) : (
+                    <div className="relative overflow-x-auto">
+                      <table className="w-full text-left text-xs whitespace-nowrap">
+                        <thead className="table-head">
+                          <tr>
+                            <th scope="col" className="px-4 py-3">
+                              Date
+                            </th>
+                            <th scope="col" className="px-4 py-3">
+                              Stock
+                            </th>
+                            <th scope="col" className="px-4 py-3">
+                              Type
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Lots
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Price
+                            </th>
+                            <th scope="col" className="px-4 py-3 text-right">
+                              Fees
+                            </th>
+                            <th scope="col" className="w-full px-4 py-3">
+                              Note
+                            </th>
+                            <th scope="col" className="px-4 py-3">
+                              <span className="sr-only">Delete</span>
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-line">
+                          {txs.map((t) => (
+                            <tr
+                              key={t.id}
+                              className="bg-panel transition-colors hover:bg-panelalt/50"
+                            >
+                              <td className="px-4 py-2.5 text-muted tabular-nums">
+                                {t.trade_date}
+                              </td>
+                              <td className="px-4 py-2.5 font-semibold">{t.ticker}</td>
+                              <td className="px-4 py-2.5">
+                                <span
+                                  className={`rounded-full px-2 py-0.5 text-2xs font-medium capitalize ${
+                                    t.kind !== 'trade'
+                                      ? 'bg-accent/10 text-accent'
+                                      : t.side === 'buy'
+                                        ? 'bg-bull/10 text-bull'
+                                        : 'bg-bear/10 text-bear'
+                                  }`}
+                                >
+                                  {t.kind === 'trade' ? t.side : t.kind}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums">
+                                <Secret hidden={hide}>
+                                  {lotsOf(t.quantity, lotSize)}
+                                  <span className="ml-1 text-2xs text-subtle">
+                                    ({t.quantity.toLocaleString('en-US')})
+                                  </span>
+                                </Secret>
+                              </td>
+                              <td className="px-4 py-2.5 text-right tabular-nums">
+                                {t.kind === 'bonus' ? (
+                                  <span className="text-subtle">free</span>
+                                ) : (
+                                  <Secret hidden={hide}>{fmtPrice(t.price)}</Secret>
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5 text-right text-subtle tabular-nums">
+                                {t.fees ? money(t.fees) : '—'}
+                              </td>
+                              <td className="max-w-[20rem] truncate px-4 py-2.5 text-subtle">
+                                {t.note ? <Secret hidden={hide}>{t.note}</Secret> : ''}
+                              </td>
+                              <td className="px-2 py-1 text-right">
+                                <button
+                                  onClick={() => {
+                                    if (
+                                      confirm(
+                                        `Delete this ${t.ticker} ${t.kind === 'trade' ? t.side : t.kind}?`,
+                                      )
+                                    )
+                                      remove.mutate(t.id)
+                                  }}
+                                  aria-label={`Delete ${t.ticker} transaction of ${t.trade_date}`}
+                                  className="btn btn-ghost btn-icon hover:text-bear"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
-
-          <RiskPanel enabled={holdings.length > 0} />
-          <DividendCalendar hideValues={hide} />
-
-          {/* Equity curve */}
-          {history.length > 1 && (
-            <div className="surface p-4">
-              <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-                <div className="text-[10px] uppercase tracking-wider text-muted">
-                  {chartMode === 'value' ? 'Portfolio value' : 'Your return vs IHSG'}
-                </div>
-                <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
-                  {(['value', 'return'] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => setChartMode(m)}
-                      aria-pressed={chartMode === m}
-                      className={`px-2.5 py-1 text-xs transition ${
-                        chartMode === m
-                          ? 'bg-active text-ink'
-                          : 'text-muted hover:text-ink'
-                      }`}
-                    >
-                      {m === 'value' ? 'Value' : 'Return vs IHSG'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              {versus && (
-                <p className="mb-2 text-xs text-muted">
-                  Since {versus.since}: you{' '}
-                  <span className={`font-semibold ${tone(versus.mine)}`}>
-                    {signedPct(versus.mine)}
-                  </span>{' '}
-                  vs IHSG{' '}
-                  <span className={`font-semibold ${tone(versus.ihsg)}`}>
-                    {signedPct(versus.ihsg)}
-                  </span>{' '}
-                  → {versus.mine >= versus.ihsg ? 'ahead of' : 'behind'} the market by{' '}
-                  <span className="font-semibold text-ink">
-                    {Math.abs(versus.mine - versus.ihsg).toFixed(2)} pts
-                  </span>
-                  <span className="text-subtle">
-                    {' '}
-                    · time-weighted, dividends included (buys/sells don’t count as gains;
-                    IHSG is price only)
-                  </span>
-                </p>
-              )}
-              <Suspense
-                fallback={
-                  <div className="h-[260px] animate-pulse rounded-sm bg-panelalt" />
-                }
-              >
-                <PortfolioChart data={history} hideValues={hide} mode={chartMode} />
-              </Suspense>
-            </div>
-          )}
-
-          {/* Transactions */}
-          {txs.length > 0 && (
-            <div className="surface overflow-hidden">
-              <div className="border-b border-line px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted">
-                Transactions
-              </div>
-              <div className="relative overflow-x-auto">
-                <table className="w-full whitespace-nowrap text-left text-xs">
-                  <tbody className="divide-y divide-line">
-                    {txs.map((t) => (
-                      <tr key={t.id} className="bg-panel">
-                        <td className="px-4 py-2 text-muted">{t.trade_date}</td>
-                        <td className="px-4 py-2 font-medium">{t.ticker}</td>
-                        <td
-                          className={`px-4 py-2 font-medium uppercase ${
-                            t.side === 'buy' ? 'text-bull' : 'text-bear'
-                          }`}
-                        >
-                          {t.kind === 'rights'
-                            ? 'rights'
-                            : t.kind === 'bonus'
-                              ? 'bonus'
-                              : t.side}
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums">
-                          <Secret hidden={hide}>{lotsOf(t.quantity, lotSize)}</Secret>
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums text-subtle">
-                          <Secret hidden={hide}>
-                            {t.quantity.toLocaleString('en-US')}
-                          </Secret>
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums">
-                          {t.kind === 'bonus' ? (
-                            <span className="text-subtle">free</span>
-                          ) : (
-                            <Secret hidden={hide}>{fmtPrice(t.price)}</Secret>
-                          )}
-                        </td>
-                        <td className="px-4 py-2 text-right tabular-nums text-subtle">
-                          <Secret hidden={hide}>{t.fees ? fmtPrice(t.fees) : '—'}</Secret>
-                        </td>
-                        <td className="px-4 py-2 text-subtle">
-                          {t.note ? <Secret hidden={hide}>{t.note}</Secret> : ''}
-                        </td>
-                        <td className="px-4 py-2 text-right">
-                          <button
-                            onClick={() => remove.mutate(t.id)}
-                            title="Delete transaction"
-                            className="rounded-sm p-2 text-muted transition hover:bg-bear/15 hover:text-bear"
-                          >
-                            <Trash2 size={14} />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
         </div>
       )}
 
@@ -602,7 +733,7 @@ function NoteButton({
             : 'text-subtle opacity-60 hover:opacity-100'
       }`}
     >
-      <NotebookPen size={12} />
+      <NotebookPen size={13} />
     </button>
   )
 }

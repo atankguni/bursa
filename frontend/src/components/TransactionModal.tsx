@@ -82,8 +82,7 @@ export default function TransactionModal({
     })
   }
 
-  const inputCls =
-    'w-full rounded-sm bg-panelalt px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+  const inputCls = 'input'
 
   return (
     <Modal
@@ -94,16 +93,13 @@ export default function TransactionModal({
         <>
           <span />
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-sm px-3 py-1.5 text-xs text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
-            >
+            <button onClick={onClose} className="btn btn-secondary">
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={add.isPending || !ticker || !quantity || (!free && !price)}
-              className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+              className="btn btn-primary"
             >
               {add.isPending ? 'Saving…' : 'Add'}
             </button>
@@ -113,7 +109,7 @@ export default function TransactionModal({
     >
       <div className="space-y-3">
         <div>
-          <label className="mb-1 block text-xs text-muted">Ticker</label>
+          <label className="field-label">Ticker</label>
           <input
             list="tickers"
             value={ticker}
@@ -131,13 +127,13 @@ export default function TransactionModal({
         </div>
 
         <div>
-          <span className="mb-1 block text-xs text-muted" id="tx-type">
+          <span className="field-label" id="tx-type">
             Type
           </span>
           <div
             role="radiogroup"
             aria-labelledby="tx-type"
-            className="grid grid-cols-2 overflow-hidden rounded-sm ring-1 ring-line-strong sm:grid-cols-4"
+            className="segmented grid w-full grid-cols-2 sm:grid-cols-4"
           >
             {ENTRIES.map((e) => (
               <button
@@ -146,16 +142,14 @@ export default function TransactionModal({
                 role="radio"
                 aria-checked={entry === e.id}
                 onClick={() => setEntry(e.id)}
-                className={`px-3 py-1.5 text-xs font-medium transition ${
-                  entry === e.id ? 'bg-active text-ink' : 'text-muted hover:text-ink'
-                }`}
+                className={`segment ${entry === e.id ? 'active' : ''}`}
               >
                 {e.label}
               </button>
             ))}
           </div>
           {ENTRIES.find((e) => e.id === entry)?.hint && (
-            <p className="mt-1 text-[11px] text-subtle">
+            <p className="mt-1 text-2xs text-subtle">
               {ENTRIES.find((e) => e.id === entry)?.hint}
             </p>
           )}
@@ -165,14 +159,12 @@ export default function TransactionModal({
           <div>
             <div className="mb-1 flex items-center justify-between">
               <label className="text-xs text-muted">Quantity</label>
-              <div className="flex overflow-hidden rounded-sm ring-1 ring-line-strong">
+              <div className="segmented">
                 {(['lots', 'shares'] as const).map((u) => (
                   <button
                     key={u}
                     onClick={() => setUnit(u)}
-                    className={`px-2 py-0.5 text-[10px] font-medium capitalize transition ${
-                      unit === u ? 'bg-active text-ink' : 'text-muted hover:text-ink'
-                    }`}
+                    className={`segment capitalize ${unit === u ? 'active' : ''}`}
                   >
                     {u}
                   </button>
@@ -188,14 +180,14 @@ export default function TransactionModal({
               className={inputCls}
             />
             {unit === 'lots' && quantity !== '' && (
-              <p className="mt-1 text-[10px] text-subtle">
+              <p className="mt-1 text-2xs text-subtle">
                 = {shares.toLocaleString('en-US')} shares
               </p>
             )}
           </div>
           {!free && (
             <div>
-              <label className="mb-1 block text-xs text-muted">
+              <label className="field-label">
                 {entry === 'rights' ? 'Exercise price' : 'Price'}
               </label>
               <input
@@ -231,7 +223,7 @@ export default function TransactionModal({
             </div>
           )}
           <div>
-            <label className="mb-1 block text-xs text-muted">Date</label>
+            <label className="field-label">Date</label>
             <input
               type="date"
               value={tradeDate}
@@ -242,7 +234,7 @@ export default function TransactionModal({
         </div>
 
         <div>
-          <label className="mb-1 block text-xs text-muted">Note (optional)</label>
+          <label className="field-label">Note (optional)</label>
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}

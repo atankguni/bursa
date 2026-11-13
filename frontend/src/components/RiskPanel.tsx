@@ -8,9 +8,9 @@ const pct = (v: number | null | undefined, digits = 1) =>
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
     <div className="rounded-md bg-panelalt/50 px-3 py-2.5 ring-1 ring-line">
-      <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
+      <div className="text-2xs font-medium text-muted">{label}</div>
       <div className="mt-0.5 text-base font-semibold tabular-nums text-ink">{value}</div>
-      {hint && <div className="mt-0.5 text-[10px] text-subtle">{hint}</div>}
+      {hint && <div className="mt-0.5 text-2xs text-subtle">{hint}</div>}
     </div>
   )
 }
@@ -36,10 +36,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
 
   return (
     <section className="surface p-4" aria-labelledby="risk-title">
-      <h3
-        id="risk-title"
-        className="mb-3 text-[10px] uppercase tracking-wider text-muted"
-      >
+      <h3 id="risk-title" className="section-title mb-3">
         Risk
       </h3>
 
@@ -48,7 +45,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
           {r.warnings.map((w) => (
             <li
               key={w}
-              className="flex items-center gap-1.5 rounded-sm bg-amber-500/10 px-2.5 py-1.5 text-[11px] text-amber-700 ring-1 ring-amber-500/25 dark:text-amber-300"
+              className="flex items-center gap-1.5 rounded-sm bg-amber-500/10 px-2.5 py-1.5 text-2xs text-amber-700 ring-1 ring-amber-500/25 dark:text-amber-300"
             >
               <AlertTriangle size={12} aria-hidden /> {w}
             </li>
@@ -100,9 +97,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
 
       {r.sectors.length > 0 && (
         <div className="mt-4">
-          <div className="mb-1.5 text-[10px] uppercase tracking-wider text-muted">
-            Sector exposure
-          </div>
+          <div className="mb-1.5 text-2xs font-medium text-muted">Sector exposure</div>
           <div className="space-y-1.5">
             {r.sectors.map((s) => (
               <div key={s.sector} className="flex items-center gap-3 text-xs">
@@ -121,7 +116,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
               </div>
             ))}
           </div>
-          <p className="mt-2 text-[10px] text-subtle">
+          <p className="mt-2 text-2xs text-subtle">
             Beta per stock:{' '}
             {r.holdings
               .map((h) => `${h.ticker} ${h.beta != null ? h.beta.toFixed(2) : '—'}`)

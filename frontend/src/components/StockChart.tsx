@@ -1,6 +1,5 @@
 import { useEffect, useRef } from 'react'
 import {
-  ColorType,
   CrosshairMode,
   LineStyle,
   PriceScaleMode,
@@ -13,7 +12,8 @@ import {
   type UTCTimestamp,
 } from 'lightweight-charts'
 import type { PricePoint } from '../api'
-import { readCssColor, useSettings } from '../lib/settings'
+import { baseChartOptions, chartColors } from '../lib/chartTheme'
+import { useSettings } from '../lib/settings'
 import { rsi, sma, toTime } from '../lib/indicators'
 
 export interface Indicators {
@@ -24,48 +24,8 @@ export interface Indicators {
   rsi: boolean
 }
 
-// Soft (default) and high-contrast palettes, per theme. Line series (price in
-// line mode, RSI) use the user's accent colour, read from CSS (readCssColor).
-const SOFT = {
-  dark: {
-    background: '#0f172a',
-    text: '#cbd5e1',
-    grid: '#1e293b',
-    border: '#334155',
-    bull: '#22c55e',
-    bear: '#ef4444',
-  },
-  light: {
-    background: '#ffffff',
-    text: '#475569',
-    grid: '#e2e8f0',
-    border: '#e2e8f0',
-    bull: '#16a34a',
-    bear: '#dc2626',
-  },
-} as const
-
-const HIGH = {
-  dark: {
-    background: '#0f172a',
-    text: '#cbd5e1',
-    grid: '#334155',
-    border: '#475569',
-    bull: '#4ade80',
-    bear: '#f87171',
-  },
-  light: {
-    background: '#ffffff',
-    text: '#334155',
-    grid: '#cbd5e1',
-    border: '#94a3b8',
-    bull: '#15803d',
-    bear: '#b91c1c',
-  },
-} as const
-
-// Hues kept clear of every accent option (blue, indigo, violet, graphite) and of
-// the bull/bear candles, so moving averages never look like the price line.
+// Colours come from the theme (lib/chartTheme); line series (price in line
+// mode, RSI) use the accent. Moving averages keep fixed, distinct hues.
 const MA_COLORS = { ma20: '#f59e0b', ma50: '#ec4899', ma200: '#06b6d4' }
 
 export default function StockChart({
@@ -76,6 +36,7 @@ export default function StockChart({
   visibleFrom,
   compare,
   markers,
+  precision = 0,
 }: {
   data: PricePoint[]
   chartType: 'candle' | 'line'
@@ -90,6 +51,8 @@ export default function StockChart({
   compare?: { label: string; points: PricePoint[] } | undefined
   /** Event markers (e.g. stock splits), snapped to the first bar on/after `date`. */
   markers?: { date: string; text: string }[] | undefined
+  /** Decimals on the price axis: 0 for IDX stocks (whole rupiah), 2 for indices. */
+  precision?: number
 }) {
   const mainRef = useRef<HTMLDivElement>(null)
   const rsiRef = useRef<HTMLDivElement>(null)
@@ -99,24 +62,21 @@ export default function StockChart({
   useEffect(() => {
     const el = mainRef.current
     if (!el) return
-    const c = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
-    const accent = readCssColor('--c-accent')
+    const c = chartColors()
+    const accent = c.accent
+    const base = baseChartOptions(c)
 
     const chart = createChart(el, {
+      ...base,
       height,
-      layout: {
-        background: { type: ColorType.Solid, color: c.background },
-        textColor: c.text,
-      },
-      grid: { vertLines: { color: c.grid }, horzLines: { color: c.grid } },
-      crosshair: { mode: CrosshairMode.Normal },
-      rightPriceScale: { borderColor: c.border },
-      timeScale: { borderColor: c.border, timeVisible: true, secondsVisible: false },
+      crosshair: { ...base.crosshair, mode: CrosshairMode.Normal },
+      timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
     })
 
     let main: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>
     if (chartType === 'candle') {
       const series = chart.addCandlestickSeries({
+        priceFormat: { type: 'price', precision, minMove: 1 / 10 ** precision },
         upColor: c.bull,
         downColor: c.bear,
         borderUpColor: c.bull,
@@ -134,7 +94,11 @@ export default function StockChart({
       series.setData(bars)
       main = series
     } else {
-      const series = chart.addLineSeries({ color: accent, lineWidth: 2 })
+      const series = chart.addLineSeries({
+        color: accent,
+        lineWidth: 2,
+        priceFormat: { type: 'price', precision, minMove: 1 / 10 ** precision },
+      })
       const pts: LineData[] = data.map((p) => ({
         time: toTime(p.timestamp),
         value: p.close,
@@ -182,7 +146,7 @@ export default function StockChart({
     if (compare && compare.points.length > 1) {
       chart.priceScale('right').applyOptions({ mode: PriceScaleMode.Percentage })
       const bench = chart.addLineSeries({
-        color: resolvedTheme === 'dark' ? '#cbd5e1' : '#475569',
+        color: c.neutral,
         lineWidth: 2,
         lineStyle: LineStyle.Dashed,
         title: compare.label,
@@ -229,16 +193,11 @@ export default function StockChart({
     // Optional RSI pane (separate chart below).
     let rsiChart: IChartApi | null = null
     if (ind?.rsi && rsiRef.current) {
-      const rc = (settings.highContrast ? HIGH : SOFT)[resolvedTheme]
+      const rc = c
       rsiChart = createChart(rsiRef.current, {
+        ...base,
         height: 120,
-        layout: {
-          background: { type: ColorType.Solid, color: rc.background },
-          textColor: rc.text,
-        },
-        grid: { vertLines: { color: rc.grid }, horzLines: { color: rc.grid } },
-        rightPriceScale: { borderColor: rc.border },
-        timeScale: { borderColor: rc.border, timeVisible: true, secondsVisible: false },
+        timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
       })
       const rsiSeries = rsiChart.addLineSeries({ color: accent, lineWidth: 1 })
       rsiSeries.setData(rsi(data, 14))
@@ -283,6 +242,7 @@ export default function StockChart({
     ind?.rsi,
     visibleFrom,
     compare,
+    precision,
     markers,
   ])
 

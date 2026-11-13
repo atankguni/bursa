@@ -30,7 +30,7 @@ function Card({
         <h3 className="text-xs font-semibold">{title}</h3>
         {/* Status is spelled out, never colour alone. */}
         <span
-          className={`inline-flex items-center gap-1.5 text-[11px] font-medium ${s.text}`}
+          className={`inline-flex items-center gap-1.5 text-2xs font-medium ${s.text}`}
         >
           <span className={`h-2 w-2 rounded-full ${s.dot}`} aria-hidden />
           {s.label}
@@ -57,11 +57,11 @@ export default function DataHealth() {
   const s = data?.sections
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
-      <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+    <main className="page">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 lg:mb-6">
         <div>
-          <h2 className="text-sm font-semibold tracking-tight">Data health</h2>
-          <p className="text-[11px] text-subtle">
+          <h2 className="page-title">Data health</h2>
+          <p className="page-sub">
             Background jobs, data freshness and suspicious values
             {data && ` · checked ${fmtTimeAgo(data.generated_at)}`}
           </p>
@@ -130,7 +130,7 @@ export default function DataHealth() {
             </p>
             <div className="relative overflow-x-auto">
               <table className="w-full whitespace-nowrap text-left">
-                <thead className="text-[10px] uppercase tracking-wider text-subtle">
+                <thead className="text-2xs font-medium text-subtle">
                   <tr>
                     <th scope="col" className="py-1 pr-4">
                       Job
@@ -183,7 +183,7 @@ export default function DataHealth() {
                 <div key={p.name}>
                   <Row k={p.name} v={`${p.calls_today} today · ${p.errors} errors`} />
                   {p.last_error && (
-                    <p className="truncate text-[10px] text-bear" title={p.last_error}>
+                    <p className="truncate text-2xs text-bear" title={p.last_error}>
                       Last error: {p.last_error}
                     </p>
                   )}
@@ -192,7 +192,7 @@ export default function DataHealth() {
               {s.providers.items.length === 0 && <p>No calls since restart.</p>}
             </Card>
             <Card title="Suspicious values" status={s.suspicious.status}>
-              <p className="text-[11px] text-subtle">
+              <p className="text-2xs text-subtle">
                 Share counts that disagree with IDX distort PBV and market cap; extreme
                 ratios are often real (tiny equity) but worth a look.
               </p>

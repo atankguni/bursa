@@ -9,6 +9,28 @@
  * user-chosen (Settings -> Appearance): UI only, never price meaning.
  */
 @theme {
+  /* Inter (self-hosted, variable weight): tabular figures line up prices. */
+  --font-sans:
+    'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
+
+  /*
+   * Type scale, all in rem so Settings → Display density scales it. 2xs is the
+   * smallest text anywhere (labels, hints); xs is the body of tables and forms.
+   */
+  --text-2xs: 0.6875rem;
+  --text-2xs--line-height: 1rem;
+  --text-xs: 0.8125rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 0.875rem;
+  --text-sm--line-height: 1.375rem;
+
+  /* Radius: tags 4px · controls 8px · cards 12px · overlays 16px. */
+  --radius-xs: 0.25rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+
   --color-app: rgb(var(--c-app));
   --color-panel: rgb(var(--c-panel));
   --color-panelalt: rgb(var(--c-panelalt));
@@ -23,18 +45,25 @@
   --color-accent: rgb(var(--c-accent));
   --color-accent-ink: rgb(var(--c-accent-ink));
 
-  --shadow-card: 0 1px 2px 0 rgb(15 23 42 / 0.04), 0 1px 3px 0 rgb(15 23 42 / 0.06);
-  --shadow-pop: 0 10px 30px -12px rgb(15 23 42 / 0.35);
+  --shadow-card: 0 1px 2px 0 rgb(24 24 27 / 0.04), 0 2px 8px -2px rgb(24 24 27 / 0.05);
+  --shadow-pop:
+    0 16px 40px -12px rgb(24 24 27 / 0.3), 0 2px 6px -2px rgb(24 24 27 / 0.08);
 
-  --animate-fade-in: fade-in 140ms ease-out;
+  --animate-fade-in: fade-in 200ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  --animate-shimmer: shimmer 1.4s ease-in-out infinite;
   @keyframes fade-in {
     from {
       opacity: 0;
-      transform: translateY(2px);
+      transform: translateY(4px);
     }
     to {
       opacity: 1;
       transform: translateY(0);
+    }
+  }
+  @keyframes shimmer {
+    50% {
+      opacity: 0.5;
     }
   }
 }
@@ -44,32 +73,32 @@
 /* the @theme block above. Light is the default; `.dark` overrides.    */
 /* ------------------------------------------------------------------ */
 :root {
-  /* Soft palette — the default look. */
-  --c-app: 244 246 250; /* soft slate behind panels */
+  /* Calm neutral palette (zinc): quiet surfaces, colour only where it means something. */
+  --c-app: 247 247 248; /* page behind the cards */
   --c-panel: 255 255 255;
-  --c-panelalt: 241 245 249; /* slate-100 */
-  --c-active: 226 232 240; /* slate-200 */
-  --c-line: 226 232 240; /* slate-200 — dividers */
-  --c-line-strong: 226 232 240; /* slate-200 — interactive borders (soft) */
-  --c-ink: 15 23 42; /* slate-900 */
-  --c-muted: 100 116 139; /* slate-500 */
-  --c-subtle: 148 163 184; /* slate-400 */
-  --c-bull: 22 163 74; /* green-600 */
-  --c-bear: 220 38 38; /* red-600   */
+  --c-panelalt: 244 244 246; /* table heads, inputs, hover */
+  --c-active: 232 232 236; /* selected segment */
+  --c-line: 236 236 240; /* dividers: barely there */
+  --c-line-strong: 218 218 224; /* control borders: visible */
+  --c-ink: 24 24 27; /* zinc-900 */
+  --c-muted: 95 95 106; /* secondary text, 6:1 on white */
+  --c-subtle: 131 131 143; /* hints, 3.9:1 on white */
+  --c-bull: 5 150 105; /* emerald-600 */
+  --c-bear: 225 29 72; /* rose-600 */
 }
 
 .dark {
-  --c-app: 2 6 23; /* slate-950 */
-  --c-panel: 15 23 42; /* slate-900 */
-  --c-panelalt: 30 41 59; /* slate-800 */
-  --c-active: 51 65 85; /* slate-700 */
-  --c-line: 41 55 78; /* softer dividers */
-  --c-line-strong: 41 55 78; /* soft interactive borders */
-  --c-ink: 241 245 249; /* slate-100 */
-  --c-muted: 148 163 184; /* slate-400 */
-  --c-subtle: 100 116 139; /* slate-500 */
-  --c-bull: 34 197 94; /* green-500 */
-  --c-bear: 248 113 113; /* red-400   */
+  --c-app: 10 10 12;
+  --c-panel: 20 20 23;
+  --c-panelalt: 29 29 33;
+  --c-active: 42 42 48;
+  --c-line: 36 36 41;
+  --c-line-strong: 55 55 62;
+  --c-ink: 244 244 245; /* zinc-100 */
+  --c-muted: 165 165 175;
+  --c-subtle: 120 120 131;
+  --c-bull: 52 211 153; /* emerald-400 */
+  --c-bear: 251 113 133; /* rose-400 */
 }
 
 /*
@@ -78,18 +107,20 @@
  * `html[data-high-contrast].dark` variant wins when both apply.
  */
 html[data-high-contrast] {
-  --c-line-strong: 100 116 139; /* slate-500 — >=3:1 */
-  --c-muted: 51 65 85; /* slate-700 */
-  --c-subtle: 71 85 105; /* slate-600 */
-  --c-bull: 21 128 61; /* green-700 */
-  --c-bear: 185 28 28; /* red-700   */
+  --c-line: 212 212 216; /* zinc-300 */
+  --c-line-strong: 113 113 122; /* zinc-500 — >=3:1 */
+  --c-muted: 63 63 70; /* zinc-700 */
+  --c-subtle: 82 82 91; /* zinc-600 */
+  --c-bull: 4 120 87; /* emerald-700 */
+  --c-bear: 190 18 60; /* rose-700 */
 }
 html[data-high-contrast].dark {
-  --c-line-strong: 148 163 184; /* slate-400 */
-  --c-muted: 148 163 184;
-  --c-subtle: 148 163 184;
-  --c-bull: 34 197 94;
-  --c-bear: 248 113 113;
+  --c-line: 63 63 70;
+  --c-line-strong: 161 161 170; /* zinc-400 */
+  --c-muted: 196 196 204;
+  --c-subtle: 170 170 180;
+  --c-bull: 52 211 153;
+  --c-bear: 251 113 133;
 }
 
 /*
@@ -143,16 +174,17 @@ html[data-accent='violet'][data-high-contrast].dark {
 }
 
 html[data-accent='graphite'] {
-  --c-accent: 51 65 85; /* slate-700 */
+  --c-accent: 39 39 42; /* zinc-800 */
 }
 html[data-accent='graphite'].dark {
-  --c-accent: 203 213 225; /* slate-300 */
+  --c-accent: 228 228 231; /* zinc-200 */
+  --c-accent-ink: 9 9 11;
 }
 html[data-accent='graphite'][data-high-contrast] {
-  --c-accent: 30 41 59; /* slate-800 */
+  --c-accent: 24 24 27; /* zinc-900 */
 }
 html[data-accent='graphite'][data-high-contrast].dark {
-  --c-accent: 226 232 240; /* slate-200 */
+  --c-accent: 244 244 245; /* zinc-100 */
 }
 
 html,
@@ -173,22 +205,28 @@ html[data-density='large'] {
   font-size: 18px;
 }
 
-/* Reduce motion: stop pulsing / pinging animations. */
+/* Reduce motion: stop pulsing / pinging / shimmering and entrance animations. */
 html[data-reduce-motion] .animate-pulse,
-html[data-reduce-motion] .animate-ping {
+html[data-reduce-motion] .animate-ping,
+html[data-reduce-motion] .animate-shimmer,
+html[data-reduce-motion] .animate-fade-in {
   animation: none !important;
 }
 
 /* Also honor the OS preference by default. */
 @media (prefers-reduced-motion: reduce) {
   .animate-pulse,
-  .animate-ping {
+  .animate-ping,
+  .animate-shimmer,
+  .animate-fade-in {
     animation: none !important;
   }
 }
 
 @layer base {
   body {
+    font-family: var(--font-sans);
+    font-feature-settings: 'cv11', 'ss01'; /* Inter: single-storey a, open digits */
     background-color: rgb(var(--c-app));
     color: rgb(var(--c-ink));
     -webkit-font-smoothing: antialiased;
@@ -219,14 +257,102 @@ html[data-reduce-motion] .animate-ping {
 
 @layer components {
   /*
-   * Radius system ("square with a little radius"):
-   *   rounded-xs  (2px) -> tags & bars (index badges, progress bars)
-   *   rounded-sm  (4px) -> controls & pills (buttons, inputs, chips)
-   *   rounded-md  (6px) -> surfaces & overlays (cards, dropdowns, modals)
-   *   rounded-full       -> true circles only (status dots, switch knob)
+   * Radius system:
+   *   rounded-xs (4px)  -> tags & bars (badges, progress bars)
+   *   rounded-sm (8px)  -> controls (buttons, inputs, segments)
+   *   rounded-md (12px) -> cards & dropdowns
+   *   rounded-lg (16px) -> modals
+   *   rounded-full      -> circles and pills
    */
   .surface {
-    @apply rounded-md bg-panel ring-1 ring-line-strong shadow-card;
+    @apply rounded-md bg-panel shadow-card ring-1 ring-line;
+  }
+
+  /* Page frame and headings. */
+  .page {
+    @apply mx-auto w-full max-w-[1680px] animate-fade-in px-4 py-5 sm:px-6 lg:px-8 lg:py-7;
+  }
+  .page-title {
+    @apply text-xl font-semibold tracking-tight text-ink;
+  }
+  .page-sub {
+    @apply mt-0.5 text-xs text-muted;
+  }
+  /* Small label above a value or a section (sentence case, quiet). */
+  .eyebrow {
+    @apply text-2xs font-medium text-muted;
+  }
+  .section-title {
+    @apply text-sm font-semibold tracking-tight text-ink;
+  }
+  /* Table header row. */
+  .table-head {
+    @apply bg-panelalt/60 text-2xs font-medium text-muted;
+  }
+
+  /* Buttons: one shape, three weights. */
+  .btn {
+    @apply inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-sm px-3 text-xs font-medium whitespace-nowrap transition-[background-color,color,box-shadow,opacity] duration-150 disabled:pointer-events-none disabled:opacity-50;
+  }
+  .btn-primary {
+    @apply bg-accent text-accent-ink shadow-card hover:opacity-90 active:opacity-80;
+  }
+  .btn-secondary {
+    @apply bg-panel text-ink ring-1 ring-line-strong hover:bg-panelalt;
+  }
+  .btn-ghost {
+    @apply text-muted hover:bg-panelalt hover:text-ink;
+  }
+  .btn-sm {
+    @apply h-7 px-2.5 text-2xs;
+  }
+  .btn-icon {
+    @apply h-8 w-8 px-0;
+  }
+
+  /* Form fields. */
+  .input {
+    @apply w-full rounded-sm bg-panel px-3 py-2 text-sm text-ink ring-1 ring-line-strong outline-hidden transition-shadow placeholder:text-subtle focus:ring-2 focus:ring-accent;
+  }
+  .input-sm {
+    @apply py-1.5 text-xs;
+  }
+  /* One height for text fields and selects, so a row of controls lines up. */
+  input.input,
+  select.input {
+    @apply h-9;
+  }
+  input.input-sm,
+  select.input-sm {
+    @apply h-8;
+  }
+  select.input {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-8;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2371717a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.5rem center;
+    background-size: 1rem;
+  }
+  .field-label {
+    @apply mb-1.5 block text-xs font-medium text-muted;
+  }
+
+  /* Segmented control: a row of options, the chosen one raised. */
+  .segmented {
+    @apply inline-flex gap-0.5 rounded-sm bg-panelalt p-0.5;
+  }
+  .segment {
+    @apply rounded-[calc(var(--radius-sm)-2px)] px-3 py-1 text-xs font-medium text-muted transition-colors hover:text-ink;
+  }
+  .segment[aria-pressed='true'],
+  .segment[aria-checked='true'],
+  .segment[aria-selected='true'],
+  .segment.active {
+    @apply bg-panel text-ink shadow-card;
+  }
+
+  /* Loading placeholder. */
+  .skeleton {
+    @apply animate-shimmer rounded-sm bg-panelalt;
   }
 }
 

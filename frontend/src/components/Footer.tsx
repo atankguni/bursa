@@ -20,9 +20,9 @@ export default function Footer() {
   const provider = data?.providers['price'] ?? 'yahoo'
 
   return (
-    <footer className="border-t print:hidden border-line bg-panel/80 px-4 py-2 text-[11px] text-subtle">
-      <div className="flex w-full flex-wrap items-center justify-between gap-x-4 gap-y-1">
-        <span className="inline-flex items-center gap-1.5">
+    <footer className="border-t border-line px-4 py-3 text-2xs text-subtle sm:px-6 lg:px-8 print:hidden">
+      <div className="mx-auto flex w-full max-w-[1680px] flex-wrap items-center justify-between gap-x-4 gap-y-1.5">
+        <span className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
           © {year} Atank Guni
           <span aria-hidden>·</span>
           <a

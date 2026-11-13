@@ -7,13 +7,13 @@ export default function SignalBadge({ rec }: { rec?: RecommendationSummary | nul
   const dots = CONVICTION_DOTS[rec.strength]
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-sm bg-panelalt/70 px-2 py-0.5 ring-1 ring-line"
+      className="inline-flex items-center gap-1.5 rounded-full bg-panelalt px-2 py-0.5"
       title={`Score ${rec.score.toFixed(0)}/100 · conviction ${rec.strength} · ranked against the other stocks, not advice`}
     >
-      <span className={`text-[11px] font-semibold ${ratingTone(rec.rating)}`}>
+      <span className={`text-2xs font-semibold ${ratingTone(rec.rating)}`}>
         {ratingLabel(rec.rating)}
       </span>
-      <span className="text-[10px] tabular-nums text-subtle">{rec.score.toFixed(0)}</span>
+      <span className="text-2xs tabular-nums text-subtle">{rec.score.toFixed(0)}</span>
       <span className="inline-flex gap-0.5">
         {[0, 1, 2, 3].map((i) => (
           <span

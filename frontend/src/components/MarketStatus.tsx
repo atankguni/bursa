@@ -6,28 +6,28 @@ const SESSIONS = {
     label: 'Open',
     dot: 'bg-bull',
     text: 'text-bull',
-    chip: 'bg-bull/10 ring-bull/20',
+    chip: 'bg-bull/10',
     pulse: true,
   },
   pre_open: {
     label: 'Pre-open',
     dot: 'bg-amber-500',
     text: 'text-amber-600 dark:text-amber-400',
-    chip: 'bg-amber-500/10 ring-amber-500/20',
+    chip: 'bg-amber-500/10',
     pulse: false,
   },
   break: {
     label: 'Break',
     dot: 'bg-amber-500',
     text: 'text-amber-600 dark:text-amber-400',
-    chip: 'bg-amber-500/10 ring-amber-500/20',
+    chip: 'bg-amber-500/10',
     pulse: false,
   },
   closed: {
     label: 'Closed',
     dot: 'bg-subtle',
     text: 'text-subtle',
-    chip: 'bg-panelalt ring-line',
+    chip: 'bg-panelalt',
     pulse: false,
   },
 } as const
@@ -38,7 +38,7 @@ export default function MarketStatus() {
 
   if (!data) {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-sm bg-panelalt px-2.5 py-1.5 text-xs text-subtle ring-1 ring-line">
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-panelalt px-2.5 py-1 text-xs text-subtle">
         <span className="h-1.5 w-1.5 rounded-full bg-subtle" />
         BEI …
       </span>
@@ -56,7 +56,7 @@ export default function MarketStatus() {
   return (
     <span
       title={tooltip}
-      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-1 text-xs font-medium ring-1 sm:px-2.5 sm:py-1.5 ${s.chip}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-medium ${s.chip}`}
     >
       <span className="relative flex h-1.5 w-1.5">
         {s.pulse && (

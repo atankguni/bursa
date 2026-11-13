@@ -41,7 +41,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
       <div className="flex h-[300px] flex-col items-center justify-center gap-2 text-muted">
         <AlertCircle size={20} />
         <span className="text-sm">Not rated yet.</span>
-        <span className="max-w-xs text-center text-[11px] text-subtle">
+        <span className="max-w-xs text-center text-2xs text-subtle">
           {NOT_RATED_HINT[style]}
         </span>
       </div>
@@ -53,7 +53,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
   return (
     <div className="space-y-4">
       {/* Headline */}
-      <div className="flex flex-wrap items-center gap-4 rounded-md bg-panelalt/70 px-4 py-3 ring-1 ring-line">
+      <div className="flex flex-wrap items-center gap-4 rounded-md bg-panelalt/60 px-4 py-3">
         <div className="flex items-baseline gap-2">
           <span className={`text-3xl font-bold ${ratingTone(data.rating)}`}>
             {data.score.toFixed(0)}
@@ -65,11 +65,11 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
         <div className="flex flex-col">
           <span className={`text-sm font-semibold ${ratingTone(data.rating)}`}>
             <Term id="rating">{ratingLabel(data.rating)}</Term>
-            <span className="ml-1.5 text-[11px] font-normal text-subtle">
+            <span className="ml-1.5 text-2xs font-normal text-subtle">
               vs. other stocks
             </span>
           </span>
-          <span className="flex items-center gap-1 text-[11px] text-muted">
+          <span className="flex items-center gap-1 text-2xs text-muted">
             <Term id="conviction">Conviction: {data.strength}</Term>
             <span className="inline-flex gap-0.5">
               {[0, 1, 2, 3].map((i) => (
@@ -83,7 +83,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
             </span>
           </span>
         </div>
-        <div className="ml-auto text-right text-[11px] text-subtle">
+        <div className="ml-auto text-right text-2xs text-subtle">
           <div className="mb-1 inline-block rounded-xs bg-panel px-1.5 py-0.5 font-medium text-muted ring-1 ring-line">
             {STYLE_LABEL[data.style ?? 'investor']}
           </div>
@@ -106,7 +106,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
               ) : (
                 c.name
               )}
-              <span className="ml-1 text-[10px] text-subtle">
+              <span className="ml-1 text-2xs text-subtle">
                 {(c.weight * 100).toFixed(0)}%
               </span>
             </span>
@@ -126,9 +126,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
       {/* Reasons */}
       {data.reasons.length > 0 && (
         <div>
-          <div className="mb-1 text-[10px] uppercase tracking-wide text-muted">
-            Drivers
-          </div>
+          <div className="mb-1 text-2xs font-medium text-muted">Drivers</div>
           <ul className="space-y-0.5 text-xs text-muted">
             {data.reasons.map((r) => (
               <li key={r} className="flex items-center gap-1.5">
@@ -143,7 +141,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
       <TrackRecord current={data.rating} />
 
       {/* Disclaimer */}
-      <p className="flex items-start gap-1.5 text-[11px] text-subtle">
+      <p className="flex items-start gap-1.5 text-2xs text-subtle">
         <Info size={12} className="mt-0.5 shrink-0" />
         {data.disclaimer}
       </p>

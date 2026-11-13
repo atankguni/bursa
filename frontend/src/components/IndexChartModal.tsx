@@ -9,8 +9,7 @@ import Modal from './Modal'
 const StockChart = lazy(() => import('./StockChart'))
 
 /** Classes for one button of a segmented control. */
-const seg = (active: boolean) =>
-  `px-2.5 py-1 text-xs transition ${active ? 'bg-active text-ink' : 'text-muted hover:text-ink'}`
+const seg = (active: boolean) => `segment ${active ? 'active' : ''}`
 
 /** Chart for one IDX index. IHSG/LQ45/JII have decades of history; others build up daily. */
 export default function IndexChartModal({
@@ -43,7 +42,7 @@ export default function IndexChartModal({
             <h2 className="text-lg font-semibold">
               {index.code === 'COMPOSITE' ? 'IHSG' : index.code}
             </h2>
-            <span className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] text-muted">
+            <span className="rounded-xs bg-panelalt px-1.5 py-0.5 text-2xs text-muted">
               {index.group}
             </span>
           </div>
@@ -82,7 +81,7 @@ export default function IndexChartModal({
 
       <div className="mt-3">
         {history.isFetching && !history.isLoading && (
-          <p className="mb-1 text-[11px] text-subtle" aria-live="polite">
+          <p className="mb-1 text-2xs text-subtle" aria-live="polite">
             Updating…
           </p>
         )}
@@ -99,6 +98,7 @@ export default function IndexChartModal({
             }
           >
             <StockChart
+              precision={2}
               data={points}
               chartType="line"
               height={360}
@@ -115,7 +115,7 @@ export default function IndexChartModal({
         ) : (
           <div className="flex h-[200px] flex-col items-center justify-center gap-1 px-6 text-center text-xs text-muted">
             <span>No price history for {index.name} yet.</span>
-            <span className="text-[11px] text-subtle">
+            <span className="text-2xs text-subtle">
               The data provider only gives today’s value for this index, so Bursa saves
               each day’s close and the chart builds up from
               {index.history_since ? ` ${index.history_since}` : ' today'}.

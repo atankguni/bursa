@@ -9,6 +9,19 @@ export function setCompactNumbers(on: boolean) {
   compactNumbers = on
 }
 
+const whole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 })
+
+/** A rupiah amount, whole rupiah (no decimals): 1,192,799. */
+export const fmtMoney = (v: number | null | undefined) =>
+  v == null ? '—' : whole.format(Math.round(v) || 0) // || 0: no "-0"
+
+/** Signed rupiah amount: +1,200 / −3,400 (true minus sign). */
+export const fmtMoneySigned = (v: number | null | undefined) => {
+  if (v == null) return '—'
+  const r = Math.round(v)
+  return `${r > 0 ? '+' : r < 0 ? '−' : ''}${whole.format(Math.abs(r))}`
+}
+
 /** Plain price/number with thousands separators. */
 export const fmtPrice = (v: number | null | undefined) => (v == null ? '—' : nf.format(v))
 

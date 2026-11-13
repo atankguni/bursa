@@ -5,6 +5,7 @@ import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import { AuthProvider } from './lib/auth'
 import { SettingsProvider } from './lib/settings'
+import '@fontsource-variable/inter/wght.css'
 import './index.css'
 import { errorStatus } from './api/client'
 

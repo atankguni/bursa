@@ -22,7 +22,7 @@ function useTint() {
   const { settings } = useSettings()
   return (pct: number | null) => {
     if (!settings.colorizeChanges || pct == null || pct === 0) return undefined
-    const alpha = 0.06 + Math.min(Math.abs(pct) / 4, 1) * 0.22
+    const alpha = 0.05 + Math.min(Math.abs(pct) / 4, 1) * 0.15
     return `rgb(var(${pct > 0 ? '--c-bull' : '--c-bear'}) / ${alpha.toFixed(3)})`
   }
 }
@@ -81,25 +81,29 @@ export default function IndicesPanel() {
   )
 
   return (
-    <section className="surface p-4" aria-labelledby="indices-title">
+    <section className="surface p-4 sm:p-5" aria-labelledby="indices-title">
       <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
         <div>
-          <h3 id="indices-title" className="text-xs font-semibold tracking-tight">
+          <h3 id="indices-title" className="section-title">
             Stock indices <span className="font-normal text-subtle">· Indeks saham</span>
           </h3>
-          <p className="text-[10px] text-subtle">
+          <p className="text-2xs text-subtle">
             {indices.length} IDX indices · click one for its chart
           </p>
         </div>
         {updated && (
-          <span className="text-[10px] text-subtle">
+          <span className="text-2xs text-subtle">
             Updated {fmtShortDateTime(updated)}
           </span>
         )}
       </div>
 
       {isLoading ? (
-        <div className="py-8 text-center text-xs text-subtle">Loading indices…</div>
+        <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+          {[0, 1, 2, 3].map((k) => (
+            <div key={k} className="skeleton h-20" />
+          ))}
+        </div>
       ) : (
         <>
           {/* Headline indices */}
@@ -110,19 +114,18 @@ export default function IndicesPanel() {
                 <button
                   key={i.code}
                   onClick={() => setSelected(i)}
-                  className="rounded-md px-3 py-2.5 text-left ring-1 ring-line transition hover:ring-line-strong"
-                  style={{ backgroundColor: tint(i.change_percent) }}
+                  className="rounded-md bg-panelalt/60 px-4 py-3 text-left transition-colors hover:bg-panelalt"
                 >
                   <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[11px] font-semibold text-ink">
+                    <span className="text-2xs font-semibold text-ink">
                       {i.code === 'COMPOSITE' ? 'IHSG' : i.code}
                     </span>
-                    <span className="truncate text-[10px] text-subtle">{i.name}</span>
+                    <span className="truncate text-2xs text-subtle">{i.name}</span>
                   </div>
                   <div className="mt-1 text-lg font-semibold tabular-nums text-ink">
                     {fmtPrice(i.last)}
                   </div>
-                  <div className="text-[11px]">
+                  <div className="text-2xs">
                     <Change pct={i.change_percent} change={i.change} />
                   </div>
                 </button>
@@ -141,7 +144,7 @@ export default function IndicesPanel() {
                 onChange={setGroup}
               />
             </div>
-            <label className="flex items-center gap-1.5 pb-2 text-[11px] text-subtle">
+            <label className="flex items-center gap-1.5 pb-2 text-2xs text-subtle">
               <input
                 type="checkbox"
                 checked={byChange}
@@ -160,20 +163,18 @@ export default function IndicesPanel() {
                 aria-label={`${i.name} (${i.code}): ${fmtPrice(i.last)}, ${
                   i.change_percent == null ? 'no change data' : fmtPct(i.change_percent)
                 }`}
-                className="min-w-0 rounded-md px-2.5 py-2 text-left ring-1 ring-line transition hover:ring-line-strong"
+                className="min-w-0 rounded-sm px-3 py-2.5 text-left transition hover:ring-1 hover:ring-line-strong"
                 style={{ backgroundColor: tint(i.change_percent) }}
               >
-                <div className="truncate text-[11px] font-semibold text-ink">
-                  {i.code}
-                </div>
-                <div className="truncate text-[10px] text-subtle" title={i.name}>
+                <div className="truncate text-2xs font-semibold text-ink">{i.code}</div>
+                <div className="truncate text-2xs text-subtle" title={i.name}>
                   {i.name}
                 </div>
                 <div className="mt-1 flex items-baseline justify-between gap-1">
                   <span className="text-xs tabular-nums text-ink">
                     {fmtPrice(i.last)}
                   </span>
-                  <span className="text-[11px]">
+                  <span className="text-2xs">
                     <Change pct={i.change_percent} />
                   </span>
                 </div>

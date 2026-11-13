@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { Bell, Trash2 } from 'lucide-react'
+import { BellRing, Trash2 } from 'lucide-react'
+import EmptyState from '../components/ui/EmptyState'
 import { createAlert, deleteAlert, toggleAlert, type AlertType } from '../api'
 import { useAlertEvents, useAlerts, useStocks } from '../hooks'
 import { useAuth } from '../lib/auth'
@@ -17,8 +18,7 @@ const TYPES: { value: AlertType; label: string }[] = [
 ]
 const THRESHOLD_TYPES: AlertType[] = ['price_above', 'price_below', 'pct_change']
 
-const inputCls =
-  'rounded-sm bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+const inputCls = 'input input-sm'
 
 export default function Alerts() {
   const qc = useQueryClient()
@@ -53,11 +53,10 @@ export default function Alerts() {
   const remove = useMutation({ mutationFn: deleteAlert, onSuccess: invalidate })
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
-      <div className="mb-3 flex items-center gap-2">
-        <Bell size={16} className="text-accent" />
-        <h2 className="text-sm font-semibold tracking-tight">Alerts</h2>
-        <p className="text-[11px] text-subtle">
+    <main className="page">
+      <div className="mb-5 lg:mb-6">
+        <h2 className="page-title">Alerts</h2>
+        <p className="page-sub">
           Evaluated after each market sync · shown here
           {isAdmin && ', and on Telegram if connected'}
         </p>
@@ -67,11 +66,9 @@ export default function Alerts() {
         {isAdmin && <NotificationsCard />}
 
         {/* Create */}
-        <div className="surface flex flex-wrap items-end gap-3 p-3">
+        <div className="surface flex flex-wrap items-end gap-3 p-4">
           <div>
-            <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-              Ticker
-            </label>
+            <label className="field-label">Ticker</label>
             <input
               list="alert-tickers"
               value={ticker}
@@ -88,16 +85,14 @@ export default function Alerts() {
             </datalist>
           </div>
           <div>
-            <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-              Condition
-            </label>
+            <label className="field-label">Condition</label>
             <select
               value={type}
               onChange={(e) => {
                 const picked = TYPES.find((t) => t.value === e.target.value)
                 if (picked) setType(picked.value)
               }}
-              className={inputCls}
+              className={`${inputCls} w-auto`}
             >
               {TYPES.map((t) => (
                 <option key={t.value} value={t.value}>
@@ -108,7 +103,7 @@ export default function Alerts() {
           </div>
           {(needsThreshold || isDividend) && (
             <div>
-              <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
+              <label className="field-label">
                 {isDividend ? 'Days before cum date' : 'Threshold'}
               </label>
               <input
@@ -125,7 +120,7 @@ export default function Alerts() {
           <button
             onClick={() => add.mutate()}
             disabled={add.isPending || !ticker || (needsThreshold && !threshold)}
-            className="rounded-sm bg-accent px-3 py-1.5 text-xs font-medium text-accent-ink transition hover:opacity-90 disabled:opacity-50"
+            className="btn btn-primary h-8"
           >
             {add.isPending ? 'Adding…' : 'Add alert'}
           </button>
@@ -134,7 +129,7 @@ export default function Alerts() {
           )}
         </div>
         {isDividend && (
-          <p className="-mt-1 mb-3 text-[11px] text-subtle">
+          <p className="-mt-1 mb-3 text-2xs text-subtle">
             Reminds you before the <span className="text-muted">cum date</span>, the last
             day to buy and still get the dividend. Dates are estimated from last
             year&apos;s ex-dates (IDX companies pay on regular schedules); confirm with
@@ -146,7 +141,7 @@ export default function Alerts() {
         <div className="surface overflow-hidden">
           <div className="relative overflow-x-auto">
             <table className="w-full whitespace-nowrap text-left text-xs">
-              <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+              <thead className="table-head">
                 <tr>
                   <th className="px-4 py-2.5">Ticker</th>
                   <th className="px-4 py-2.5">Condition</th>
@@ -158,8 +153,11 @@ export default function Alerts() {
               <tbody className="divide-y divide-line">
                 {alerts.length === 0 && (
                   <tr>
-                    <td colSpan={5} className="px-4 py-10 text-center text-subtle">
-                      No alerts yet.
+                    <td colSpan={5}>
+                      <EmptyState icon={BellRing} title="No alerts yet">
+                        Pick a stock and a condition above. You'll be told here (and by
+                        email, if set up) when it happens.
+                      </EmptyState>
                     </td>
                   </tr>
                 )}
@@ -177,7 +175,7 @@ export default function Alerts() {
                     <td className="px-4 py-2">
                       <button
                         onClick={() => toggle.mutate(a.id)}
-                        className={`rounded-sm px-2 py-0.5 text-[10px] font-medium ring-1 transition ${
+                        className={`rounded-sm px-2 py-0.5 text-2xs font-medium ring-1 transition ${
                           a.active
                             ? 'bg-accent/15 text-accent ring-accent/30'
                             : 'text-subtle ring-line-strong'
@@ -204,12 +202,12 @@ export default function Alerts() {
 
         {/* Events */}
         <div className="surface overflow-hidden">
-          <div className="border-b border-line px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted">
+          <div className="section-title border-b border-line px-4 py-3">
             Recent triggers
           </div>
           <ul className="divide-y divide-line">
             {events.length === 0 && (
-              <li className="px-4 py-6 text-center text-xs text-subtle">
+              <li className="px-4 py-8 text-center text-xs text-subtle">
                 Nothing triggered yet.
               </li>
             )}
@@ -219,7 +217,7 @@ export default function Alerts() {
                 className="flex items-center justify-between gap-3 px-4 py-2"
               >
                 <span className="text-xs text-ink">{e.message}</span>
-                <span className="shrink-0 text-[10px] text-subtle">
+                <span className="shrink-0 text-2xs text-subtle">
                   {fmtShortDateTime(e.triggered_at)}
                 </span>
               </li>

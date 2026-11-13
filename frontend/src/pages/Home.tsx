@@ -7,18 +7,35 @@ import {
   Loader2,
   Plus,
   RefreshCw,
-  TrendingDown,
-  TrendingUp,
+  ChevronRight,
 } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { DEFAULT_INDEXES, type Stock } from '../api'
-import { useIndexes, useStatus, useStocks, useWatchToggle } from '../hooks'
+import {
+  useIndexes,
+  useIndices,
+  usePortfolio,
+  useStatus,
+  useStocks,
+  useWatchToggle,
+} from '../hooks'
 import { useSettings } from '../lib/settings'
-import { fmtChange, fmtDateTime, fmtPct, fmtPrice, fmtVolume } from '../lib/format'
+import {
+  fmtChange,
+  fmtDateTime,
+  fmtMoney,
+  fmtMoneySigned,
+  fmtPct,
+  fmtPrice,
+  fmtVolume,
+} from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
 import TickerName from '../components/TickerName'
 import IndexMultiSelect from '../components/IndexMultiSelect'
 import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
+import PageHeader from '../components/ui/PageHeader'
+import Stat from '../components/ui/Stat'
 
 type DetailTab = 'chart' | 'fundamentals' | 'recommendation'
 type SignalSort = 'off' | 'desc' | 'asc'
@@ -98,11 +115,146 @@ export default function Home() {
     return out
   }, [stocks, buyOnly, signalSort])
 
-  const marketUp = summary.gainers >= summary.losers
   const colCount = 9 - hidden.length
+  const { data: indices } = useIndices()
+  const ihsg = indices?.find((i) => i.code === 'COMPOSITE')
+  const { data: pf } = usePortfolio()
+  const holdingsCount = pf?.holdings.length ?? 0
+  const hideValues = settings.hidePortfolioValues
+  const toneOf = (v: number | null | undefined) =>
+    !settings.colorizeChanges || v == null || v === 0
+      ? 'text-muted'
+      : v > 0
+        ? 'text-bull'
+        : 'text-bear'
+  const total = summary.gainers + summary.losers + summary.unchanged || 1
+  const rated = stocks.filter((x) => x.recommendation).length
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
+    <main className="page">
+      <PageHeader
+        title="Today"
+        subtitle={
+          status?.last_sync
+            ? `Prices as of ${fmtDateTime(status.last_sync)}`
+            : 'IDX stocks in the indices you follow'
+        }
+        actions={
+          <button
+            onClick={() => {
+              void refetch()
+              void refetchStatus()
+            }}
+            className="btn btn-ghost"
+          >
+            <RefreshCw size={15} className={isFetching ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        }
+      />
+
+      {/* Summary band */}
+      <section className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <div className="surface p-4 sm:p-5">
+          <Stat
+            label="IHSG"
+            size="lg"
+            value={ihsg?.last != null ? fmtPrice(ihsg.last) : '—'}
+            tone="text-ink"
+            sub={
+              <span className={`font-medium ${toneOf(ihsg?.change_percent)}`}>
+                {fmtPct(ihsg?.change_percent) || '—'} today
+              </span>
+            }
+          />
+        </div>
+
+        <div className="surface p-4 sm:p-5">
+          <div className="eyebrow">Breadth · this view</div>
+          <div className="mt-1 text-xl font-semibold tracking-tight tabular-nums">
+            <span className="text-bull">{summary.gainers}</span>
+            <span className="mx-1.5 text-subtle">/</span>
+            <span className="text-bear">{summary.losers}</span>
+          </div>
+          <div
+            className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-panelalt"
+            role="img"
+            aria-label={`${summary.gainers} up, ${summary.losers} down, ${summary.unchanged} flat`}
+          >
+            <span
+              className="bg-bull"
+              style={{ width: `${(summary.gainers / total) * 100}%` }}
+            />
+            <span
+              className="bg-bear"
+              style={{ width: `${(summary.losers / total) * 100}%` }}
+            />
+          </div>
+          <div className="mt-1.5 text-2xs text-subtle">
+            up / down · {summary.unchanged} flat
+          </div>
+        </div>
+
+        <div
+          className="surface p-4 sm:p-5"
+          title="Signals rank each stock against the others; they are not buy/sell advice"
+        >
+          <Stat
+            label="Positive signals"
+            size="lg"
+            value={signals.strongBuy + signals.buy}
+            sub={`${signals.strongBuy} very positive · of ${rated} rated`}
+          />
+          <button
+            onClick={() => setBuyOnly((v) => !v)}
+            aria-pressed={buyOnly}
+            className={`mt-2 text-2xs font-medium transition-colors ${
+              buyOnly ? 'text-accent' : 'text-muted hover:text-ink'
+            }`}
+          >
+            {buyOnly ? '✓ Showing positive only' : 'Show positive only'}
+          </button>
+        </div>
+
+        {holdingsCount > 0 && pf ? (
+          <Link
+            to="/portfolio"
+            className="surface group p-4 transition-shadow hover:shadow-pop sm:p-5"
+          >
+            <div className="eyebrow flex items-center justify-between">
+              Your portfolio today
+              <ChevronRight
+                size={14}
+                className="text-subtle transition-transform group-hover:translate-x-0.5"
+              />
+            </div>
+            <div
+              className={`mt-1 text-xl font-semibold tracking-tight tabular-nums ${toneOf(pf.totals.day_change)}`}
+            >
+              {hideValues ? '••••••' : fmtMoneySigned(pf.totals.day_change)}
+            </div>
+            <div className="mt-0.5 text-2xs text-subtle">
+              {fmtPct(pf.totals.day_change_pct) || '—'} ·{' '}
+              {hideValues ? '••••••' : fmtMoney(pf.totals.market_value)} in{' '}
+              {holdingsCount} stock{holdingsCount === 1 ? '' : 's'}
+            </div>
+          </Link>
+        ) : (
+          <Link
+            to="/portfolio"
+            className="surface group flex flex-col justify-between p-4 transition-shadow hover:shadow-pop sm:p-5"
+          >
+            <div className="eyebrow">Your portfolio</div>
+            <div className="mt-1 text-xs text-muted">
+              Record your trades to see your day here.
+            </div>
+            <div className="mt-2 inline-flex items-center gap-1 text-2xs font-medium text-accent">
+              Open Portfolio <ChevronRight size={12} />
+            </div>
+          </Link>
+        )}
+      </section>
+
       {/* Toolbar */}
       <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
@@ -116,54 +268,20 @@ export default function Home() {
             }}
           />
         </div>
-
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1.5 rounded-sm bg-panelalt/70 px-2.5 py-1 font-medium ring-1 ring-line">
-            {marketUp ? (
-              <TrendingUp size={13} className="text-bull" />
-            ) : (
-              <TrendingDown size={13} className="text-bear" />
-            )}
-            <span className={marketUp ? 'text-bull' : 'text-bear'}>
-              {marketUp ? 'Bullish' : 'Bearish'}
-            </span>
-          </span>
-
-          <span className="hidden items-center gap-2.5 rounded-sm bg-panelalt/70 px-2.5 py-1 ring-1 ring-line sm:inline-flex">
-            <span className="text-bull">{summary.gainers} up</span>
-            <span className="text-bear">{summary.losers} down</span>
-            <span className="text-subtle">{summary.unchanged} flat</span>
-          </span>
-
-          <span
-            className="inline-flex items-center gap-2 rounded-sm bg-panelalt/70 px-2.5 py-1 ring-1 ring-line"
-            title="Signals rank each stock against the others; they are not buy/sell advice"
-          >
-            {signals.strongBuy > 0 && (
-              <span className="text-bull">{signals.strongBuy} Very positive</span>
-            )}
-            <span className="text-bull/80">{signals.buy} Positive</span>
-          </span>
-
+        <div className="segmented" role="group" aria-label="Show">
           <button
-            onClick={() => setBuyOnly((v) => !v)}
-            className={`rounded-sm px-2.5 py-1 font-medium ring-1 transition ${
-              buyOnly
-                ? 'bg-accent/15 text-accent ring-accent/30'
-                : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
-            }`}
+            onClick={() => setBuyOnly(false)}
+            aria-pressed={!buyOnly}
+            className="segment"
           >
-            Positive only
+            All · {stocks.length}
           </button>
           <button
-            onClick={() => {
-              void refetch()
-              void refetchStatus()
-            }}
-            className="inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1 font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink"
+            onClick={() => setBuyOnly(true)}
+            aria-pressed={buyOnly}
+            className="segment"
           >
-            <RefreshCw size={13} className={isFetching ? 'animate-spin' : ''} />
-            Refresh
+            Positive · {signals.strongBuy + signals.buy}
           </button>
         </div>
       </div>
@@ -176,37 +294,37 @@ export default function Home() {
       <div className="surface overflow-hidden">
         <div className="relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
-            <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+            <thead className="table-head">
               <tr>
-                <th scope="col" className="px-4 py-2.5">
+                <th scope="col" className="px-4 py-3">
                   Ticker
                 </th>
-                <th scope="col" className="hidden px-4 py-2.5 md:table-cell">
+                <th scope="col" className="hidden px-4 py-3 md:table-cell">
                   Name
                 </th>
                 {rec('index') && (
-                  <th scope="col" className="hidden px-4 py-2.5 md:table-cell">
+                  <th scope="col" className="hidden px-4 py-3 md:table-cell">
                     Index
                   </th>
                 )}
-                <th scope="col" className="px-4 py-2.5 text-right">
+                <th scope="col" className="px-4 py-3 text-right">
                   Last
                 </th>
                 {rec('change') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <th scope="col" className="px-4 py-3 text-right">
                     Change
                   </th>
                 )}
                 {rec('pct') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <th scope="col" className="px-4 py-3 text-right">
                     %
                   </th>
                 )}
                 {rec('signal') && (
-                  <th scope="col" className="px-4 py-2.5">
+                  <th scope="col" className="px-4 py-3">
                     <button
                       onClick={() => setSignalSort((s) => NEXT_SORT[s])}
-                      className="inline-flex items-center gap-1 uppercase hover:text-ink"
+                      className="inline-flex items-center gap-1 hover:text-ink"
                       title="Sort by signal score"
                     >
                       Signal
@@ -217,11 +335,11 @@ export default function Home() {
                   </th>
                 )}
                 {rec('volume') && (
-                  <th scope="col" className="px-4 py-2.5 text-right">
+                  <th scope="col" className="px-4 py-3 text-right">
                     Volume
                   </th>
                 )}
-                <th scope="col" className="px-4 py-2.5 text-center">
+                <th scope="col" className="px-4 py-3 text-center">
                   Actions
                 </th>
               </tr>
@@ -258,25 +376,25 @@ export default function Home() {
                   <tr
                     key={s.ticker}
                     onClick={() => openDetail(s, 'chart')}
-                    className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/60"
+                    className="cursor-pointer bg-panel transition-colors hover:bg-panelalt/50"
                   >
-                    <td className="px-4 py-2 font-semibold tracking-tight">
+                    <td className="px-4 py-3 font-semibold tracking-tight">
                       <span className="inline-flex items-center gap-1.5">
                         {s.ticker}
                         <BoardBadge board={s.board} compact />
                       </span>
                       <TickerName name={s.name} />
                     </td>
-                    <td className="hidden px-4 py-2 text-muted md:table-cell">
+                    <td className="hidden px-4 py-3 text-muted md:table-cell">
                       {s.name}
                     </td>
                     {rec('index') && (
-                      <td className="hidden px-4 py-2 md:table-cell">
+                      <td className="hidden px-4 py-3 md:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {s.indices.map((idx) => (
                             <span
                               key={idx}
-                              className="rounded-xs bg-panelalt px-1.5 py-0.5 text-[10px] font-medium text-muted"
+                              className="rounded-xs bg-panelalt px-1.5 py-0.5 text-2xs font-medium text-muted"
                             >
                               {idx}
                             </span>
@@ -284,7 +402,7 @@ export default function Home() {
                         </div>
                       </td>
                     )}
-                    <td className="px-4 py-2 text-right font-semibold tabular-nums">
+                    <td className="px-4 py-3 text-right font-semibold tabular-nums">
                       {fmtPrice(s.last_price)}
                     </td>
                     {rec('change') && (
@@ -314,7 +432,7 @@ export default function Home() {
                       </td>
                     )}
                     {rec('signal') && (
-                      <td className="px-4 py-2">
+                      <td className="px-4 py-3">
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -328,11 +446,11 @@ export default function Home() {
                       </td>
                     )}
                     {rec('volume') && (
-                      <td className="px-4 py-2 text-right tabular-nums text-subtle">
+                      <td className="px-4 py-3 text-right tabular-nums text-subtle">
                         {fmtVolume(s.volume)}
                       </td>
                     )}
-                    <td className="px-4 py-2">
+                    <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-1">
                         <button
                           onClick={(e) => {
@@ -340,7 +458,7 @@ export default function Home() {
                             openDetail(s, 'fundamentals')
                           }}
                           title="View fundamentals"
-                          className="inline-flex items-center justify-center rounded-sm p-2 text-muted transition hover:bg-active hover:text-ink"
+                          className="btn btn-ghost btn-icon"
                         >
                           <BarChart3 size={14} />
                         </button>
@@ -357,7 +475,7 @@ export default function Home() {
                               ? 'cursor-progress text-accent'
                               : watched
                                 ? 'cursor-default text-accent'
-                                : 'text-muted hover:bg-active hover:text-ink'
+                                : 'text-muted hover:bg-panelalt hover:text-ink'
                           }`}
                         >
                           {watchBusy ? (
@@ -378,12 +496,9 @@ export default function Home() {
         </div>
       </div>
 
-      {status?.last_sync && (
-        <p className="mt-3 text-[11px] text-subtle">
-          Last sync: {fmtDateTime(status.last_sync)} · signals relative to the tracked
-          universe
-        </p>
-      )}
+      <p className="mt-3 text-2xs text-subtle">
+        Signals rank each stock against the others in Bursa; they are not advice.
+      </p>
 
       {selected && (
         <StockDetailModal

@@ -36,21 +36,20 @@ export default function TaxSummary() {
     hide ? '••••••' : v == null ? '—' : fmtPrice(Math.round(v))
   const years = s?.years ?? [year]
 
-  const btn =
-    'inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50'
+  const btn = 'btn btn-secondary disabled:opacity-50'
 
   return (
-    <main className="w-full max-w-5xl animate-fade-in px-4 py-4">
-      <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
+    <main className="page max-w-5xl">
+      <div className="mb-5 flex flex-wrap items-end justify-between gap-3 lg:mb-6">
         <div>
           <Link
             to="/portfolio"
-            className="mb-1 inline-flex items-center gap-1 text-[11px] text-muted hover:text-ink print:hidden"
+            className="mb-1 inline-flex items-center gap-1 text-2xs text-muted hover:text-ink print:hidden"
           >
             <ArrowLeft size={12} /> Portfolio
           </Link>
-          <h2 className="text-sm font-semibold tracking-tight">Tax summary {year}</h2>
-          <p className="text-[11px] text-subtle">
+          <h2 className="page-title">Tax summary {year}</h2>
+          <p className="page-sub">
             For the annual tax return (SPT Tahunan), from the transactions you recorded
           </p>
         </div>
@@ -60,7 +59,7 @@ export default function TaxSummary() {
             <select
               value={year}
               onChange={(e) => setYear(Number(e.target.value))}
-              className="ml-1 rounded-sm bg-panelalt px-2 py-1.5 text-xs text-ink ring-1 ring-line-strong"
+              className="input input-sm ml-1 w-auto"
             >
               {years.map((y) => (
                 <option key={y} value={y}>
@@ -107,7 +106,7 @@ export default function TaxSummary() {
             hint="SPT: Harta (Lampiran 1 Bagian A). Report each stock at its acquisition cost (harga perolehan) with the year acquired. Your broker's annual tax statement shows the same figures: check them against it."
           >
             <table className="w-full whitespace-nowrap text-left text-xs">
-              <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+              <thead className="table-head">
                 <tr>
                   <th className={th}>Ticker</th>
                   <th className={`${th} hidden md:table-cell`}>Name</th>
@@ -161,7 +160,7 @@ export default function TaxSummary() {
             hint={`SPT: income subject to final tax (or exempt income, if you reinvested the dividends in Indonesia). Tax at your rate in Settings → Investing (${s.dividend_tax_pct}%). Listed by ex-date: one paid in early January can belong to the next year on your broker's statement.`}
           >
             <table className="w-full whitespace-nowrap text-left text-xs">
-              <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+              <thead className="table-head">
                 <tr>
                   <th className={th}>Ex-date</th>
                   <th className={th}>Ticker</th>
@@ -206,7 +205,7 @@ export default function TaxSummary() {
             hint="SPT: income subject to final tax. Sales on IDX are taxed 0.1% of the sale value, withheld by your broker (it is part of the sell fees you recorded); the gain isn't taxed again."
           >
             <table className="w-full whitespace-nowrap text-left text-xs">
-              <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+              <thead className="table-head">
                 <tr>
                   <th className={th}>Ticker</th>
                   <th className={`${th} hidden md:table-cell`}>Name</th>
@@ -251,7 +250,7 @@ export default function TaxSummary() {
             </table>
           </Section>
 
-          <p className="text-[11px] text-subtle">
+          <p className="text-2xs text-subtle">
             Worked out from the transactions recorded in Bursa, including rights issues
             and bonus shares you recorded: trades not recorded here aren&apos;t included.
             Shares and prices are as they were then, before any later split. This is a
@@ -275,7 +274,7 @@ function Section({
   return (
     <section className="break-inside-avoid">
       <h3 className="text-xs font-semibold text-ink">{title}</h3>
-      <p className="mb-2 mt-0.5 max-w-3xl text-[11px] text-subtle">{hint}</p>
+      <p className="mb-2 mt-0.5 max-w-3xl text-2xs text-subtle">{hint}</p>
       <div className="surface relative overflow-x-auto">{children}</div>
     </section>
   )

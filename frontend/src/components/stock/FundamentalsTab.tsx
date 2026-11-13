@@ -56,9 +56,7 @@ function ValuationCard({ ticker }: { ticker: string }) {
   const valuation = useValuation(ticker, true)
   return valuation.data && (valuation.data.pbv != null || valuation.data.roe != null) ? (
     <div className="surface p-4">
-      <div className="mb-3 text-[10px] uppercase tracking-wider text-muted">
-        Relative valuation
-      </div>
+      <div className="section-title mb-3">Relative valuation</div>
       <div className="grid gap-4 sm:grid-cols-2">
         {[
           {
@@ -84,7 +82,7 @@ function ValuationCard({ ticker }: { ticker: string }) {
                   {row.label === 'PBV' ? fmtRatio(row.value) : fmtPercent(row.value)}
                 </span>
               </span>
-              <span className="text-[10px] text-subtle">{row.range}</span>
+              <span className="text-2xs text-subtle">{row.range}</span>
             </div>
             <div className="mt-1.5 h-1.5 overflow-hidden rounded-xs bg-panelalt">
               <div
@@ -92,7 +90,7 @@ function ValuationCard({ ticker }: { ticker: string }) {
                 style={{ width: `${row.pct ?? 0}%` }}
               />
             </div>
-            <div className="mt-1 text-[10px] text-subtle">
+            <div className="mt-1 text-2xs text-subtle">
               {row.pct != null ? (
                 <Term id="percentile">{`${row.pct.toFixed(0)}th percentile`}</Term>
               ) : (
@@ -116,7 +114,7 @@ function DividendsCard({ ticker }: { ticker: string }) {
   return dividends.data && dividends.data.history.length > 0 ? (
     <div className="surface p-4">
       <div className="mb-3 flex items-center justify-between">
-        <span className="text-[10px] uppercase tracking-wider text-muted">Dividends</span>
+        <span className="text-2xs font-medium text-muted">Dividends</span>
         <span className="text-xs text-muted">
           Trailing DPS{' '}
           <span className="font-medium text-ink">

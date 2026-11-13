@@ -29,32 +29,15 @@ const SECTIONS: { to: string; label: string; icon: LucideIcon; end: boolean }[] 
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium transition ${
-    isActive
-      ? 'bg-panel text-accent shadow-card ring-1 ring-line-strong'
-      : 'text-muted hover:bg-panelalt hover:text-ink'
+  `rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+    isActive ? 'bg-panelalt text-ink' : 'text-muted hover:text-ink'
   }`
 
-function Tabs() {
-  return (
-    <nav
-      aria-label="Sections"
-      className="flex items-center gap-1 rounded-md bg-panelalt/70 p-1 ring-1 ring-line-strong"
-    >
-      {SECTIONS.map(({ to, label, icon: Icon, end }) => (
-        <NavLink key={to} to={to} end={end} className={linkClass}>
-          <Icon size={14} /> {label}
-        </NavLink>
-      ))}
-    </nav>
-  )
-}
-
 /**
- * The top bar, in three layouts:
- *  - very wide screens (2xl, 1536px+): one row;
- *  - tablets and laptops (md–2xl): sections on a second row;
- *  - phones: a slim bar with a search button; sections in a bottom tab bar.
+ * The top bar, in two layouts:
+ *  - laptops and wider (lg, 1024px+): one row with the sections in it;
+ *  - tablets and phones: a slim bar with a search button, sections in a bottom
+ *    tab bar within thumb reach (App pads the page for it).
  */
 export default function NavBar() {
   const { pathname } = useLocation()
@@ -64,37 +47,43 @@ export default function NavBar() {
 
   return (
     <>
-      <header className="sticky top-0 z-30 border-b border-line bg-panel/80 backdrop-blur-md print:hidden">
-        <div className="flex w-full items-center justify-between gap-2 px-3 py-2 sm:gap-4 sm:px-4 sm:py-2.5">
-          <div className="flex min-w-0 items-center gap-2 sm:gap-4">
-            <div className="flex shrink-0 items-center gap-2.5">
-              <div className="rounded-md bg-accent p-1.5 text-accent-ink shadow-card sm:p-2">
-                <Activity size={18} strokeWidth={2.5} />
-              </div>
-              <div className="hidden leading-tight sm:block">
-                <h1 className="text-sm font-bold tracking-tight">Bursa</h1>
-                <p className="text-[10px] font-medium uppercase tracking-wider text-subtle">
-                  IDX Monitor
-                </p>
-              </div>
-              <h1 className="text-sm font-bold tracking-tight sm:hidden">Bursa</h1>
-            </div>
-            <MarketStatus />
-            <IhsgTicker />
-            <div className="hidden md:block">
+      <header className="sticky top-0 z-30 border-b border-line bg-app/80 backdrop-blur-xl backdrop-saturate-150 print:hidden">
+        <div className="mx-auto flex h-14 w-full max-w-[1680px] items-center gap-3 px-4 sm:px-6 lg:gap-5 lg:px-8">
+          <NavLink
+            to="/"
+            className="flex shrink-0 items-center gap-2"
+            aria-label="Bursa home"
+          >
+            <span className="grid h-7 w-7 place-items-center rounded-sm bg-accent text-accent-ink shadow-card">
+              <Activity size={15} strokeWidth={2.75} />
+            </span>
+            <span className="text-[0.9375rem] font-semibold tracking-tight">Bursa</span>
+          </NavLink>
+
+          <nav aria-label="Sections" className="hidden items-center gap-0.5 lg:flex">
+            {SECTIONS.map(({ to, label, end }) => (
+              <NavLink key={to} to={to} end={end} className={linkClass}>
+                {label}
+              </NavLink>
+            ))}
+          </nav>
+
+          <div className="ml-auto flex min-w-0 items-center gap-2">
+            <div className="hidden lg:block">
               <SearchBox />
             </div>
+            <div className="hidden sm:block">
+              <IhsgTicker />
+            </div>
+            <MarketStatus />
           </div>
 
-          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
-            <div className="hidden 2xl:block">
-              <Tabs />
-            </div>
+          <div className="flex shrink-0 items-center gap-1">
             <button
               onClick={() => setSearchOn(searching ? null : pathname)}
               aria-label={searching ? 'Close search' : 'Search ticker'}
               aria-expanded={searching}
-              className="rounded-sm p-2 text-muted transition hover:bg-panelalt hover:text-ink md:hidden"
+              className="btn btn-ghost btn-icon lg:hidden"
             >
               {searching ? <X size={18} /> : <Search size={18} />}
             </button>
@@ -105,20 +94,15 @@ export default function NavBar() {
         </div>
 
         {searching && (
-          <div className="px-3 pb-2 md:hidden">
+          <div className="px-4 pb-3 sm:px-6 lg:hidden">
             <SearchBox full autoFocus />
           </div>
         )}
-
-        <div className="hidden px-4 pb-2 md:block 2xl:hidden">
-          <Tabs />
-        </div>
       </header>
 
-      {/* Phones: sections within thumb reach. Shell pads the page for it. */}
       <nav
         aria-label="Sections"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-line bg-panel/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md md:hidden print:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-line bg-panel/90 pb-[env(safe-area-inset-bottom)] backdrop-blur-xl lg:hidden print:hidden"
       >
         {SECTIONS.map(({ to, label, icon: Icon, end }) => (
           <NavLink
@@ -126,13 +110,17 @@ export default function NavBar() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `flex min-h-14 flex-col items-center justify-center gap-0.5 text-[10px] font-medium transition ${
+              `flex min-h-14 flex-col items-center justify-center gap-1 text-2xs font-medium transition-colors ${
                 isActive ? 'text-accent' : 'text-muted hover:text-ink'
               }`
             }
           >
-            <Icon size={20} />
-            {label}
+            {({ isActive }) => (
+              <>
+                <Icon size={20} strokeWidth={isActive ? 2.25 : 1.75} />
+                {label}
+              </>
+            )}
           </NavLink>
         ))}
       </nav>

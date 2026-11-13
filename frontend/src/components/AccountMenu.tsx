@@ -78,7 +78,7 @@ export default function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={attention ? `Account (${attention})` : 'Account'}
         aria-expanded={open}
-        className="relative flex h-8 w-8 items-center justify-center rounded-sm bg-accent/15 text-xs font-semibold text-accent ring-1 ring-accent/30 transition hover:bg-accent/25"
+        className="relative ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent transition hover:bg-accent/25"
       >
         {initial}
         {attention && (
@@ -86,19 +86,19 @@ export default function AccountMenu() {
         )}
       </button>
       {open && (
-        <div className="absolute right-0 z-40 mt-1.5 w-64 animate-fade-in rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong">
+        <div className="absolute right-0 z-40 mt-1.5 w-64 animate-fade-in rounded-md bg-panel p-1 shadow-pop ring-1 ring-line">
           <div className="border-b border-line px-2.5 py-2">
             <div className="flex items-center gap-2">
               <p className="min-w-0 flex-1 truncate text-xs font-medium text-ink">
                 {user.name}
               </p>
               {isAdmin && (
-                <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">
+                <span className="rounded-sm bg-accent/15 px-1.5 py-0.5 text-2xs font-medium uppercase tracking-wide text-accent">
                   Admin
                 </span>
               )}
             </div>
-            <p className="truncate text-[11px] text-subtle">{user.email}</p>
+            <p className="truncate text-2xs text-subtle">{user.email}</p>
           </div>
 
           <div className="flex items-center justify-between gap-2 border-b border-line px-2.5 py-2">
@@ -134,14 +134,14 @@ export default function AccountMenu() {
           <div className="border-b border-line py-1">
             <Link to="/settings" onClick={close} className={itemCls}>
               <SettingsIcon size={14} /> Settings
-              <kbd className="ml-auto rounded-sm bg-panelalt px-1.5 font-mono text-[10px] text-subtle ring-1 ring-line">
+              <kbd className="ml-auto rounded-sm bg-panelalt px-1.5 font-mono text-2xs text-subtle ring-1 ring-line">
                 ,
               </kbd>
             </Link>
             <Link to="/settings/security" onClick={close} className={itemCls}>
               <ShieldCheck size={14} /> Security
               {attention && (
-                <span className="ml-auto rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:text-amber-400">
+                <span className="ml-auto rounded-sm bg-amber-500/10 px-1.5 py-0.5 text-2xs font-medium text-amber-700 dark:text-amber-400">
                   {user.password_weak ? 'Weak password' : '2FA off'}
                 </span>
               )}

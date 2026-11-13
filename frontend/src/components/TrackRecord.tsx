@@ -47,7 +47,7 @@ function BeatRow({ row, current }: { row: RatingRecord; current: boolean }) {
       <span className="w-9 text-right font-medium tabular-nums text-ink">
         {pct.toFixed(0)}%
       </span>
-      <span className="hidden w-16 text-right text-[10px] tabular-nums text-subtle sm:inline">
+      <span className="hidden w-16 text-right text-2xs tabular-nums text-subtle sm:inline">
         n={row.n.toLocaleString()}
       </span>
     </div>
@@ -77,7 +77,7 @@ function Live({
   if (live.ratings.length > 0 && live.since) {
     return (
       <div className="space-y-1.5">
-        <p className="text-[11px] text-muted">
+        <p className="text-2xs text-muted">
           <span className="font-medium text-ink">Live record</span> since{' '}
           {fmtDay(live.since)} ({live.matured_days} days with a result so far):
         </p>
@@ -86,7 +86,7 @@ function Live({
     )
   }
   return (
-    <p className="text-[11px] text-subtle">
+    <p className="text-2xs text-subtle">
       <span className="font-medium text-muted">Live record:</span>{' '}
       {live.since && live.ready_on
         ? `ratings are saved every trading day since ${fmtDay(live.since)}; the first results arrive around ${fmtDay(live.ready_on)}.`
@@ -109,19 +109,17 @@ export default function TrackRecord({ current }: { current?: string | undefined 
 
   return (
     <section className="space-y-2 rounded-md px-3 py-2.5 ring-1 ring-line">
-      <h4 className="text-[10px] uppercase tracking-wide text-muted">
-        How have these ratings done?
-      </h4>
+      <h4 className="text-2xs font-medium text-muted">How have these ratings done?</h4>
       {backtest && (
         <>
-          <p className="text-[11px] text-muted">
+          <p className="text-2xs text-muted">
             How often a stock with each rating beat the typical (median) stock over{' '}
             {horizon}, testing this model on {backtest.start.slice(0, 4)}–
             {backtest.end.slice(0, 4)} prices ({backtest.universe}).{' '}
             <span className="text-ink">50% is a coin flip.</span>
           </p>
           <Rows rows={backtest.ratings} current={current} />
-          <p className="text-[11px] text-subtle">
+          <p className="text-2xs text-subtle">
             Overall edge:{' '}
             <span className="font-medium text-muted">{edgeWord(backtest.ic)}</span>{' '}
             (score-to-return correlation {backtest.ic >= 0 ? '+' : ''}

@@ -28,8 +28,7 @@ function blankReason(r: ScreenerRow, metric: 'pbv' | 'roe'): string | undefined 
   if (metric === 'pbv' && r.price == null) return 'No price data (possibly suspended)'
   return 'Not meaningful: book value / equity is negative'
 }
-const inputCls =
-  'w-full rounded-sm bg-panelalt/70 px-2.5 py-1.5 text-xs text-ink ring-1 ring-line-strong outline-hidden focus:ring-accent'
+const inputCls = 'input input-sm'
 
 export default function Screener() {
   const { settings } = useSettings()
@@ -99,16 +98,21 @@ export default function Screener() {
   const missing = sync?.missing ?? 0
 
   return (
-    <main className="w-full animate-fade-in px-4 py-4">
+    <main className="page">
+      <div className="mb-5 lg:mb-6">
+        <h2 className="page-title">Screener</h2>
+        <p className="page-sub">
+          Every rated IDX stock, ranked by its score. Narrow it down with the filters.
+        </p>
+      </div>
+
       {/* Filters */}
       <div className="surface mb-3 flex flex-wrap items-end gap-3 p-3">
         <div className="flex items-center gap-1.5 self-center text-xs font-medium text-muted">
           <SlidersHorizontal size={13} /> Filters
         </div>
         <div className="w-24">
-          <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-            Min score
-          </label>
+          <label className="field-label">Min score</label>
           <input
             type="number"
             value={minScore}
@@ -118,9 +122,7 @@ export default function Screener() {
           />
         </div>
         <div className="w-24">
-          <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-            Max PBV
-          </label>
+          <label className="field-label">Max PBV</label>
           <input
             type="number"
             value={maxPbv}
@@ -129,9 +131,7 @@ export default function Screener() {
           />
         </div>
         <div className="w-24">
-          <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-            Min RoE %
-          </label>
+          <label className="field-label">Min RoE %</label>
           <input
             type="number"
             value={minRoe}
@@ -140,9 +140,7 @@ export default function Screener() {
           />
         </div>
         <div className="w-40">
-          <label className="mb-1 block text-[10px] uppercase tracking-wide text-subtle">
-            Sector
-          </label>
+          <label className="field-label">Sector</label>
           <select
             value={sector}
             onChange={(e) => setSector(e.target.value)}
@@ -167,7 +165,7 @@ export default function Screener() {
           Positive signals only
         </button>
 
-        <div className="ml-auto flex items-center gap-3">
+        <div className="ml-auto flex h-8 items-center gap-3 self-end">
           <span className="text-xs text-subtle">
             {missing > 0 && <>{missing} missing · </>}
             {isFetching ? 'Loading…' : `${total} matched`}
@@ -193,7 +191,7 @@ export default function Screener() {
             <div className="flex items-center gap-1.5">
               {sync?.last_error && (
                 <span
-                  className="max-w-[16rem] truncate text-[11px] text-bear"
+                  className="max-w-[16rem] truncate text-2xs text-bear"
                   title={sync.last_error}
                 >
                   {sync.last_error}
@@ -227,7 +225,7 @@ export default function Screener() {
       <div className="surface overflow-hidden">
         <div className="relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
-            <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
+            <thead className="table-head">
               <tr>
                 <th scope="col" className="px-4 py-2.5">
                   Ticker
@@ -350,7 +348,7 @@ export default function Screener() {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
-        <label className="flex items-center gap-1.5 text-[11px] text-subtle">
+        <label className="flex items-center gap-1.5 text-2xs text-subtle">
           Rows per page
           <select
             value={pageSize}
@@ -358,7 +356,7 @@ export default function Screener() {
               setPageSize(Number(e.target.value))
               goTo(0)
             }}
-            className="rounded-sm bg-panelalt/70 px-1.5 py-1 text-xs text-ink ring-1 ring-line-strong"
+            className="input input-sm w-auto"
           >
             {PAGE_SIZES.map((n) => (
               <option key={n} value={n}>
@@ -368,7 +366,7 @@ export default function Screener() {
           </select>
         </label>
         <Pagination page={page} pageCount={pageCount} onChange={goTo} />
-        <span className="text-[11px] tabular-nums text-subtle">
+        <span className="text-2xs tabular-nums text-subtle">
           {total > 0 && `${from}–${to} of ${total}`}
         </span>
       </div>

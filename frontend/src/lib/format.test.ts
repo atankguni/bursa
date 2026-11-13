@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest'
 import {
   fmtChange,
   fmtCompact,
+  fmtMoney,
+  fmtMoneySigned,
   fmtPct,
   fmtPercent,
   fmtPrice,
@@ -102,5 +104,18 @@ describe('fmtTimeAgo', () => {
 
   it('shows a dash for no time', () => {
     expect(fmtTimeAgo(null, now)).toBe('—')
+  })
+})
+
+describe('money', () => {
+  it('rounds to whole rupiah', () => {
+    expect(fmtMoney(1_192_798.58)).toBe('1,192,799')
+    expect(fmtMoney(-0.4)).toBe('0')
+    expect(fmtMoney(null)).toBe('—')
+  })
+  it('signs with a true minus', () => {
+    expect(fmtMoneySigned(1200.4)).toBe('+1,200')
+    expect(fmtMoneySigned(-3400)).toBe('−3,400')
+    expect(fmtMoneySigned(0.2)).toBe('0')
   })
 })

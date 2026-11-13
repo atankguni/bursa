@@ -33,7 +33,33 @@ export default function SearchBox({
   const [preparing, setPreparing] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const ref = useRef<HTMLDivElement>(null)
+  const input = useRef<HTMLInputElement>(null)
   const qc = useQueryClient()
+
+  // ⌘K / Ctrl+K anywhere, or "/" outside a text field, jumps to the search
+  // (the desktop box only: the phone row has its own button).
+  useEffect(() => {
+    if (full) return
+    function onKey(e: KeyboardEvent) {
+      const t = e.target
+      const typing =
+        t instanceof HTMLElement &&
+        (t.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(t.tagName))
+      if (
+        ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') ||
+        (e.key === '/' && !typing)
+      ) {
+        if (!input.current || input.current.offsetParent === null) return // hidden
+        e.preventDefault()
+        input.current.focus()
+        input.current.select()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [full])
+  const mac =
+    typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 
   useEffect(() => {
     const t = setTimeout(() => setDebounced(q.trim()), 300)
@@ -82,9 +108,16 @@ export default function SearchBox({
 
   return (
     <div ref={ref} className={`relative ${full ? 'w-full' : ''}`}>
-      <div className="flex items-center gap-1.5 rounded-sm bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
-        <Search size={13} className="text-muted" />
+      <div className="flex items-center gap-2 rounded-full bg-panelalt py-1.5 pr-2 pl-3 text-xs transition-shadow focus-within:bg-panel focus-within:ring-2 focus-within:ring-accent">
+        <Search size={14} className="text-muted" />
         <input
+          ref={input}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') {
+              setOpen(false)
+              e.currentTarget.blur()
+            }
+          }}
           value={q}
           onChange={(e) => {
             setQ(e.target.value)
@@ -94,22 +127,27 @@ export default function SearchBox({
           autoFocus={autoFocus}
           placeholder="Search ticker…"
           aria-label="Search ticker"
-          className={`${full ? 'min-w-0 flex-1 text-base sm:text-xs' : 'w-44'} bg-transparent text-ink outline-hidden placeholder:text-subtle`}
+          className={`${full ? 'min-w-0 flex-1 text-base sm:text-xs' : 'w-36 xl:w-44'} bg-transparent text-ink outline-hidden placeholder:text-subtle`}
         />
+        {!full && !q && (
+          <kbd className="hidden rounded-xs bg-panel px-1.5 py-0.5 font-sans text-2xs text-subtle ring-1 ring-line xl:inline">
+            {mac ? '⌘K' : 'Ctrl K'}
+          </kbd>
+        )}
       </div>
 
       {error && (
-        <div className="absolute left-0 z-30 mt-1 whitespace-nowrap rounded-sm bg-panel px-2.5 py-1 text-[11px] text-bear shadow-pop ring-1 ring-line">
+        <div className="absolute left-0 z-30 mt-1 whitespace-nowrap rounded-sm bg-panel px-2.5 py-1 text-2xs text-bear shadow-pop ring-1 ring-line">
           {error}
         </div>
       )}
 
       {open && debounced.length >= 2 && (
         <div
-          className={`absolute left-0 z-20 mt-1 ${full ? 'right-0' : 'w-80'} animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong`}
+          className={`absolute left-0 z-20 mt-1 ${full ? 'right-0' : 'w-80'} animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line`}
         >
           {isAdmin && (
-            <label className="mb-1 flex cursor-pointer items-center justify-between border-b border-line px-2.5 py-1.5 text-[11px] text-muted">
+            <label className="mb-1 flex cursor-pointer items-center justify-between border-b border-line px-2.5 py-1.5 text-2xs text-muted">
               <span>All exchanges</span>
               <input
                 type="checkbox"
@@ -141,7 +179,7 @@ export default function SearchBox({
                 {preparing === r.symbol ? (
                   <Loader2 size={12} className="animate-spin" />
                 ) : (
-                  <span className="text-[10px]">{r.exchange}</span>
+                  <span className="text-2xs">{r.exchange}</span>
                 )}
               </span>
             </button>

@@ -10,18 +10,16 @@ export default function Glossary() {
   }, [hash])
 
   return (
-    <main className="mx-auto w-full max-w-3xl animate-fade-in px-4 py-4">
-      <h2 className="text-sm font-semibold tracking-tight">What the numbers mean</h2>
-      <p className="mb-4 text-[11px] text-subtle">
+    <main className="page max-w-3xl">
+      <h2 className="page-title">What the numbers mean</h2>
+      <p className="page-sub mb-6">
         Plain-language explanations of what Bursa shows. None of it is advice to buy or
         sell.
       </p>
       <div className="space-y-5">
         {GLOSSARY_GROUPS.map((g) => (
           <section key={g.title}>
-            <h3 className="mb-2 text-[10px] uppercase tracking-wider text-muted">
-              {g.title}
-            </h3>
+            <h3 className="section-title mb-2">{g.title}</h3>
             <dl className="surface divide-y divide-line">
               {g.ids.map((id) => {
                 const e: GlossaryEntry = GLOSSARY[id]
