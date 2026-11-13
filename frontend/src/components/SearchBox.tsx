@@ -12,8 +12,17 @@ import { queryKeys } from '../hooks'
 import { useAuth } from '../lib/auth'
 import StockDetailModal from './StockDetailModal'
 
-/** Navbar symbol search — click a result to inspect it in the detail modal. */
-export default function SearchBox() {
+/**
+ * Navbar symbol search — click a result to inspect it in the detail modal.
+ * `full`: fill the available width (the phone search row).
+ */
+export default function SearchBox({
+  full = false,
+  autoFocus = false,
+}: {
+  full?: boolean
+  autoFocus?: boolean
+}) {
   // Only admins grow the tracked universe (it costs data-provider calls).
   const { isAdmin } = useAuth()
   const [q, setQ] = useState('')
@@ -72,7 +81,7 @@ export default function SearchBox() {
   }
 
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className={`relative ${full ? 'w-full' : ''}`}>
       <div className="flex items-center gap-1.5 rounded-sm bg-panelalt/70 py-1.5 pl-2.5 pr-2 text-xs ring-1 ring-line-strong focus-within:ring-accent">
         <Search size={13} className="text-muted" />
         <input
@@ -82,8 +91,10 @@ export default function SearchBox() {
             setOpen(true)
           }}
           onFocus={() => setOpen(true)}
+          autoFocus={autoFocus}
           placeholder="Search ticker…"
-          className="w-44 bg-transparent text-ink outline-hidden placeholder:text-subtle"
+          aria-label="Search ticker"
+          className={`${full ? 'min-w-0 flex-1 text-base sm:text-xs' : 'w-44'} bg-transparent text-ink outline-hidden placeholder:text-subtle`}
         />
       </div>
 
@@ -94,7 +105,9 @@ export default function SearchBox() {
       )}
 
       {open && debounced.length >= 2 && (
-        <div className="absolute left-0 z-20 mt-1 w-80 animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong">
+        <div
+          className={`absolute left-0 z-20 mt-1 ${full ? 'right-0' : 'w-80'} animate-fade-in overflow-hidden rounded-md bg-panel p-1 shadow-pop ring-1 ring-line-strong`}
+        >
           {isAdmin && (
             <label className="mb-1 flex cursor-pointer items-center justify-between border-b border-line px-2.5 py-1.5 text-[11px] text-muted">
               <span>All exchanges</span>

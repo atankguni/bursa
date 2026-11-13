@@ -134,7 +134,7 @@ export default function Settings() {
         {/* Side menu on wide screens, a scrolling row of tabs on phones. */}
         <nav
           aria-label="Settings sections"
-          className="-mx-4 flex gap-1 overflow-x-auto px-4 md:sticky md:top-20 md:mx-0 md:w-48 md:shrink-0 md:flex-col md:px-0"
+          className="-mx-4 flex gap-1 relative overflow-x-auto px-4 md:sticky md:top-20 md:mx-0 md:w-48 md:shrink-0 md:flex-col md:px-0"
         >
           {sections.map((s) => (
             <NavLink key={s.id} to={`/settings/${s.id}`} className={navCls}>

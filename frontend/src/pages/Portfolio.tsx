@@ -62,9 +62,11 @@ function Card({
   title?: string
 }) {
   return (
-    <div className="surface px-4 py-3" title={title}>
+    <div className="surface px-3 py-2.5 sm:px-4 sm:py-3" title={title}>
       <div className="text-[10px] uppercase tracking-wider text-muted">{label}</div>
-      <div className={`mt-1 text-lg font-semibold tabular-nums ${tone ?? 'text-ink'}`}>
+      <div
+        className={`mt-1 text-base font-semibold tabular-nums sm:text-lg ${tone ?? 'text-ink'}`}
+      >
         {value}
       </div>
       {hint && <div className="mt-0.5 text-[10px] text-subtle">{hint}</div>}
@@ -226,7 +228,7 @@ export default function Portfolio() {
 
           {/* Holdings */}
           <div className="surface overflow-hidden">
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full whitespace-nowrap text-left text-xs">
                 <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
                   <tr>
@@ -435,7 +437,7 @@ export default function Portfolio() {
               <div className="border-b border-line px-4 py-2.5 text-[10px] uppercase tracking-wider text-muted">
                 Transactions
               </div>
-              <div className="overflow-x-auto">
+              <div className="relative overflow-x-auto">
                 <table className="w-full whitespace-nowrap text-left text-xs">
                   <tbody className="divide-y divide-line">
                     {txs.map((t) => (

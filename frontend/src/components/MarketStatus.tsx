@@ -56,7 +56,7 @@ export default function MarketStatus() {
   return (
     <span
       title={tooltip}
-      className={`inline-flex items-center gap-1.5 rounded-sm px-2.5 py-1.5 text-xs font-medium ring-1 ${s.chip}`}
+      className={`inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-sm px-2 py-1 text-xs font-medium ring-1 sm:px-2.5 sm:py-1.5 ${s.chip}`}
     >
       <span className="relative flex h-1.5 w-1.5">
         {s.pulse && (

@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
+import TickerName from '../components/TickerName'
 import Pagination from '../components/Pagination'
 import StockDetailModal from '../components/StockDetailModal'
 
@@ -74,14 +75,14 @@ export default function Browse() {
       </div>
 
       <div className="surface overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
               <tr>
                 <th scope="col" className="px-4 py-2.5">
                   Ticker
                 </th>
-                <th scope="col" className="px-4 py-2.5">
+                <th scope="col" className="hidden px-4 py-2.5 md:table-cell">
                   Name
                 </th>
                 <th scope="col" className="px-4 py-2.5">
@@ -140,8 +141,9 @@ export default function Browse() {
                         {r.ticker}
                         <BoardBadge board={r.board} compact />
                       </span>
+                      <TickerName name={r.name} />
                     </td>
-                    <td className="max-w-[22rem] truncate px-4 py-2 text-muted">
+                    <td className="hidden max-w-[22rem] truncate px-4 py-2 text-muted md:table-cell">
                       {r.name}
                     </td>
                     <td className="px-4 py-2">

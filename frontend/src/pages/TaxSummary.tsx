@@ -6,6 +6,7 @@ import { useStatus, useTaxSummary } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtPrice } from '../lib/format'
 import { downloadTaxCsv } from '../lib/taxCsv'
+import TickerName from '../components/TickerName'
 
 /** Until the return is due (31 March), last year is the one being filed. */
 function defaultYear(now = new Date()) {
@@ -109,7 +110,7 @@ export default function TaxSummary() {
               <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
                 <tr>
                   <th className={th}>Ticker</th>
-                  <th className={th}>Name</th>
+                  <th className={`${th} hidden md:table-cell`}>Name</th>
                   <th className={`${th} text-right`}>Shares</th>
                   <th className={`${th} text-right`}>Lots</th>
                   <th className={`${th} text-right`}>Acquired</th>
@@ -127,8 +128,13 @@ export default function TaxSummary() {
                 {s.holdings.length === 0 && <Empty cols={8}>No shares held.</Empty>}
                 {s.holdings.map((h) => (
                   <tr key={h.ticker}>
-                    <td className={`${td} font-semibold`}>{h.ticker}</td>
-                    <td className="max-w-56 truncate px-3 py-1.5 text-muted">{h.name}</td>
+                    <td className={`${td} font-semibold`}>
+                      {h.ticker}
+                      <TickerName name={h.name} />
+                    </td>
+                    <td className="hidden max-w-56 truncate px-3 py-1.5 text-muted md:table-cell">
+                      {h.name}
+                    </td>
                     <td className={`${td} text-right`}>
                       {hide ? '••••' : fmtPrice(h.shares)}
                     </td>
@@ -144,6 +150,7 @@ export default function TaxSummary() {
               </tbody>
               <Total
                 cols={5}
+                nameCol
                 values={[rp(s.totals.cost), '', rp(s.totals.market_value)]}
               />
             </table>
@@ -202,7 +209,7 @@ export default function TaxSummary() {
               <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
                 <tr>
                   <th className={th}>Ticker</th>
-                  <th className={th}>Name</th>
+                  <th className={`${th} hidden md:table-cell`}>Name</th>
                   <th className={`${th} text-right`}>Shares</th>
                   <th className={`${th} text-right`}>Sale value</th>
                   <th className={`${th} text-right`}>Final tax 0.1%</th>
@@ -214,8 +221,13 @@ export default function TaxSummary() {
                 {s.sales.length === 0 && <Empty cols={7}>No sales.</Empty>}
                 {s.sales.map((x) => (
                   <tr key={x.ticker}>
-                    <td className={`${td} font-semibold`}>{x.ticker}</td>
-                    <td className="max-w-56 truncate px-3 py-1.5 text-muted">{x.name}</td>
+                    <td className={`${td} font-semibold`}>
+                      {x.ticker}
+                      <TickerName name={x.name} />
+                    </td>
+                    <td className="hidden max-w-56 truncate px-3 py-1.5 text-muted md:table-cell">
+                      {x.name}
+                    </td>
                     <td className={`${td} text-right`}>
                       {hide ? '••••' : fmtPrice(x.shares)}
                     </td>
@@ -228,6 +240,7 @@ export default function TaxSummary() {
               </tbody>
               <Total
                 cols={3}
+                nameCol
                 values={[
                   rp(s.totals.proceeds),
                   rp(s.totals.sales_tax),
@@ -262,7 +275,7 @@ function Section({
     <section className="break-inside-avoid">
       <h3 className="text-xs font-semibold text-ink">{title}</h3>
       <p className="mb-2 mt-0.5 max-w-3xl text-[11px] text-subtle">{hint}</p>
-      <div className="surface overflow-x-auto">{children}</div>
+      <div className="surface relative overflow-x-auto">{children}</div>
     </section>
   )
 }
@@ -277,14 +290,26 @@ function Empty({ cols, children }: { cols: number; children: ReactNode }) {
   )
 }
 
-/** A totals row: `cols` label columns, then the values. */
-function Total({ cols, values }: { cols: number; values: string[] }) {
+/**
+ * A totals row: `cols` label columns, then the values. `nameCol`: one of those
+ * is the Name column, hidden on phones, so the label spans one less there.
+ */
+function Total({
+  cols,
+  values,
+  nameCol = false,
+}: {
+  cols: number
+  values: string[]
+  nameCol?: boolean
+}) {
   return (
     <tfoot className="border-t border-line-strong font-semibold">
       <tr>
-        <td colSpan={cols} className="px-3 py-2">
+        <td colSpan={nameCol ? cols - 1 : cols} className="px-3 py-2">
           Total
         </td>
+        {nameCol && <td className="hidden md:table-cell" />}
         {values.map((v, i) => (
           <td key={i} className={`${td} text-right`}>
             {v}

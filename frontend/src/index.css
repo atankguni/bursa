@@ -251,3 +251,35 @@ html[data-reduce-motion] .animate-ping {
 *::-webkit-scrollbar-track {
   background: transparent;
 }
+
+/* Phones: wide tables scroll sideways inside their box with the first column
+   (the ticker) pinned, on a solid background so scrolled cells pass under it. */
+@media (width < 48rem) {
+  .overflow-x-auto > table > * > tr > :first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    box-shadow: inset -1px 0 0 var(--color-line);
+  }
+  .overflow-x-auto > table > tbody > tr > :first-child,
+  .overflow-x-auto > table > tfoot > tr > :first-child {
+    background-color: var(--color-panel);
+  }
+  .overflow-x-auto > table > thead > tr > :first-child {
+    background-color: var(--color-panelalt);
+  }
+  /* A full-width message row ("No positions yet") needn't stick. */
+  .overflow-x-auto > table > tbody > tr > [colspan]:first-child {
+    position: static;
+    box-shadow: none;
+  }
+}
+
+/* Touch phones: 16px form text, or iOS zooms the page in on every tap into a field. */
+@media (width < 48rem) and (pointer: coarse) {
+  input:not([type='checkbox'], [type='radio'], [type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

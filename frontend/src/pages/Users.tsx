@@ -261,7 +261,7 @@ export default function Users() {
         </div>
       ) : null}
 
-      <div className="surface overflow-x-auto">
+      <div className="surface relative overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
             <tr className="border-b border-line text-left text-[10px] uppercase tracking-wide text-subtle">

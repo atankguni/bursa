@@ -7,6 +7,7 @@ import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
 import { fmtCompact, fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
+import TickerName from '../components/TickerName'
 import StockDetailModal from '../components/StockDetailModal'
 import SignalBadge from '../components/SignalBadge'
 import SortHeader, { type SortState } from '../components/SortHeader'
@@ -115,7 +116,7 @@ export default function Watchlist() {
       )}
 
       <div className="surface overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
               <tr>
@@ -123,7 +124,11 @@ export default function Watchlist() {
                   Ticker
                 </SortHeader>
                 {show('name') && (
-                  <SortHeader sortKey="name" {...sortProps}>
+                  <SortHeader
+                    sortKey="name"
+                    {...sortProps}
+                    className="hidden md:table-cell"
+                  >
                     Name
                   </SortHeader>
                 )}
@@ -240,8 +245,13 @@ export default function Watchlist() {
                           </span>
                         )}
                       </span>
+                      {show('name') && <TickerName name={it.name} />}
                     </td>
-                    {show('name') && <td className="px-4 py-2 text-muted">{it.name}</td>}
+                    {show('name') && (
+                      <td className="hidden px-4 py-2 text-muted md:table-cell">
+                        {it.name}
+                      </td>
+                    )}
                     {show('signal') && (
                       <td className="px-4 py-2">
                         <SignalBadge rec={it.recommendation} />

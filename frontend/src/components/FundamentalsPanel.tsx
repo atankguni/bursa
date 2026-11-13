@@ -107,7 +107,7 @@ export default function FundamentalsPanel({
       </div>
 
       {/* Latest-year breakdown */}
-      <div className="overflow-x-auto rounded-sm ring-1 ring-line">
+      <div className="relative overflow-x-auto rounded-sm ring-1 ring-line">
         <table className="w-full whitespace-nowrap text-left text-xs">
           <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
             <tr>
@@ -138,7 +138,7 @@ export default function FundamentalsPanel({
 
       {/* Multi-year trend */}
       {years.length > 1 && (
-        <div className="overflow-x-auto rounded-sm ring-1 ring-line">
+        <div className="relative overflow-x-auto rounded-sm ring-1 ring-line">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt text-[10px] uppercase tracking-wide text-muted">
               <tr>

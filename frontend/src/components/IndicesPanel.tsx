@@ -131,7 +131,7 @@ export default function IndicesPanel() {
 
           {/* Grouped tiles: tabs keep 33 indices from becoming one long list. */}
           <div className="mt-4 flex flex-wrap items-end justify-between gap-2">
-            <div className="max-w-full overflow-x-auto">
+            <div className="max-w-full relative overflow-x-auto">
               <SubTabs
                 options={GROUPS.map((g) => ({
                   value: g,

@@ -15,6 +15,7 @@ import { useIndexes, useStatus, useStocks, useWatchToggle } from '../hooks'
 import { useSettings } from '../lib/settings'
 import { fmtChange, fmtDateTime, fmtPct, fmtPrice, fmtVolume } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
+import TickerName from '../components/TickerName'
 import IndexMultiSelect from '../components/IndexMultiSelect'
 import SignalBadge from '../components/SignalBadge'
 import StockDetailModal from '../components/StockDetailModal'
@@ -173,18 +174,18 @@ export default function Home() {
         </p>
       )}
       <div className="surface overflow-hidden">
-        <div className="overflow-x-auto">
+        <div className="relative overflow-x-auto">
           <table className="w-full whitespace-nowrap text-left text-xs">
             <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
               <tr>
                 <th scope="col" className="px-4 py-2.5">
                   Ticker
                 </th>
-                <th scope="col" className="px-4 py-2.5">
+                <th scope="col" className="hidden px-4 py-2.5 md:table-cell">
                   Name
                 </th>
                 {rec('index') && (
-                  <th scope="col" className="px-4 py-2.5">
+                  <th scope="col" className="hidden px-4 py-2.5 md:table-cell">
                     Index
                   </th>
                 )}
@@ -264,10 +265,13 @@ export default function Home() {
                         {s.ticker}
                         <BoardBadge board={s.board} compact />
                       </span>
+                      <TickerName name={s.name} />
                     </td>
-                    <td className="px-4 py-2 text-muted">{s.name}</td>
+                    <td className="hidden px-4 py-2 text-muted md:table-cell">
+                      {s.name}
+                    </td>
                     {rec('index') && (
-                      <td className="px-4 py-2">
+                      <td className="hidden px-4 py-2 md:table-cell">
                         <div className="flex flex-wrap gap-1">
                           {s.indices.map((idx) => (
                             <span

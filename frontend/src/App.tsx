@@ -70,7 +70,7 @@ function Shell({ isAdmin }: { isAdmin: boolean }) {
   const { lockMinutes, loaded } = usePreferences()
   useIdleLock(loaded ? lockMinutes : 0, lock)
   return (
-    <div className="flex min-h-full flex-col bg-app text-ink">
+    <div className="flex min-h-full flex-col bg-app pb-[calc(3.5rem+env(safe-area-inset-bottom))] text-ink md:pb-0 print:pb-0">
       <NavBar />
       <WeakPasswordBanner />
       <div className="flex-1">

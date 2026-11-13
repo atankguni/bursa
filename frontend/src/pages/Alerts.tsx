@@ -144,7 +144,7 @@ export default function Alerts() {
 
         {/* Rules */}
         <div className="surface overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="relative overflow-x-auto">
             <table className="w-full whitespace-nowrap text-left text-xs">
               <thead className="bg-panelalt/70 text-[10px] uppercase tracking-wider text-muted">
                 <tr>

@@ -128,7 +128,7 @@ export default function DataHealth() {
                 </span>
               )}
             </p>
-            <div className="overflow-x-auto">
+            <div className="relative overflow-x-auto">
               <table className="w-full whitespace-nowrap text-left">
                 <thead className="text-[10px] uppercase tracking-wider text-subtle">
                   <tr>

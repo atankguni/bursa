@@ -161,6 +161,16 @@ backtest (see [Development](development.md#signal-backtest)).
 - **Nightly backups** (SQLite): a compressed copy of the database plus the 2FA secret,
   newest 7 kept in `backend/data/backups/` (see [Configuration](configuration.md#backups)).
 
+## Phones and tablets
+
+- **Phones** (under 768 px): a slim top bar (search opens below it) and the six
+  sections in a **bottom tab bar**. Tables scroll sideways with the ticker column pinned
+  and the company name under the ticker; pop-up windows fill the screen. Form fields use
+  16 px text so iPhones don't zoom in, and the layout keeps clear of the notch and home
+  indicator.
+- **Tablets and laptops** (768–1535 px): the sections on a second row of the top bar.
+- **Wide screens** (1536 px and up): one row.
+
 ## Personalization
 
 - **Theme**: light / dark / **follow system**.
