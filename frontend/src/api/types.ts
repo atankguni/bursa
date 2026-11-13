@@ -68,6 +68,10 @@ export type PortfolioRisk = Schemas['PortfolioRiskOut']
 export type EquityPoint = Schemas['EquityPoint']
 /** A year's holdings on 31 December, sales and dividends, for the SPT. */
 export type TaxSummary = Schemas['TaxSummaryOut']
+/** Cash in the trading account (RDN), derived from deposits, trades and dividends. */
+export type Cash = Schemas['CashOut']
+export type CashMovement = Schemas['CashMovementOut']
+export type CashMovementInput = Schemas['CashMovementIn']
 
 // --- Screener / search / market overview -----------------------------------
 export type ScreenerRow = Schemas['ScreenerRow']

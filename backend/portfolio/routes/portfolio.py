@@ -13,11 +13,15 @@ from deps import current_user, get_session
 from market import index_quotes as index_service
 from market.corporate_actions import adjusted_transactions
 from market.models import Split, Stock
+from portfolio.cash import cash_summary
 from portfolio.dividend_calendar import dividend_calendar
 from portfolio.holdings import build_portfolio, equity_curve
-from portfolio.models import Transaction
+from portfolio.models import CashMovement, Transaction
 from portfolio.risk import portfolio_risk
 from portfolio.schemas import (
+    CashMovementIn,
+    CashMovementOut,
+    CashOut,
     EquityPoint,
     ExpectedDividendOut,
     PortfolioOut,
@@ -180,3 +184,51 @@ async def get_tax_summary(
     if year > local_today().year:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "That year hasn't started yet")
     return await tax_summary(session, user.id, year)
+
+
+# --------------------------------------------------------------------------- #
+# Cash (RDN)
+# --------------------------------------------------------------------------- #
+
+
+@router.get("/cash", response_model=CashOut)
+async def get_cash(
+    session: AsyncSession = Depends(get_session), user: User = Depends(current_user)
+) -> CashOut:
+    """Cash balance (deposits, withdrawals, trades, dividends) and return on it."""
+    return await cash_summary(session, user.id)
+
+
+@router.post("/cash", response_model=CashMovementOut, status_code=status.HTTP_201_CREATED)
+async def add_cash_movement(
+    payload: CashMovementIn,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
+) -> CashMovementOut:
+    if payload.day > local_today():
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "That date is in the future")
+    row = CashMovement(user_id=user.id, **payload.model_dump())
+    session.add(row)
+    await session.commit()
+    await session.refresh(row)
+    return CashMovementOut.model_validate(row)
+
+
+@router.delete("/cash/{movement_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_cash_movement(
+    movement_id: int,
+    session: AsyncSession = Depends(get_session),
+    user: User = Depends(current_user),
+) -> Response:
+    row = (
+        await session.execute(
+            select(CashMovement).where(
+                CashMovement.id == movement_id, CashMovement.user_id == user.id
+            )
+        )
+    ).scalar_one_or_none()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found")
+    await session.delete(row)
+    await session.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

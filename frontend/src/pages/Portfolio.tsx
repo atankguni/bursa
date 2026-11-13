@@ -14,6 +14,7 @@ import { useSettings } from '../lib/settings'
 import { estimateSale } from '../lib/sellEstimate'
 import { fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
+import CashPanel from '../components/CashPanel'
 import DividendCalendar from '../components/DividendCalendar'
 import RiskPanel from '../components/RiskPanel'
 import SellCalculator from '../components/SellCalculator'
@@ -225,6 +226,8 @@ export default function Portfolio() {
               hint="Last 12 months' dividends, after tax"
             />
           </div>
+
+          <CashPanel hide={hide} />
 
           {/* Holdings */}
           <div className="surface overflow-hidden">

@@ -1018,6 +1018,44 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/portfolio/cash': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Cash
+     * @description Cash balance (deposits, withdrawals, trades, dividends) and return on it.
+     */
+    get: operations['get_cash_api_portfolio_cash_get']
+    put?: never
+    /** Add Cash Movement */
+    post: operations['add_cash_movement_api_portfolio_cash_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/portfolio/cash/{movement_id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /** Delete Cash Movement */
+    delete: operations['delete_cash_movement_api_portfolio_cash__movement_id__delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/portfolio/dividend-calendar': {
     parameters: {
       query?: never
@@ -1801,6 +1839,78 @@ export interface components {
       years: {
         [key: string]: number
       }
+    }
+    /**
+     * CashMovementIn
+     * @description Money moved into (deposit) or out of (withdrawal) the trading account.
+     */
+    CashMovementIn: {
+      /** Amount */
+      amount: number
+      /**
+       * Day
+       * Format: date
+       */
+      day: string
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'deposit' | 'withdrawal'
+      /** Note */
+      note?: string | null
+    }
+    /** CashMovementOut */
+    CashMovementOut: {
+      /** Amount */
+      amount: number
+      /**
+       * Day
+       * Format: date
+       */
+      day: string
+      /** Id */
+      id: number
+      /**
+       * Kind
+       * @enum {string}
+       */
+      kind: 'deposit' | 'withdrawal'
+      /** Note */
+      note: string | null
+    }
+    /**
+     * CashOut
+     * @description The cash balance derived from deposits, withdrawals, trades and dividends,
+     *     and the return on the money put in.
+     */
+    CashOut: {
+      /** Account Value */
+      account_value: number
+      /** Annual Return Pct */
+      annual_return_pct: number | null
+      /** Available */
+      available: number
+      /** Balance */
+      balance: number
+      /** Gain */
+      gain: number
+      /** Gain Pct */
+      gain_pct: number | null
+      /** Market Value */
+      market_value: number
+      /** Movements */
+      movements: components['schemas']['CashMovementOut'][]
+      /** Net Deposits */
+      net_deposits: number
+      /** Settles On */
+      settles_on: string | null
+      /** Settling */
+      settling: number
+      /** Since */
+      since: string | null
+      /** Tracked */
+      tracked: boolean
     }
     /**
      * CatalogPage
@@ -5308,6 +5418,88 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['PortfolioOut']
+        }
+      }
+    }
+  }
+  get_cash_api_portfolio_cash_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CashOut']
+        }
+      }
+    }
+  }
+  add_cash_movement_api_portfolio_cash_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CashMovementIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CashMovementOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  delete_cash_movement_api_portfolio_cash__movement_id__delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        movement_id: number
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }

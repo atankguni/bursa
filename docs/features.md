@@ -106,6 +106,13 @@ backtest (see [Development](development.md#signal-backtest)).
   - **dividends received**: cash dividends on shares held before each ex-date, after tax;
   - **total return**: P/L after selling costs + realized P/L + dividends;
   - estimated annual income after tax.
+- **Cash (RDN)**: record the money you move into and out of your trading account;
+  Bursa works out the rest from your trades and dividends. Buys take cash on the
+  trade date, sales arrive at T+2 (shown as "settling" until then), dividends after
+  tax. It shows the account value (shares + cash) and the gain on the money you put
+  in, and after a year a money-weighted annual return (XIRR), which isn't flattered
+  or hurt by when you added money. If you held shares before you started recording,
+  add an opening deposit for what they cost, or cash shows below zero.
 - **Rights issues and bonus shares** (Add transaction → Type): an exercised rights issue
   (HMETD) is recorded as shares received at the exercise price, and blends into the
   average cost; bonus shares or a stock dividend as free shares, which keep the total

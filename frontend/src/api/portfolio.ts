@@ -5,6 +5,9 @@ import type {
   Portfolio,
   PortfolioRisk,
   TaxSummary,
+  Cash,
+  CashMovement,
+  CashMovementInput,
   Transaction,
   TransactionInput,
 } from './types'
@@ -52,4 +55,18 @@ export async function fetchTaxSummary(year: number): Promise<TaxSummary> {
     timeout: 60_000, // may fetch dividend history for tickers without it
   })
   return data
+}
+
+export async function fetchCash(): Promise<Cash> {
+  const { data } = await api.get<Cash>('/api/portfolio/cash')
+  return data
+}
+
+export async function addCashMovement(input: CashMovementInput): Promise<CashMovement> {
+  const { data } = await api.post<CashMovement>('/api/portfolio/cash', input)
+  return data
+}
+
+export async function deleteCashMovement(id: number): Promise<void> {
+  await api.delete(`/api/portfolio/cash/${id}`)
 }

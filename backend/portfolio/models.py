@@ -12,7 +12,7 @@ from sqlalchemy.orm import Mapped, mapped_column
 from database import Base
 from db.columns import created_at_column, stock_fk, user_fk
 from db.types import one_of
-from portfolio.schemas import TradeSide, TransactionKind
+from portfolio.schemas import CashKind, TradeSide, TransactionKind
 
 
 # --------------------------------------------------------------------------- #
@@ -69,3 +69,26 @@ class Transaction(Base):
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<Transaction {self.side} {self.quantity} {self.ticker}@{self.price}>"
+
+
+class CashMovement(Base):
+    """A deposit to or withdrawal from the user's trading account (RDN). With the
+    transactions and dividends it gives the cash balance (portfolio/cash.py)."""
+
+    __tablename__ = "cash_movements"
+    __table_args__ = (
+        one_of("kind", CashKind),
+        CheckConstraint("amount > 0", name="amount_positive"),
+        Index("ix_cash_movements_user_id_day", "user_id", "day"),
+    )
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = user_fk()
+    kind: Mapped[CashKind] = mapped_column(String(10), nullable=False)
+    amount: Mapped[float] = mapped_column(Double, nullable=False)
+    day: Mapped[date] = mapped_column(Date, nullable=False)
+    note: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    created_at: Mapped[datetime] = created_at_column()
+
+    def __repr__(self) -> str:  # pragma: no cover - debug helper
+        return f"<CashMovement {self.kind} {self.amount} {self.day}>"

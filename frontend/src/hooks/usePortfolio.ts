@@ -5,6 +5,7 @@ import {
   fetchPortfolioHistory,
   fetchPortfolioRisk,
   fetchTaxSummary,
+  fetchCash,
   fetchTransactions,
 } from '../api'
 import { useSettings } from '../lib/settings'
@@ -57,4 +58,9 @@ export function useTaxSummary(year: number) {
     queryKey: queryKeys.taxSummary(year),
     queryFn: () => fetchTaxSummary(year),
   })
+}
+
+/** Cash balance (RDN) and the return on the money put in. Refreshed with the portfolio. */
+export function useCash() {
+  return useQuery({ queryKey: queryKeys.cash, queryFn: fetchCash })
 }

@@ -18,6 +18,7 @@ TradeSide = Literal["buy", "sell"]
 # (HMETD: new shares at the exercise price), or bonus shares / a stock dividend
 # (new shares for free: the count rises, the total cost stays).
 TransactionKind = Literal["trade", "rights", "bonus"]
+CashKind = Literal["deposit", "withdrawal"]
 
 
 # --------------------------------------------------------------------------- #
@@ -239,3 +240,46 @@ class TaxSummaryOut(Schema):
     sales: list[TaxSaleOut]
     dividends: list[TaxDividendOut]
     totals: TaxTotals
+
+
+# --------------------------------------------------------------------------- #
+# Cash (the investor's RDN account)
+# --------------------------------------------------------------------------- #
+
+
+class CashMovementIn(Schema):
+    """Money moved into (deposit) or out of (withdrawal) the trading account."""
+
+    kind: CashKind
+    amount: float = Field(gt=0, le=1e15)
+    day: date
+    note: str | None = Field(default=None, max_length=255)
+
+
+class CashMovementOut(Schema):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    kind: CashKind
+    amount: float
+    day: date
+    note: str | None = None
+
+
+class CashOut(Schema):
+    """The cash balance derived from deposits, withdrawals, trades and dividends,
+    and the return on the money put in."""
+
+    movements: list[CashMovementOut]  # newest first
+    tracked: bool  # any deposits / withdrawals recorded
+    available: float  # cash usable now
+    settling: float  # sale proceeds not yet settled (T+2)
+    settles_on: date | None  # when the last of them arrives
+    balance: float  # available + settling
+    net_deposits: float  # deposits - withdrawals
+    market_value: float  # shares at the last price
+    account_value: float  # market value + balance
+    gain: float  # account value - net deposits
+    gain_pct: float | None  # of net deposits
+    annual_return_pct: float | None  # money-weighted, once a year of history
+    since: date | None  # first deposit
