@@ -1,0 +1,18 @@
+# HTTPS in front of Bursa (docker-compose.web.yml). Caddy gets and renews a
+# Let's Encrypt certificate for BURSA_DOMAIN by itself, redirects http:// to
+# https://, and passes requests to the frontend's nginx, which serves the app
+# and proxies /api to the backend.
+{
+	email {$ACME_EMAIL}
+}
+
+{$BURSA_DOMAIN} {
+	# Browsers use https:// only for this site from now on (a year). No
+	# includeSubDomains: other subdomains of yours may not have HTTPS.
+	header Strict-Transport-Security "max-age=31536000"
+	header -Server
+
+	# Caddy replaces any X-Forwarded-For a client sends with the real address;
+	# nginx trusts it from the Docker network (rate limits, sign-in throttling).
+	reverse_proxy frontend:8080
+}

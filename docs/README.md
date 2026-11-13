@@ -5,6 +5,7 @@ Start with the [project README](../README.md) for an overview and quick start.
 | Guide | What's inside |
 |---|---|
 | [Getting started](getting-started.md) | Running with Docker, resetting data, dev servers with hot reload |
+| [Running on the web](deployment.md) | A server with a domain and HTTPS: Yahoo check, server setup, first start, off-site backups, updates |
 | [Features](features.md) | Everything the app does, page by page, plus accessibility |
 | [Configuration](configuration.md) | Settings, `.env` keys, database (SQLite/PostgreSQL), providers, rate limits, AI assistant, Telegram |
 | [Architecture](architecture.md) | Project layout, database layer, data and sync tiers, caching, rate-limiting, limitations |

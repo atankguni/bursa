@@ -1,0 +1,42 @@
+# Running Bursa on the internet, with HTTPS (docs/deployment.md):
+#
+#   docker compose -f docker-compose.yml -f docker-compose.web.yml up -d --build
+#
+# Adds Caddy on ports 80/443 and stops publishing the frontend's port, so the
+# only way in is HTTPS through Caddy. Needs, in `.env` next to this file:
+#   BURSA_DOMAIN=bursa.example.com   (a DNS A/AAAA record pointing at this server)
+#   ACME_EMAIL=you@example.com       (Let's Encrypt expiry notices)
+# and PUBLIC_URL=https://bursa.example.com in backend/.env.
+services:
+  caddy:
+    image: caddy:2.11.7-alpine
+    environment:
+      - BURSA_DOMAIN=${BURSA_DOMAIN:?set BURSA_DOMAIN in .env}
+      - ACME_EMAIL=${ACME_EMAIL:?set ACME_EMAIL in .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp" # HTTP/3
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # certificates: keep them, or Let's Encrypt rate-limits re-issuing
+      - caddy-config:/config
+    # Least privilege, like the other services; binding 80/443 needs this one.
+    read_only: true
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    security_opt:
+      - no-new-privileges:true
+    depends_on:
+      - frontend
+    restart: unless-stopped
+
+  frontend:
+    # Reachable only through Caddy (the Docker network), not from outside.
+    ports: !reset []
+
+volumes:
+  caddy-data:
+  caddy-config:
