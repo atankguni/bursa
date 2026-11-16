@@ -9,20 +9,28 @@ import mail
 from accounts.auth import AuthError, lock_minutes
 from accounts.models import User
 from accounts.preferences import (
+    get_alert_emails,
     get_alerts_seen_at,
     get_assistant_personal_data,
     get_assistant_save_chats,
+    get_benchmark,
     get_daily_digest,
     get_display,
     get_investing_style,
+    get_quiet_hours,
+    get_risk_limits,
     get_trading_costs,
     mark_alerts_seen,
+    set_alert_emails,
     set_assistant_personal_data,
     set_assistant_save_chats,
+    set_benchmark,
     set_daily_digest,
     set_display,
     set_investing_style,
     set_lock_minutes,
+    set_quiet_hours,
+    set_risk_limits,
     set_trading_costs,
 )
 from accounts.schemas import PreferencesIn, PreferencesOut
@@ -43,6 +51,10 @@ async def _current(session: AsyncSession, user: User) -> PreferencesOut:
         trading_costs=await get_trading_costs(session, user.id),
         daily_digest=await get_daily_digest(session, user.id),
         lock_minutes=await lock_minutes(session, user),
+        alert_emails=await get_alert_emails(session, user.id),
+        quiet_hours=await get_quiet_hours(session, user.id),
+        benchmark=await get_benchmark(session, user.id),
+        risk_limits=await get_risk_limits(session, user.id),
     )
 
 
@@ -80,6 +92,14 @@ async def update_preferences(
             await set_lock_minutes(session, user, payload.lock_minutes)
         except AuthError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if payload.alert_emails is not None:
+        await set_alert_emails(session, user.id, payload.alert_emails)
+    if payload.quiet_hours_set:
+        await set_quiet_hours(session, user.id, payload.quiet_hours)
+    if payload.benchmark is not None:
+        await set_benchmark(session, user.id, payload.benchmark)
+    if payload.risk_limits is not None:
+        await set_risk_limits(session, user.id, payload.risk_limits)
     return await _current(session, user)
 
 

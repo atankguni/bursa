@@ -1,16 +1,9 @@
 import { CalendarDays } from 'lucide-react'
 import { useDividendCalendar } from '../hooks'
-import { fmtPrice } from '../lib/format'
+import { fmtDay, fmtPrice } from '../lib/format'
 import { SkeletonRows } from './ui/Skeleton'
 
 const MASK = '••••••'
-
-const fmtDay = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
 
 /** Expected dividends (projected from last year's ex-dates) for holdings + watchlist. */
 export default function DividendCalendar({ hideValues }: { hideValues: boolean }) {

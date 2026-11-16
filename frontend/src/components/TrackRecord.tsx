@@ -1,18 +1,12 @@
 import type { RatingRecord, TrackRecord as TrackRecordData } from '../api'
 import { useTrackRecord } from '../hooks'
 import { RATING_ORDER, ratingLabel, ratingTone } from '../lib/ratings'
+import { fmtDay, fmtNum } from '../lib/format'
 
 const HORIZON_TEXT: { [h: string]: string } = {
   '3m': 'the next 3 months',
   '4w': 'the next 4 weeks',
 }
-
-const fmtDay = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString(undefined, {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 
 /** Plain words for the rank correlation (rule of thumb from the backtest docs). */
 const edgeWord = (ic: number) =>
@@ -45,10 +39,10 @@ function BeatRow({ row, current }: { row: RatingRecord; current: boolean }) {
         <div className="absolute inset-y-[-2px] left-1/2 w-px bg-line-strong" />
       </div>
       <span className="w-9 text-right font-medium tabular-nums text-ink">
-        {pct.toFixed(0)}%
+        {fmtNum(pct)}%
       </span>
       <span className="hidden w-16 text-right text-2xs tabular-nums text-subtle sm:inline">
-        n={row.n.toLocaleString()}
+        n={fmtNum(row.n)}
       </span>
     </div>
   )
@@ -123,7 +117,7 @@ export default function TrackRecord({ current }: { current?: string | undefined 
             Overall edge:{' '}
             <span className="font-medium text-muted">{edgeWord(backtest.ic)}</span>{' '}
             (score-to-return correlation {backtest.ic >= 0 ? '+' : ''}
-            {backtest.ic.toFixed(2)})
+            {fmtNum(backtest.ic, 2)})
             {weakYears.length > 0 && <>, and it didn’t work in {weakYears.join(', ')}</>}.
             A backtest only covers stocks still listed today and was run on data the model
             was tuned on, so treat it as a best case.

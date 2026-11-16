@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest'
 import {
+  fmtDay,
+  fmtNum,
+  setDateStyle,
+  setNumberLocale,
   fmtChange,
   fmtCompact,
   fmtMoney,
@@ -117,5 +121,27 @@ describe('money', () => {
     expect(fmtMoneySigned(1200.4)).toBe('+1,200')
     expect(fmtMoneySigned(-3400)).toBe('−3,400')
     expect(fmtMoneySigned(0.2)).toBe('0')
+  })
+})
+
+describe('number and date styles', () => {
+  afterEach(() => {
+    setNumberLocale('en')
+    setDateStyle('text')
+  })
+  it('uses Indonesian separators when chosen', () => {
+    setNumberLocale('id')
+    expect(fmtNum(1234.5, 2)).toBe('1.234,50')
+    expect(fmtMoney(1_192_799)).toBe('1.192.799')
+    expect(fmtPct(1.234)).toBe('+1,23%')
+    expect(fmtPrice(9875)).toBe('9.875')
+  })
+  it('shows days as text or numbers, the same wherever the browser is', () => {
+    expect(fmtDay('2026-11-06')).toBe('6 Nov 2026')
+    expect(fmtDay('2026-11-06', { long: true, year: false })).toBe('6 November')
+    setDateStyle('numeric')
+    expect(fmtDay('2026-11-06')).toBe('06/11/2026')
+    expect(fmtDay('2026-11-06', { year: false })).toBe('06/11')
+    expect(fmtDay(null)).toBe('—')
   })
 })

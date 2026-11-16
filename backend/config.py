@@ -88,6 +88,8 @@ class Settings(BaseSettings):
     session_days: int = 30
     invite_days: int = 7
     password_reset_hours: int = 2
+    # How long the link confirming a new email address works.
+    email_change_hours: int = 24
     password_min_length: int = 12
     # Strength (accounts/passwords.py): zxcvbn guessability score 0-4 required.
     password_min_score: int = 3

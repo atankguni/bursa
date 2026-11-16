@@ -3,7 +3,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { deleteNote, saveNote, type HoldingNote, type HoldingNoteInput } from '../api'
 import { errorMessage } from '../api/client'
 import { queryKeys } from '../hooks'
-import { fmtPrice } from '../lib/format'
+import { fmtNum, fmtPrice } from '../lib/format'
 import Modal from './Modal'
 import { useToast } from '../lib/toast'
 
@@ -74,9 +74,7 @@ export default function NoteModal({
     (stopN != null && !(stopN > 0)) ||
     (targetN != null && stopN != null && stopN >= targetN)
   const away = (level: number | null) =>
-    price && level
-      ? `${((level / price - 1) * 100).toFixed(1)}% from the last price`
-      : null
+    price && level ? `${fmtNum((level / price - 1) * 100, 1)}% from the last price` : null
 
   const inputCls = 'input'
 

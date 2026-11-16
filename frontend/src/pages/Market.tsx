@@ -1,7 +1,7 @@
 import { type Mover } from '../api'
 import { useMarketOverview } from '../hooks'
 import { useSettings } from '../lib/settings'
-import { fmtPrice } from '../lib/format'
+import { fmtNum, fmtPct, fmtPrice } from '../lib/format'
 import IndicesPanel from '../components/IndicesPanel'
 import { SkeletonCard } from '../components/ui/Skeleton'
 
@@ -33,9 +33,7 @@ function MoverList({
             <div className="shrink-0 text-right">
               <div className="text-xs tabular-nums">{fmtPrice(m.price)}</div>
               <div className={`text-2xs font-medium tabular-nums ${tone}`}>
-                {m.change_percent == null
-                  ? '—'
-                  : `${m.change_percent > 0 ? '+' : ''}${m.change_percent.toFixed(2)}%`}
+                {m.change_percent == null ? '—' : fmtPct(m.change_percent)}
               </div>
             </div>
           </li>
@@ -113,7 +111,7 @@ export default function Market() {
                       className={`w-16 text-right font-medium tabular-nums ${tone(pct)}`}
                     >
                       {pct > 0 ? '+' : ''}
-                      {pct.toFixed(2)}%
+                      {fmtNum(pct, 2)}%
                     </span>
                   </div>
                 )
@@ -132,14 +130,12 @@ export default function Market() {
 /** Advancing / declining / unchanged across the whole exchange, as one bar. */
 function BreadthCard({ up, down, flat }: { up: number; down: number; flat: number }) {
   const total = up + down + flat || 1
-  const pct = (n: number) => `${((n / total) * 100).toFixed(0)}%`
+  const pct = (n: number) => `${fmtNum((n / total) * 100)}%`
   return (
     <div className="surface p-4 sm:p-5">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <div className="section-title">Market breadth</div>
-        <div className="text-2xs text-subtle">
-          {total.toLocaleString('en-US')} stocks traded
-        </div>
+        <div className="text-2xs text-subtle">{fmtNum(total)} stocks traded</div>
       </div>
       <div
         className="mt-3 flex h-2 overflow-hidden rounded-full bg-panelalt"

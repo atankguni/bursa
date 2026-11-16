@@ -13,13 +13,12 @@ from statistics import fmean
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from accounts.preferences import get_risk_limits
 from market.models import DailyBar, IndexBar, MarketIndex, StockProfile
 from portfolio.holdings import build_portfolio, equity_curve
 from portfolio.schemas import HoldingRiskOut, PortfolioRiskOut, SectorWeightOut
 
 STRESS_DROP_PCT = -10.0  # "if IHSG falls 10%"
-MAX_STOCK_WEIGHT = 25.0  # % of portfolio before warning
-MAX_SECTOR_WEIGHT = 40.0
 BETA_WINDOW = 250  # ~1 trading year of daily returns
 
 
@@ -110,18 +109,20 @@ async def portfolio_risk(session: AsyncSession, user_id: int) -> PortfolioRiskOu
     curve = await equity_curve(session, user_id)
     ranked = sorted((r.weight for r in rows), reverse=True)
 
+    # The user's own limits (Settings → Investing; 25% a stock, 40% a sector by default).
+    limits = await get_risk_limits(session, user_id)
     warnings: list[str] = []
     for r in rows:
-        if r.weight > MAX_STOCK_WEIGHT:
+        if r.weight > limits.stock_pct:
             warnings.append(
                 f"{r.ticker} is {r.weight:.0f}% of your portfolio "
-                f"(above {MAX_STOCK_WEIGHT:.0f}%)"
+                f"(above {limits.stock_pct:.0f}%)"
             )
     for s in sector_rows:
-        if s.weight > MAX_SECTOR_WEIGHT and len(rows) > 1:
+        if s.weight > limits.sector_pct and len(rows) > 1:
             warnings.append(
                 f"{s.sector} is {s.weight:.0f}% of your portfolio "
-                f"(above {MAX_SECTOR_WEIGHT:.0f}%)"
+                f"(above {limits.sector_pct:.0f}%)"
             )
     if port_beta is not None and port_beta > 1.2:
         warnings.append(f"Beta {port_beta}: your portfolio swings more than the market")
@@ -145,4 +146,6 @@ async def portfolio_risk(session: AsyncSession, user_id: int) -> PortfolioRiskOu
             [p.return_pct for p in curve if p.return_pct is not None]
         ),
         warnings=warnings,
+        stock_limit_pct=limits.stock_pct,
+        sector_limit_pct=limits.sector_pct,
     )

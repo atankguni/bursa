@@ -34,6 +34,10 @@ SecurityEventKind = Literal[
     "account_enabled",
     "role_changed",
     "session_unlocked",
+    "name_changed",
+    "email_change_requested",
+    "email_changed",
+    "portfolio_cleared",
 ]
 
 # Minutes without use before a browser locks (0 = never), see config.lock_*.
@@ -66,6 +70,16 @@ class DisplaySettings(Schema):
     number_format: Literal["compact", "full"] = "compact"
     colorize_changes: bool = True
     hidden_columns: HiddenColumns = Field(default_factory=HiddenColumns)
+    # 1,234.50 ("en") or the Indonesian 1.234,50 ("id").
+    number_locale: Literal["en", "id"] = "en"
+    # 16 Nov 2026 ("text") or 16/11/2026 ("numeric").
+    date_style: Literal["text", "numeric"] = "text"
+    # What opens after signing in.
+    start_page: Literal["home", "watchlist", "portfolio"] = "home"
+    # Portfolio amounts start hidden each time the page opens.
+    hide_values_on_open: bool = False
+    # The trade form's quantity unit.
+    trade_unit: Literal["lots", "shares"] = "lots"
 
 
 class TradingCosts(Schema):
@@ -78,6 +92,28 @@ class TradingCosts(Schema):
     buy_fee_pct: float = Field(default=0.1513, ge=0, le=5)
     sell_fee_pct: float = Field(default=0.2513, ge=0, le=5)
     dividend_tax_pct: float = Field(default=10.0, ge=0, le=50)
+
+
+# Indices with a full daily history (market/indices.py), so a portfolio can be
+# compared with them over any period.
+Benchmark = Literal["COMPOSITE", "LQ45", "JII"]
+
+_Clock = Annotated[str, StringConstraints(pattern=r"^([01]\d|2[0-3]):[0-5]\d$")]
+
+
+class QuietHours(Schema):
+    """No alert emails between `start` and `end` (Jakarta time; may cross midnight).
+    Emails due in that time wait and are sent together when it ends."""
+
+    start: _Clock = "22:00"
+    end: _Clock = "07:00"
+
+
+class RiskLimits(Schema):
+    """The Risk tab warns when one stock / one sector is above these (% of the portfolio)."""
+
+    stock_pct: float = Field(default=25.0, ge=5, le=100)
+    sector_pct: float = Field(default=40.0, ge=5, le=100)
 
 
 class PreferencesOut(Schema):
@@ -97,6 +133,11 @@ class PreferencesOut(Schema):
     # Lock this browser after this many minutes without use (0 = never). For
     # admins, already capped at config.lock_admin_max_minutes.
     lock_minutes: int = 15
+    # Email each triggered alert (opt-in), outside the quiet hours if set.
+    alert_emails: bool = False
+    quiet_hours: QuietHours | None = None
+    benchmark: Benchmark = "COMPOSITE"
+    risk_limits: RiskLimits = Field(default_factory=RiskLimits)
 
 
 class PreferencesIn(Schema):
@@ -111,6 +152,16 @@ class PreferencesIn(Schema):
     trading_costs: TradingCosts | None = None
     daily_digest: bool | None = None
     lock_minutes: LockMinutes | None = None
+    alert_emails: bool | None = None
+    # Sending the field with null turns quiet hours off (see quiet_hours_set).
+    quiet_hours: QuietHours | None = None
+    benchmark: Benchmark | None = None
+    risk_limits: RiskLimits | None = None
+
+    @property
+    def quiet_hours_set(self) -> bool:
+        """Whether quiet_hours was sent (null included), not just left out."""
+        return "quiet_hours" in self.model_fields_set
 
 
 # --------------------------------------------------------------------------- #
@@ -136,6 +187,7 @@ class MeOut(Schema):
     # Idle too long: everything but /me, unlock, lock and sign-out answers 423
     # until the password is entered again.
     locked: bool = False
+    created_at: datetime
 
 
 class UnlockIn(Schema):
@@ -304,3 +356,31 @@ class AdminSecurityEventOut(SecurityEventOut):
     user_id: int
     user_name: str
     user_email: str
+
+
+# --------------------------------------------------------------------------- #
+# Your profile and account (accounts/routes/account.py)
+# --------------------------------------------------------------------------- #
+class NameIn(Schema):
+    name: str = Field(max_length=200)
+
+
+class EmailChangeIn(Schema):
+    new_email: str = Field(max_length=254)
+    password: str = Field(max_length=256)
+
+
+class EmailChangeOut(Schema):
+    """A change waiting for its confirmation link to be opened."""
+
+    new_email: str
+
+
+class DeleteAccountIn(Schema):
+    password: str = Field(max_length=256)
+    # Typed by the user, so a stray click can't delete an account.
+    confirm: Literal["DELETE"]
+
+
+class ClearPortfolioIn(Schema):
+    password: str = Field(max_length=256)

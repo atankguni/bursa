@@ -19,7 +19,7 @@ import {
   useStocks,
   useWatchToggle,
 } from '../hooks'
-import { useSettings } from '../lib/settings'
+import { useHideValuesOnOpen, useSettings } from '../lib/settings'
 import {
   fmtChange,
   fmtDateTime,
@@ -140,6 +140,7 @@ export default function Home() {
   const ihsg = indices?.find((i) => i.code === 'COMPOSITE')
   const { data: pf } = usePortfolio()
   const holdingsCount = pf?.holdings.length ?? 0
+  useHideValuesOnOpen()
   const hideValues = settings.hidePortfolioValues
   const toneOf = (v: number | null | undefined) =>
     !settings.colorizeChanges || v == null || v === 0

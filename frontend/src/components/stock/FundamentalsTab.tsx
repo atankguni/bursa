@@ -2,7 +2,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { fetchFundamentals } from '../../api'
 import { queryKeys, useDividends, useFundamentals, useValuation } from '../../hooks'
-import { fmtPercent, fmtPrice, fmtRatio } from '../../lib/format'
+import { fmtNum, fmtPercent, fmtPrice, fmtRatio } from '../../lib/format'
 import FundamentalsPanel from '../FundamentalsPanel'
 import SubTabs from '../SubTabs'
 import Term from '../Term'
@@ -92,7 +92,7 @@ function ValuationCard({ ticker }: { ticker: string }) {
             </div>
             <div className="mt-1 text-2xs text-subtle">
               {row.pct != null ? (
-                <Term id="percentile">{`${row.pct.toFixed(0)}th percentile`}</Term>
+                <Term id="percentile">{`${fmtNum(row.pct)}th percentile`}</Term>
               ) : (
                 '—'
               )}{' '}
@@ -124,7 +124,7 @@ function DividendsCard({ ticker }: { ticker: string }) {
             <>
               {' · yield '}
               <span className="font-medium text-bull">
-                {dividends.data.yield_percent.toFixed(2)}%
+                {fmtNum(dividends.data.yield_percent, 2)}%
               </span>
             </>
           )}

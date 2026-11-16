@@ -4,7 +4,7 @@ import { ArrowLeft, Download, Printer } from 'lucide-react'
 import { errorMessage } from '../api'
 import { useStatus, useTaxSummary } from '../hooks'
 import { useSettings } from '../lib/settings'
-import { fmtPrice } from '../lib/format'
+import { fmtDay, fmtPrice } from '../lib/format'
 import { downloadTaxCsv } from '../lib/taxCsv'
 import TickerName from '../components/TickerName'
 
@@ -13,12 +13,7 @@ function defaultYear(now = new Date()) {
   return now.getMonth() < 3 ? now.getFullYear() - 1 : now.getFullYear()
 }
 
-const fmtDay = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  })
+const fmtLongDay = (iso: string) => fmtDay(iso, { long: true })
 
 const th = 'px-3 py-2 font-medium'
 const td = 'px-3 py-1.5 tabular-nums'
@@ -96,13 +91,13 @@ export default function TaxSummary() {
         <div className="space-y-6">
           {!s.final && (
             <p className="rounded-md bg-amber-500/10 px-3 py-2 text-xs text-amber-700 ring-1 ring-amber-500/20 dark:text-amber-400">
-              {s.year} isn&apos;t over: these are the figures as of {fmtDay(s.as_of)}. The
-              return uses 31 December, so check again after the year ends.
+              {s.year} isn&apos;t over: these are the figures as of {fmtLongDay(s.as_of)}.
+              The return uses 31 December, so check again after the year ends.
             </p>
           )}
 
           <Section
-            title={`Shares held on ${fmtDay(s.as_of)}`}
+            title={`Shares held on ${fmtLongDay(s.as_of)}`}
             hint="SPT: Harta (Lampiran 1 Bagian A). Report each stock at its acquisition cost (harga perolehan) with the year acquired. Your broker's annual tax statement shows the same figures: check them against it."
           >
             <table className="w-full whitespace-nowrap text-left text-xs">
@@ -175,7 +170,7 @@ export default function TaxSummary() {
                 {s.dividends.length === 0 && <Empty cols={7}>No cash dividends.</Empty>}
                 {s.dividends.map((d) => (
                   <tr key={`${d.ticker}-${d.ex_date}`}>
-                    <td className={td}>{fmtDay(d.ex_date)}</td>
+                    <td className={td}>{fmtLongDay(d.ex_date)}</td>
                     <td className={`${td} font-semibold`}>{d.ticker}</td>
                     <td className={`${td} text-right`}>
                       {hide ? '••••' : fmtPrice(d.shares)}

@@ -5,6 +5,8 @@ import { usePreferences, useStatus, useStocks } from '../hooks'
 import Modal from './Modal'
 import { errorMessage } from '../api/client'
 import { useToast } from '../lib/toast'
+import { fmtNum } from '../lib/format'
+import { useSettings } from '../lib/settings'
 
 /** What the form records: trades, plus shares received from corporate actions. */
 type Entry = 'buy' | 'sell' | 'rights' | 'bonus'
@@ -40,9 +42,13 @@ export default function TransactionModal({
   const [entry, setEntry] = useState<Entry>(initial?.side ?? 'buy')
   const side = entry === 'sell' ? 'sell' : 'buy'
   const free = entry === 'bonus' // no price, no fees
-  const [unit, setUnit] = useState<'lots' | 'shares'>('lots')
+  const { settings } = useSettings()
+  // Settings → Investing → Enter trades in.
+  const [unit, setUnit] = useState<'lots' | 'shares'>(settings.tradeUnit)
   const [quantity, setQuantity] = useState(
-    initial?.lots != null ? String(initial.lots) : '',
+    initial?.lots == null
+      ? ''
+      : String(settings.tradeUnit === 'lots' ? initial.lots : initial.lots * lotSize),
   )
   const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '')
   // Fee follows Settings → Trading costs until the user types their own.
@@ -191,9 +197,7 @@ export default function TransactionModal({
               className={inputCls}
             />
             {unit === 'lots' && quantity !== '' && (
-              <p className="mt-1 text-2xs text-subtle">
-                = {shares.toLocaleString('en-US')} shares
-              </p>
+              <p className="mt-1 text-2xs text-subtle">= {fmtNum(shares)} shares</p>
             )}
           </div>
           {!free && (

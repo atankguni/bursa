@@ -1,14 +1,8 @@
 /** The stock pop-up's key facts: the latest day's open/high/low/volume and the 52-week range. */
 import { useHistory } from '../../hooks'
-import { fmtPrice, fmtVolume, parseServerTime } from '../../lib/format'
+import { fmtDay, fmtPrice, fmtVolume, parseServerTime } from '../../lib/format'
 
 const YEAR_S = 365 * 24 * 3600
-const dayFmt = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC', // daily bars sit at midnight UTC of their trading date
-})
 const jakartaDay = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jakarta' })
 
 export default function StockFacts({
@@ -83,7 +77,8 @@ export default function StockFacts({
       </div>
       {!isToday && (
         <p className="w-full text-2xs text-subtle">
-          Day figures are from {dayFmt.format(new Date(dayTime))}, the latest trading day.
+          Day figures are from {fmtDay(new Date(dayTime), { timeZone: 'UTC' })}, the
+          latest trading day.
         </p>
       )}
     </div>

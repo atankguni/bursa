@@ -1,5 +1,6 @@
 import { AlertCircle, ExternalLink } from 'lucide-react'
 import type { Company } from '../api'
+import { fmtNum } from '../lib/format'
 
 export default function CompanyPanel({
   data,
@@ -32,7 +33,10 @@ export default function CompanyPanel({
   const facts = [
     { label: 'Sector', value: data.sector },
     { label: 'Industry', value: data.industry },
-    { label: 'Employees', value: data.employees?.toLocaleString('en-US') },
+    {
+      label: 'Employees',
+      value: data.employees != null ? fmtNum(data.employees) : undefined,
+    },
     { label: 'Country', value: data.country },
     { label: 'City', value: data.city },
     { label: 'Address', value: data.address },

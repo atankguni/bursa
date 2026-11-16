@@ -2,10 +2,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   fetchPreferences,
   updatePreferences,
+  type Benchmark,
   type Preferences,
+  type QuietHours,
+  type RiskLimits,
   type TradingCosts,
 } from '../api'
 import { queryKeys } from './keys'
+
+export const DEFAULT_RISK_LIMITS: RiskLimits = { stock_pct: 25, sector_pct: 40 }
+
+/** Benchmarks with a full history, and their short names. */
+export const BENCHMARKS: { value: Benchmark; label: string }[] = [
+  { value: 'COMPOSITE', label: 'IHSG' },
+  { value: 'LQ45', label: 'LQ45' },
+  { value: 'JII', label: 'JII' },
+]
+export const benchmarkLabel = (b: Benchmark) =>
+  BENCHMARKS.find((x) => x.value === b)?.label ?? b
 
 export const DEFAULT_COSTS: TradingCosts = {
   buy_fee_pct: 0.1513,
@@ -54,7 +68,11 @@ export function usePreferences() {
       ) {
         void qc.invalidateQueries({ queryKey: queryKeys.assistantStatus })
       }
-      if (patch.trading_costs !== undefined) {
+      if (
+        patch.trading_costs !== undefined ||
+        patch.benchmark !== undefined ||
+        patch.risk_limits !== undefined
+      ) {
         void qc.invalidateQueries({ queryKey: ['portfolio'] })
       }
       if (patch.assistant_save_chats === false) {
@@ -74,6 +92,16 @@ export function usePreferences() {
     setLockMinutes: (lock_minutes: Preferences['lock_minutes']) =>
       mutation.mutate({ lock_minutes }),
     setDailyDigest: (daily_digest: boolean) => mutation.mutate({ daily_digest }),
+    alertEmails: query.data?.alert_emails ?? false,
+    setAlertEmails: (alert_emails: boolean) => mutation.mutate({ alert_emails }),
+    /** null = off. */
+    quietHours: query.data?.quiet_hours ?? null,
+    setQuietHours: (quiet_hours: QuietHours | null) => mutation.mutate({ quiet_hours }),
+    /** The index the portfolio's return is compared with. */
+    benchmark: query.data?.benchmark ?? 'COMPOSITE',
+    setBenchmark: (benchmark: Benchmark) => mutation.mutate({ benchmark }),
+    riskLimits: query.data?.risk_limits ?? DEFAULT_RISK_LIMITS,
+    setRiskLimits: (risk_limits: RiskLimits) => mutation.mutate({ risk_limits }),
     setTradingCosts: (trading_costs: TradingCosts) => mutation.mutate({ trading_costs }),
     setStyle: (investing_style: Preferences['investing_style']) =>
       mutation.mutate({ investing_style }),

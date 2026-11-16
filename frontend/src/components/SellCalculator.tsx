@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Holding } from '../api'
 import { useMarketStatus, usePreferences, useStatus } from '../hooks'
-import { fmtPrice } from '../lib/format'
+import { fmtDay, fmtNum, fmtPrice } from '../lib/format'
 import {
   estimateSale,
   floorToStep,
@@ -11,13 +11,7 @@ import {
 } from '../lib/sellEstimate'
 import Modal from './Modal'
 
-const fmtDay = (iso: string) =>
-  new Date(`${iso}T00:00:00`).toLocaleDateString('en-GB', {
-    weekday: 'short',
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  })
+const fmtTradeDay = (iso: string) => fmtDay(iso, { weekday: true })
 
 const signed = (v: number) =>
   `${v > 0 ? '+' : v < 0 ? '−' : ''}Rp ${fmtPrice(Math.abs(v))}`
@@ -86,9 +80,9 @@ export default function SellCalculator({
       <div className="space-y-4">
         {maxLots === 0 ? (
           <p className="text-xs text-muted">
-            You hold {holding.quantity.toLocaleString('en-US')} shares, less than one lot
-            ({lotSize} shares). Odd lots sell in IDX&apos;s odd-lot market, usually at a
-            different price.
+            You hold {fmtNum(holding.quantity)} shares, less than one lot ({lotSize}{' '}
+            shares). Odd lots sell in IDX&apos;s odd-lot market, usually at a different
+            price.
           </p>
         ) : (
           <>
@@ -115,7 +109,7 @@ export default function SellCalculator({
                 />
                 <p className="mt-1 text-2xs text-subtle">
                   {lotsOk
-                    ? `= ${(lotsN * lotSize).toLocaleString('en-US')} shares`
+                    ? `= ${fmtNum(lotsN * lotSize)} shares`
                     : `1 to ${maxLots} lots`}
                 </p>
               </div>
@@ -166,8 +160,8 @@ export default function SellCalculator({
                 {market?.settlement_date && (
                   <Line
                     label="Arrives on"
-                    hint={`Sold on ${fmtDay(market.trade_date ?? market.settlement_date)}; IDX settles two trading days later (T+2)`}
-                    value={fmtDay(market.settlement_date)}
+                    hint={`Sold on ${fmtTradeDay(market.trade_date ?? market.settlement_date)}; IDX settles two trading days later (T+2)`}
+                    value={fmtTradeDay(market.settlement_date)}
                   />
                 )}
                 <div className="border-t border-line pt-1.5">
@@ -180,7 +174,7 @@ export default function SellCalculator({
                     label="Profit / loss"
                     value={`${signed(sale.pl)}${
                       sale.plPct != null
-                        ? ` (${sale.plPct > 0 ? '+' : ''}${sale.plPct.toFixed(2)}%)`
+                        ? ` (${sale.plPct > 0 ? '+' : ''}${fmtNum(sale.plPct, 2)}%)`
                         : ''
                     }`}
                     tone={sale.pl > 0 ? 'text-bull' : sale.pl < 0 ? 'text-bear' : ''}

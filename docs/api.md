@@ -39,6 +39,18 @@ user's own data. Writes from another site's page are refused (`403`).
 | POST   | `/api/auth/password-reset` | Public: email a reset link (needs email set up) |
 | GET/POST | `/api/auth/password-reset/{token}` | Public: check a reset link / set the new password |
 
+## Your account
+
+| Method | Path | Description |
+|--------|------|-------------|
+| PUT    | `/api/account/name` | Change your name (`name`); returns the user |
+| GET    | `/api/account/email-change` | The change waiting for its link (`new_email`), or `null` |
+| POST   | `/api/account/email-change` | `new_email`, `password`: email a confirmation link to the new address (expires after `EMAIL_CHANGE_HOURS`, 24) and tell the old one. `409` without email set up |
+| DELETE | `/api/account/email-change` | Cancel the waiting change |
+| GET/POST | `/api/account/email-change/{token}` | Public: check a confirmation link / switch to the new address (the old one is told) |
+| POST   | `/api/account/clear-portfolio` | `password`: delete your transactions, cash movements and notes (watchlist, alerts and settings stay) |
+| POST   | `/api/account/delete` | `password`, `confirm: "DELETE"`: delete your account and everything in it, and sign out. Refused for the only admin |
+
 ## Admin
 
 All admin only.
@@ -63,7 +75,7 @@ All admin only.
 | GET    | `/api/providers` | Active data providers + registry |
 | GET    | `/api/indexes` | Available index names |
 | GET    | `/api/data-health` | Jobs, freshness, coverage, suspicious values (admin) |
-| GET/PUT | `/api/preferences` | Your preferences: investing style, assistant access to your data, `assistant_save_chats` (`false` also deletes saved chats), `display` settings (camelCase, as the Settings menu), `alerts_seen_at` (only moves forward), `trading_costs` (buy/sell fee and dividend tax, %), `daily_digest` (summary email) |
+| GET/PUT | `/api/preferences` | Your preferences: investing style, assistant access to your data, `assistant_save_chats` (`false` also deletes saved chats), `display` settings (camelCase, as the Settings menu), `alerts_seen_at` (only moves forward), `trading_costs` (buy/sell fee and dividend tax, %), `daily_digest` (summary email), `alert_emails`, `quiet_hours` (`{start, end}` as `HH:MM` Jakarta time, or `null`), `benchmark` (`COMPOSITE`, `LQ45` or `JII`), `risk_limits` (`stock_pct`, `sector_pct`) |
 | POST   | `/api/preferences/digest/preview` | Email today's summary to yourself now (409 without email or followed stocks) |
 
 ## Stocks

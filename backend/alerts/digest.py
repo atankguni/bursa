@@ -219,7 +219,7 @@ def render(d: Digest, name: str) -> Email:
     if not parts:
         parts = [("Quiet day", ["Nothing moved for the stocks you follow."])]
     link = f"{settings.public_url.rstrip('/')}/"
-    off = "Turn this email off in Settings → Investing."
+    off = "Turn this email off in Settings → Notifications."
     text = "\n\n".join(
         [f"Hi {name}, here's your day on the IDX."]
         + [f"{h}\n" + "\n".join(f"- {line}" for line in lines) for h, lines in parts]

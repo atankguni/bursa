@@ -1,9 +1,10 @@
 import { AlertTriangle } from 'lucide-react'
 import { usePortfolioRisk } from '../hooks'
 import { useSettings } from '../lib/settings'
+import { fmtNum } from '../lib/format'
 
 const pct = (v: number | null | undefined, digits = 1) =>
-  v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(digits)}%`
+  v == null ? '—' : `${v > 0 ? '+' : ''}${fmtNum(v, digits)}%`
 
 function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -57,10 +58,10 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
         />
         <Stat
           label="Beta vs IHSG"
-          value={r.beta != null ? r.beta.toFixed(2) : '—'}
+          value={r.beta != null ? fmtNum(r.beta, 2) : '—'}
           hint={
             r.beta != null
-              ? `Moves ~${r.beta.toFixed(1)}× the market`
+              ? `Moves ~${fmtNum(r.beta, 1)}× the market`
               : 'Needs ~2 months of prices'
           }
         />
@@ -95,8 +96,9 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
         <div className="mt-4">
           <div className="section-title mb-1">Sector exposure</div>
           <p className="mb-3 text-2xs text-subtle">
-            Share of your portfolio&apos;s value; amber above 40%, where one sector&apos;s
-            bad news moves most of it.
+            Share of your portfolio&apos;s value; amber above {fmtNum(r.sector_limit_pct)}
+            % (your limit in Settings → Investing), where one sector&apos;s bad news moves
+            most of it.
           </p>
           <div className="space-y-2.5">
             {r.sectors.map((s) => (
@@ -109,12 +111,12 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
                 </span>
                 <div className="h-2 flex-1 overflow-hidden rounded-full bg-panelalt">
                   <div
-                    className={`h-full rounded-full ${s.weight > 40 ? 'bg-amber-500' : 'bg-accent'}`}
+                    className={`h-full rounded-full ${s.weight > r.sector_limit_pct ? 'bg-amber-500' : 'bg-accent'}`}
                     style={{ width: `${Math.max(s.weight, 2)}%` }}
                   />
                 </div>
                 <span className="w-12 text-right font-medium tabular-nums text-ink">
-                  {s.weight.toFixed(0)}%
+                  {fmtNum(s.weight)}%
                 </span>
               </div>
             ))}
@@ -122,7 +124,7 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
           <p className="mt-2 text-2xs text-subtle">
             Beta per stock:{' '}
             {r.holdings
-              .map((h) => `${h.ticker} ${h.beta != null ? h.beta.toFixed(2) : '—'}`)
+              .map((h) => `${h.ticker} ${h.beta != null ? fmtNum(h.beta, 2) : '—'}`)
               .join(' · ')}
           </p>
         </div>

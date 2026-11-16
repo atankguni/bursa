@@ -13,8 +13,9 @@ from datetime import date, timedelta
 
 from sqlalchemy import select
 
+import mail
 from accounts.models import User
-from accounts.preferences import styles_by_user
+from accounts.preferences import alert_email_settings, styles_by_user
 from alerts.models import Alert, AlertEvent, RatingState
 from alerts.notify import send_quietly
 from clock import local_today, utcnow
@@ -134,6 +135,12 @@ async def evaluate_alerts() -> int:
             )
         ).scalars().all())
 
+        # Users who want their alerts by email (alerts/emails.py sends them).
+        emailed: set[int] = set()
+        if mail.configured():
+            wants = await alert_email_settings(session, user_ids)
+            emailed = {uid for uid, (on, _) in wants.items() if on}
+
         cooldown = timedelta(hours=settings.alert_cooldown_hours)
         outbox: list[str] = []  # sent after the events are safely committed (admins only)
         now = utcnow()
@@ -157,7 +164,8 @@ async def evaluate_alerts() -> int:
                     continue
                 message = _dividend_message(a.ticker, upcoming[a.ticker])
                 session.add(AlertEvent(user_id=a.user_id, alert_id=a.id, ticker=a.ticker,
-                                       triggered_at=now, value=due, message=message))
+                                       triggered_at=now, value=due, message=message,
+                                       email_pending=a.user_id in emailed))
                 a.last_triggered_at = now
                 created += 1
                 if a.user_id in admins:
@@ -204,6 +212,7 @@ async def evaluate_alerts() -> int:
                     triggered_at=now,
                     value=value,
                     message=message,
+                    email_pending=a.user_id in emailed,
                 )
             )
             a.last_triggered_at = now
@@ -217,4 +226,8 @@ async def evaluate_alerts() -> int:
         log.info("Alerts: %d event(s) created", created)
     for message in outbox:  # in-app events are recorded first; delivery is best-effort
         await send_quietly(f"🔔 Bursa: {message}")
+    if created:
+        from alerts.emails import send_alert_emails
+
+        await send_alert_emails()
     return created

@@ -8,6 +8,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from accounts.models import User
+from accounts.preferences import get_benchmark
 from clock import local_today
 from deps import current_user, get_session
 from market import index_quotes as index_service
@@ -155,8 +156,8 @@ async def portfolio_history(
     session: AsyncSession = Depends(get_session),
     user: User = Depends(current_user),
 ) -> list[EquityPoint]:
-    # IHSG benchmark needs its history (fetched once, then stored).
-    await index_service.ensure_full_history(session, "COMPOSITE")
+    # The benchmark needs its history (fetched once, then stored).
+    await index_service.ensure_full_history(session, await get_benchmark(session, user.id))
     return await equity_curve(session, user.id)
 
 

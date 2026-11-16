@@ -1,6 +1,14 @@
-/** Display: number format, charts and auto-refresh (your account). */
-import { useSettings, type NumberFormat } from '../../lib/settings'
+/** Display: numbers, dates, the start page, charts and auto-refresh (your account). */
+import {
+  useSettings,
+  type DateStyle,
+  type NumberFormat,
+  type NumberLocale,
+  type StartPage,
+} from '../../lib/settings'
 import { ListRow, Rows, Segmented, Switch } from './controls'
+
+const START_PAGES: StartPage[] = ['home', 'watchlist', 'portfolio']
 
 export default function DisplaySection() {
   const { settings, update } = useSettings()
@@ -14,6 +22,55 @@ export default function DisplaySection() {
             { value: 'compact', label: 'Compact' },
             { value: 'full', label: 'Full' },
           ]}
+        />
+      </ListRow>
+      <ListRow
+        label="Number style"
+        hint={
+          settings.numberLocale === 'id' ? 'Rp 1.234.567 · 12,5%' : 'Rp 1,234,567 · 12.5%'
+        }
+      >
+        <Segmented<NumberLocale>
+          value={settings.numberLocale}
+          onChange={(v) => update({ numberLocale: v })}
+          options={[
+            { value: 'en', label: '1,234.5' },
+            { value: 'id', label: '1.234,5' },
+          ]}
+        />
+      </ListRow>
+      <ListRow label="Dates">
+        <Segmented<DateStyle>
+          value={settings.dateStyle}
+          onChange={(v) => update({ dateStyle: v })}
+          options={[
+            { value: 'text', label: '16 Nov 2026' },
+            { value: 'numeric', label: '16/11/2026' },
+          ]}
+        />
+      </ListRow>
+      <ListRow label="Start page" hint="What opens first when you come to Bursa">
+        <select
+          value={settings.startPage}
+          onChange={(e) => {
+            const page = START_PAGES.find((x) => x === e.target.value)
+            if (page) update({ startPage: page })
+          }}
+          className="input input-sm w-auto"
+        >
+          <option value="home">Home</option>
+          <option value="watchlist">Watchlist</option>
+          <option value="portfolio">Portfolio</option>
+        </select>
+      </ListRow>
+      <ListRow
+        label="Hide portfolio amounts on open"
+        hint="Amounts start as ••• each time; the eye button shows them"
+      >
+        <Switch
+          label="Hide portfolio amounts on open"
+          checked={settings.hideValuesOnOpen}
+          onChange={(v) => update({ hideValuesOnOpen: v })}
         />
       </ListRow>
       <ListRow label="Chart type">

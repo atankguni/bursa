@@ -15,7 +15,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from accounts.models import User, UserSettings
-from accounts.schemas import DisplaySettings, TradingCosts
+from accounts.schemas import Benchmark, DisplaySettings, QuietHours, RiskLimits, TradingCosts
 from alerts.models import RatingState
 from clock import as_utc
 from db.upsert import upsert
@@ -178,3 +178,78 @@ async def mark_alerts_seen(session: AsyncSession, user_id: int, up_to: datetime)
     if current is None or up_to > current:
         await _save(session, user_id, alerts_seen_at=up_to)
         await session.commit()
+
+
+# --- notifications -------------------------------------------------------------
+async def get_alert_emails(session: AsyncSession, user_id: int) -> bool:
+    """Opt-in: email each triggered alert (alerts/emails.py)."""
+    row = await _row(session, user_id)
+    return row.alert_emails if row else False
+
+
+async def set_alert_emails(session: AsyncSession, user_id: int, enabled: bool) -> None:
+    await _save(session, user_id, alert_emails=enabled)
+    await session.commit()
+
+
+def _quiet(raw: dict[str, Any] | None, user_id: int) -> QuietHours | None:
+    if raw is None:
+        return None
+    try:
+        return QuietHours.model_validate(raw)
+    except ValidationError:
+        log.warning("Ignoring invalid quiet hours of user %d", user_id)
+        return None
+
+
+async def get_quiet_hours(session: AsyncSession, user_id: int) -> QuietHours | None:
+    row = await _row(session, user_id)
+    return _quiet(row.quiet_hours if row else None, user_id)
+
+
+async def set_quiet_hours(session: AsyncSession, user_id: int, quiet: QuietHours | None) -> None:
+    """None turns quiet hours off."""
+    await _save(session, user_id, quiet_hours=quiet.model_dump(mode="json") if quiet else None)
+    await session.commit()
+
+
+async def alert_email_settings(
+    session: AsyncSession, user_ids: set[int]
+) -> dict[int, tuple[bool, QuietHours | None]]:
+    """(alert emails on?, quiet hours) of several users at once."""
+    rows = (
+        await session.execute(
+            select(UserSettings.user_id, UserSettings.alert_emails, UserSettings.quiet_hours)
+            .where(UserSettings.user_id.in_(user_ids))
+        )
+    ).tuples().all()
+    found = {uid: (on, _quiet(q, uid)) for uid, on, q in rows}
+    return {uid: found.get(uid, (False, None)) for uid in user_ids}
+
+
+# --- investing -----------------------------------------------------------------
+async def get_benchmark(session: AsyncSession, user_id: int) -> Benchmark:
+    """The index the portfolio's return is compared with (IHSG until chosen)."""
+    row = await _row(session, user_id)
+    return row.benchmark if row and row.benchmark else "COMPOSITE"
+
+
+async def set_benchmark(session: AsyncSession, user_id: int, code: Benchmark) -> None:
+    await _save(session, user_id, benchmark=code)
+    await session.commit()
+
+
+async def get_risk_limits(session: AsyncSession, user_id: int) -> RiskLimits:
+    """When the Risk tab warns about concentration (defaults until saved)."""
+    row = await _row(session, user_id)
+    if row is not None and row.risk_limits is not None:
+        try:
+            return RiskLimits.model_validate(row.risk_limits)
+        except ValidationError:
+            log.warning("Ignoring invalid risk limits of user %d", user_id)
+    return RiskLimits()
+
+
+async def set_risk_limits(session: AsyncSession, user_id: int, limits: RiskLimits) -> None:
+    await _save(session, user_id, risk_limits=limits.model_dump(mode="json"))
+    await session.commit()

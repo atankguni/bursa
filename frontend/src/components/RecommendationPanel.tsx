@@ -5,6 +5,7 @@ import { CONVICTION_DOTS, ratingLabel, ratingTone } from '../lib/ratings'
 import TrackRecord from './TrackRecord'
 import Term from './Term'
 import { categoryEntry } from '../lib/glossary'
+import { fmtNum } from '../lib/format'
 
 interface Props {
   data?: Recommendation | undefined
@@ -56,7 +57,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
       <div className="flex flex-wrap items-center gap-4 rounded-md bg-panelalt/60 px-4 py-3">
         <div className="flex items-baseline gap-2">
           <span className={`text-3xl font-bold ${ratingTone(data.rating)}`}>
-            {data.score.toFixed(0)}
+            {fmtNum(data.score)}
           </span>
           <span className="text-xs text-subtle">
             <Term id="score">/ 100</Term>
@@ -90,9 +91,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
           <div>
             <Term id="coverage">Data coverage</Term>
           </div>
-          <div className="font-medium text-muted">
-            {(data.coverage * 100).toFixed(0)}%
-          </div>
+          <div className="font-medium text-muted">{fmtNum(data.coverage * 100)}%</div>
         </div>
       </div>
 
@@ -106,9 +105,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
               ) : (
                 c.name
               )}
-              <span className="ml-1 text-2xs text-subtle">
-                {(c.weight * 100).toFixed(0)}%
-              </span>
+              <span className="ml-1 text-2xs text-subtle">{fmtNum(c.weight * 100)}%</span>
             </span>
             <div className="h-2 flex-1 overflow-hidden rounded-xs bg-panelalt">
               <div
@@ -117,7 +114,7 @@ export default function RecommendationPanel({ data, isLoading, isError }: Props)
               />
             </div>
             <span className="w-8 text-right font-medium text-ink">
-              {c.score != null ? c.score.toFixed(0) : '—'}
+              {c.score != null ? fmtNum(c.score) : '—'}
             </span>
           </div>
         ))}

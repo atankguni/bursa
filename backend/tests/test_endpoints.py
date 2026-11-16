@@ -217,7 +217,9 @@ async def test_assistant_personal_data_is_opt_in_and_partial_updates(client):
                  "assistant_save_chats": True, "display": None, "alerts_seen_at": None,
                  "trading_costs": {"buy_fee_pct": 0.1513, "sell_fee_pct": 0.2513,
                                    "dividend_tax_pct": 10.0},
-                 "daily_digest": False, "lock_minutes": 15}
+                 "daily_digest": False, "lock_minutes": 15,
+                 "alert_emails": False, "quiet_hours": None, "benchmark": "COMPOSITE",
+                 "risk_limits": {"stock_pct": 25.0, "sector_pct": 40.0}}
     assert (await client.get("/api/assistant/status")).json()["personal_data"] is False
 
     p = (await client.put("/api/preferences", json={"assistant_personal_data": True})).json()
@@ -233,7 +235,9 @@ async def test_display_settings_are_saved_per_user(client):
     display = {"defaultIndexes": ["LQ45", "IDX30"], "chartType": "line", "chartRange": "1m",
                "autoRefresh": False, "refreshSeconds": 120, "numberFormat": "full",
                "colorizeChanges": False,
-               "hiddenColumns": {"home": ["volume"], "watchlist": ["pbv", "roe"]}}
+               "hiddenColumns": {"home": ["volume"], "watchlist": ["pbv", "roe"]},
+               "numberLocale": "id", "dateStyle": "numeric", "startPage": "portfolio",
+               "hideValuesOnOpen": True, "tradeUnit": "shares"}
     p = (await client.put("/api/preferences", json={"display": display})).json()
     assert p["display"] == display  # camelCase on the wire, like the frontend
     assert (await client.get("/api/preferences")).json()["display"] == display

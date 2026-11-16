@@ -1,14 +1,13 @@
-/** Investing: style, the assistant's access, the daily email and trading costs (your account). */
+/** Investing: style, the assistant's access, the benchmark, risk limits, trades and costs (your account). */
 import { useState } from 'react'
-import { useMutation, useQuery } from '@tanstack/react-query'
 import {
-  fetchAuthOptions,
-  sendDigestPreview,
+  type Benchmark,
   type InvestingStyle,
+  type RiskLimits,
   type TradingCosts,
 } from '../../api'
-import { errorDetail } from '../../api/client'
-import { useAssistantStatus, usePreferences } from '../../hooks'
+import { BENCHMARKS, useAssistantStatus, usePreferences } from '../../hooks'
+import { useSettings, type TradeUnit } from '../../lib/settings'
 import { ListRow, Rows, Segmented, Switch } from './controls'
 
 const STYLE_HINT: Record<InvestingStyle, string> = {
@@ -98,55 +97,6 @@ const COST_FIELDS: {
   },
 ]
 
-/** The summary email after the close (needs email set up on the server). */
-function DigestSettings() {
-  const { dailyDigest, setDailyDigest } = usePreferences()
-  const { data: options } = useQuery({
-    queryKey: ['auth', 'options'],
-    queryFn: fetchAuthOptions,
-  })
-  const emailReady = options?.password_reset_by_email ?? false // email is set up
-  const preview = useMutation({ mutationFn: sendDigestPreview })
-  const detail = errorDetail(preview.error)
-  return (
-    <Rows>
-      <ListRow
-        label="Daily summary email"
-        hint={
-          emailReady
-            ? 'After the close on trading days: your portfolio’s day, big moves, signal changes and dividends coming up.'
-            : 'Needs email to be set up on the server (an admin can do that).'
-        }
-      >
-        <Switch
-          checked={dailyDigest}
-          onChange={setDailyDigest}
-          label="Daily summary email"
-          disabled={!emailReady}
-        />
-      </ListRow>
-      {emailReady && (
-        <ListRow
-          label="Preview"
-          hint={
-            preview.isSuccess
-              ? 'Sent: check your inbox.'
-              : (detail ?? 'Email today’s summary to yourself now.')
-          }
-        >
-          <button
-            onClick={() => preview.mutate()}
-            disabled={preview.isPending}
-            className="rounded-sm px-2.5 py-1 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
-          >
-            {preview.isPending ? 'Sending…' : 'Send now'}
-          </button>
-        </ListRow>
-      )}
-    </Rows>
-  )
-}
-
 /** Broker costs: fill in new trades' fees and make the portfolio's returns net. */
 function TradingCostSettings() {
   const { tradingCosts, setTradingCosts } = usePreferences()
@@ -191,11 +141,112 @@ function TradingCostSettings() {
   )
 }
 
+/** A percentage typed in a small box, saved when it loses focus. */
+function PctInput({
+  label,
+  value,
+  min,
+  max,
+  onSave,
+}: {
+  label: string
+  value: number
+  min: number
+  max: number
+  onSave: (v: number) => void
+}) {
+  const [draft, setDraft] = useState<string | null>(null)
+  const save = () => {
+    if (draft === null) return
+    const v = Number(draft.replace(',', '.'))
+    setDraft(null)
+    if (
+      draft.trim() !== '' &&
+      Number.isFinite(v) &&
+      v >= min &&
+      v <= max &&
+      v !== value
+    ) {
+      onSave(v)
+    }
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 text-xs text-muted">
+      <input
+        inputMode="decimal"
+        aria-label={`${label} (%)`}
+        value={draft ?? String(value)}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={save}
+        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+        className="input input-sm w-20 text-right tabular-nums"
+      />
+      %
+    </span>
+  )
+}
+
+/** What the portfolio is compared with, when it warns about concentration, and trade entry. */
+function PortfolioSettings() {
+  const { benchmark, setBenchmark, riskLimits, setRiskLimits } = usePreferences()
+  const { settings, update } = useSettings()
+  const setLimit = (key: keyof RiskLimits, v: number) =>
+    setRiskLimits({ ...riskLimits, [key]: v })
+  return (
+    <div className="space-y-2">
+      <div>
+        <h3 className="text-xs font-semibold text-ink">Portfolio</h3>
+        <p className="text-2xs text-subtle">
+          The index your returns are compared with, and when the risk view warns that too
+          much sits in one place.
+        </p>
+      </div>
+      <Rows>
+        <ListRow label="Compare with" hint="On the portfolio chart and its summary">
+          <Segmented<Benchmark>
+            value={benchmark}
+            options={BENCHMARKS}
+            onChange={setBenchmark}
+          />
+        </ListRow>
+        <ListRow label="One stock limit" hint="Warn when one holding is more than this">
+          <PctInput
+            label="One stock limit"
+            value={riskLimits.stock_pct}
+            min={5}
+            max={100}
+            onSave={(v) => setLimit('stock_pct', v)}
+          />
+        </ListRow>
+        <ListRow label="One sector limit" hint="Warn when one sector is more than this">
+          <PctInput
+            label="One sector limit"
+            value={riskLimits.sector_pct}
+            min={5}
+            max={100}
+            onSave={(v) => setLimit('sector_pct', v)}
+          />
+        </ListRow>
+        <ListRow label="Enter trades in" hint="1 lot = 100 shares">
+          <Segmented<TradeUnit>
+            value={settings.tradeUnit}
+            onChange={(v) => update({ tradeUnit: v })}
+            options={[
+              { value: 'lots', label: 'Lots' },
+              { value: 'shares', label: 'Shares' },
+            ]}
+          />
+        </ListRow>
+      </Rows>
+    </div>
+  )
+}
+
 export default function InvestingSection() {
   return (
     <div className="space-y-5">
       <InvestingSettings />
-      <DigestSettings />
+      <PortfolioSettings />
       <TradingCostSettings />
     </div>
   )

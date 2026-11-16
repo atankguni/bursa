@@ -23,6 +23,7 @@ from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from accounts.models import (
+    EmailChange,
     Invite,
     LoginFailure,
     MfaChallenge,
@@ -302,6 +303,82 @@ async def change_password(
     await session.commit()
 
 
+# --------------------------------------------------------------------------- #
+# Your profile and account
+# --------------------------------------------------------------------------- #
+async def change_name(session: AsyncSession, user: User, name: str) -> None:
+    name = " ".join(name.split())
+    if not name:
+        raise AuthError("Enter a name")
+    if len(name) > 80:
+        raise AuthError("Use at most 80 characters")
+    user.name = name
+    await session.commit()
+
+
+async def request_email_change(
+    session: AsyncSession, user: User, password: str, new_email: str
+) -> str:
+    """Start changing the account's email: returns the raw token for the
+    confirmation link (sent to the new address). The change happens only once
+    that link is opened, so a typo can't lock anyone out."""
+    if not verify_password(user, password):
+        raise AuthError("Password is incorrect")
+    email = normalize_email(new_email)
+    if not is_valid_address(email) or "<" in email or "," in email:  # a bare address
+        raise AuthError("Enter a valid email address")
+    if email == user.email:
+        raise AuthError("That is already your email address")
+    if await user_by_email(session, email) is not None:
+        raise AuthError("Another account uses that email address")
+    await session.execute(
+        delete(EmailChange).where(EmailChange.user_id == user.id, EmailChange.used_at.is_(None))
+    )
+    raw, digest = new_token()
+    now = utcnow()
+    session.add(EmailChange(
+        user_id=user.id, new_email=email, token_hash=digest, created_at=now,
+        expires_at=now + timedelta(hours=settings.email_change_hours),
+    ))
+    await session.commit()
+    return raw
+
+
+async def open_email_change(session: AsyncSession, raw: str) -> tuple[EmailChange, User]:
+    row = (
+        await session.execute(
+            select(EmailChange, User)
+            .join(User, User.id == EmailChange.user_id)
+            .where(EmailChange.token_hash == hash_token(raw))
+        )
+    ).one_or_none()
+    if row is None or row[0].used_at is not None or not row[1].is_active:
+        raise AuthError("This link is invalid or was already used")
+    if row[0].expires_at <= utcnow():
+        raise AuthError("This link has expired; change your email again in Settings")
+    return row.tuple()
+
+
+async def confirm_email_change(session: AsyncSession, raw: str) -> tuple[User, str]:
+    """Apply a confirmed email change; returns the user and their old address."""
+    change, user = await open_email_change(session, raw)
+    if await user_by_email(session, change.new_email) is not None:
+        raise AuthError("Another account uses that email address now")
+    old = user.email
+    user.email = change.new_email
+    change.used_at = utcnow()
+    await session.commit()
+    return user, old
+
+
+async def check_can_leave(session: AsyncSession, user: User) -> None:
+    """Refuse deleting the last active admin (nobody could run the app)."""
+    if user.role == "admin" and user.is_active and await active_admins(session) <= 1:
+        raise AuthError(
+            "You're the only admin: make someone else an admin before deleting your account"
+        )
+
+
 async def active_admins(session: AsyncSession) -> int:
     return (await session.execute(
         select(func.count()).select_from(User)
@@ -451,6 +528,7 @@ async def purge_expired() -> int:
             delete(UserSession).where(UserSession.expires_at <= now),
             delete(Invite).where(Invite.accepted_at.is_(None), Invite.expires_at <= now),
             delete(PasswordReset).where(PasswordReset.expires_at <= now),
+            delete(EmailChange).where(EmailChange.expires_at <= now),
             delete(MfaChallenge).where(MfaChallenge.expires_at <= now),
             delete(TrustedDevice).where(TrustedDevice.expires_at <= now),
             delete(LoginFailure).where(LoginFailure.at <= _window_start()),

@@ -40,7 +40,7 @@ from fastapi.responses import JSONResponse
 
 import mail as mail_service
 from accounts.crypto import ensure_secret
-from accounts.routes import admin, auth, preferences, two_factor
+from accounts.routes import account, admin, auth, preferences, two_factor
 from alerts import routes as alert_routes
 from assistant import routes as assistant_routes
 from config import settings
@@ -123,6 +123,7 @@ admins = [Depends(require_admin)]
 app.include_router(meta.public)  # /api/health
 app.include_router(auth.router)  # sign-in flow (public; /me and /password check the cookie)
 app.include_router(two_factor.router)  # 2FA: second step (public) + your own methods
+app.include_router(account.router)  # your profile and data (email link is public)
 app.include_router(admin.router)  # admins only (router dependency)
 app.include_router(meta.router, dependencies=signed_in)
 app.include_router(stocks.router, dependencies=signed_in)

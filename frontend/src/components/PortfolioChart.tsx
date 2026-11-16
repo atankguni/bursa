@@ -11,15 +11,9 @@ import {
 } from 'lightweight-charts'
 import type { EquityPoint } from '../api'
 import { baseChartOptions, chartColors, compactAmount } from '../lib/chartTheme'
-import { fmtMoney, fmtPct } from '../lib/format'
+import { fmtDay, fmtMoney, fmtNum, fmtPct } from '../lib/format'
+import { benchmarkLabel, usePreferences } from '../hooks'
 import { useSettings } from '../lib/settings'
-
-const dayFmt = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
 
 // The series colour is the user's accent, not bull green: a rising line
 // shouldn't look like a price signal.
@@ -37,11 +31,12 @@ export default function PortfolioChart({
   data: EquityPoint[]
   height?: number
   hideValues?: boolean
-  /** 'value' = portfolio value; 'return' = your time-weighted return vs IHSG, in %. */
+  /** 'value' = portfolio value; 'return' = your time-weighted return vs the benchmark (Settings → Investing), in %. */
   mode?: 'value' | 'return'
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const { settings, resolvedTheme } = useSettings()
+  const bench = benchmarkLabel(usePreferences().benchmark)
   // The day under the cursor, for the legend (null: the latest day).
   const [hover, setHover] = useState<string | null>(null)
 
@@ -71,7 +66,7 @@ export default function PortfolioChart({
       // Percentages only (no amounts), so this view is safe in hide-values mode.
       const pct = {
         type: 'custom' as const,
-        formatter: (v: number) => `${v.toFixed(1)}%`,
+        formatter: (v: number) => `${fmtNum(v, 1)}%`,
       }
       const mine = chart.addSeries(LineSeries, {
         color: accent,
@@ -84,15 +79,15 @@ export default function PortfolioChart({
           p.return_pct == null ? [] : [{ time: p.date, value: p.return_pct }],
         ),
       )
-      const bench = chart.addSeries(LineSeries, {
+      const benchLine = chart.addSeries(LineSeries, {
         color: c.neutral,
         lineWidth: 2,
         lineStyle: LineStyle.Dashed,
-        title: 'IHSG',
+        title: bench,
         priceFormat: pct,
         priceLineVisible: false,
       })
-      bench.setData(
+      benchLine.setData(
         data.flatMap((p): LineData[] =>
           p.benchmark_pct == null ? [] : [{ time: p.date, value: p.benchmark_pct }],
         ),
@@ -128,6 +123,7 @@ export default function PortfolioChart({
     height,
     hideValues,
     mode,
+    bench,
     resolvedTheme,
     settings.highContrast,
     settings.accent,
@@ -143,9 +139,7 @@ export default function PortfolioChart({
     <div className="w-full">
       {point && (
         <div className="flex min-h-5 flex-wrap items-baseline gap-x-3 pb-1.5 text-2xs tabular-nums">
-          <span className="font-medium text-ink">
-            {dayFmt.format(new Date(`${point.date}T00:00:00Z`))}
-          </span>
+          <span className="font-medium text-ink">{fmtDay(point.date)}</span>
           {mode === 'return' ? (
             <>
               {point.return_pct != null && (
@@ -158,7 +152,7 @@ export default function PortfolioChart({
               )}
               {point.benchmark_pct != null && (
                 <span className="text-subtle">
-                  IHSG{' '}
+                  {bench}{' '}
                   <span className="font-medium text-ink">
                     {fmtPct(point.benchmark_pct)}
                   </span>

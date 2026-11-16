@@ -117,7 +117,8 @@ class EquityPoint(Schema):
     # (buys/sells) taken out, so adding money doesn't count as profit. Dividends
     # (after tax) count as income on their ex-date.
     return_pct: float | None = None
-    benchmark_pct: float | None = None  # IHSG cumulative change over the same days, %
+    # The chosen benchmark's (IHSG unless changed) cumulative change over the same days, %
+    benchmark_pct: float | None = None
 
 
 class WatchlistItemOut(StockBase):
@@ -162,6 +163,9 @@ class PortfolioRiskOut(Schema):
     last_day_ihsg_pct: float | None = None
     max_drawdown_pct: float | None = None
     warnings: list[str] = []
+    # The user's limits behind the warnings (Settings → Investing), in %.
+    stock_limit_pct: float
+    sector_limit_pct: float
 
 
 class DividendMonthOut(Schema):

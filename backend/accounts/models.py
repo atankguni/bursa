@@ -21,7 +21,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
-from accounts.schemas import MfaPurpose, Role, SecurityEventKind
+from accounts.schemas import Benchmark, MfaPurpose, Role, SecurityEventKind
 from database import Base
 from db.columns import created_at_column, updated_at_column, user_fk
 from db.types import UTCDateTime, one_of
@@ -88,7 +88,10 @@ class UserSettings(Base):
     """
 
     __tablename__ = "user_settings"
-    __table_args__ = (one_of("investing_style", InvestingStyle),)
+    __table_args__ = (
+        one_of("investing_style", InvestingStyle),
+        one_of("benchmark", Benchmark),
+    )
 
     user_id: Mapped[int] = user_fk(primary_key=True)
     investing_style: Mapped[InvestingStyle] = mapped_column(
@@ -110,6 +113,15 @@ class UserSettings(Base):
     trading_costs: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
     # Minutes without use before a browser locks (0 = never); None = the default.
     lock_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Email each triggered alert (opt-in).
+    alert_emails: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
+    # accounts.schemas.QuietHours / RiskLimits; NULL = off / the defaults.
+    quiet_hours: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    risk_limits: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    # The index the portfolio's return is compared with; NULL = IHSG.
+    benchmark: Mapped[Benchmark | None] = mapped_column(String(12), nullable=True)
     updated_at: Mapped[datetime] = updated_at_column()
 
 
@@ -205,6 +217,21 @@ class PasswordReset(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
     user_id: Mapped[int] = user_fk(index=True)
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
+    created_at: Mapped[datetime] = created_at_column()
+    expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)
+    used_at: Mapped[datetime | None] = mapped_column(UTCDateTime, nullable=True)
+
+
+class EmailChange(Base):
+    """A pending change of a user's email address: confirmed through a one-time
+    link sent to the new address (only the token's hash is stored)."""
+
+    __tablename__ = "email_changes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = user_fk(index=True)
+    new_email: Mapped[str] = mapped_column(String(254), nullable=False)
     token_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False)
     created_at: Mapped[datetime] = created_at_column()
     expires_at: Mapped[datetime] = mapped_column(UTCDateTime, nullable=False)

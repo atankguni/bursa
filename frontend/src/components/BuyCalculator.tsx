@@ -2,12 +2,12 @@ import { useState } from 'react'
 import type { Holding } from '../api'
 import { useCash, usePreferences, useStatus } from '../hooks'
 import { affordableLots, estimateBuy } from '../lib/buyEstimate'
-import { fmtMoney, fmtPrice } from '../lib/format'
+import { fmtMoney, fmtNum, fmtPrice } from '../lib/format'
 import { floorToStep, onPriceStep, priceStep } from '../lib/sellEstimate'
 import Modal from './Modal'
 import { Line } from './SellCalculator'
 
-const pct = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`
+const pct = (v: number) => `${v > 0 ? '+' : ''}${fmtNum(v, 2)}%`
 
 /** What buying more of a holding does to its average cost and break-even price. */
 export default function BuyCalculator({
@@ -105,9 +105,7 @@ export default function BuyCalculator({
               className={inputCls}
             />
             <p className="mt-1 text-2xs text-subtle">
-              {lotsN >= 1
-                ? `= ${(lotsN * lotSize).toLocaleString('en-US')} shares`
-                : '1 lot or more'}
+              {lotsN >= 1 ? `= ${fmtNum(lotsN * lotSize)} shares` : '1 lot or more'}
             </p>
           </div>
           <div>
@@ -185,7 +183,7 @@ export default function BuyCalculator({
               )}
               <Line
                 label="Holding after"
-                value={`${(buy.shares / lotSize).toLocaleString('en-US')} lots`}
+                value={`${fmtNum(buy.shares / lotSize, 0, 2)} lots`}
               />
             </div>
           </dl>

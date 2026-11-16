@@ -17,7 +17,7 @@ interface AuthState {
   user: Me | null | undefined
   isAdmin: boolean
   /** After sign-in / invite acceptance: show the app for this user. */
-  signedIn: (user: Me) => void
+  signedIn: (user: Me | null) => void
   signOut: () => Promise<void>
   /** Lock this browser (idle timer or "Lock now"); every tab shows the lock screen. */
   lock: () => Promise<void>

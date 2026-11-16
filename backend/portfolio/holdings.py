@@ -21,7 +21,7 @@ from typing import Protocol, TypedDict
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from accounts.preferences import get_trading_costs
+from accounts.preferences import get_benchmark, get_trading_costs
 from clock import local_today
 from market.corporate_actions import AdjustedTx, adjusted_transactions
 from market.models import DailyBar, Dividend, IndexBar, Stock
@@ -298,13 +298,15 @@ async def equity_curve(session: AsyncSession, user_id: int) -> list[EquityPoint]
         tx_by_date[t.trade_date].append(t)
     tx_dates = sorted(tx_by_date)
 
-    # IHSG over the same period (index bars; empty if never fetched).
+    # The user's benchmark (IHSG unless chosen) over the same period (index
+    # bars; empty if never fetched).
+    benchmark = await get_benchmark(session, user_id)
     ihsg = [
         (day, close)
         for day, close in (
             await session.execute(
                 select(IndexBar.day, IndexBar.close)
-                .where(IndexBar.code == "COMPOSITE")
+                .where(IndexBar.code == benchmark)
                 .order_by(IndexBar.day)
             )
         ).all()

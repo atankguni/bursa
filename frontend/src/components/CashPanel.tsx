@@ -4,7 +4,7 @@ import { Plus, Trash2, Wallet } from 'lucide-react'
 import { addCashMovement, deleteCashMovement, type CashMovementInput } from '../api'
 import { errorMessage } from '../api/client'
 import { useCash } from '../hooks'
-import { fmtMoney, fmtMoneySigned } from '../lib/format'
+import { fmtDay, fmtMoney, fmtMoneySigned, fmtNum } from '../lib/format'
 import Modal from './Modal'
 import { useToast } from '../lib/toast'
 
@@ -12,12 +12,6 @@ const MASK = '••••••'
 const signed = fmtMoneySigned
 const tone = (v: number | null | undefined) =>
   v == null || v === 0 ? 'text-ink' : v > 0 ? 'text-bull' : 'text-bear'
-const fmtDay = (d: string) =>
-  new Date(`${d}T00:00:00`).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  })
 
 function Figure({
   label,
@@ -114,7 +108,7 @@ export default function CashPanel({ hide }: { hide: boolean }) {
                     <span className="font-normal">
                       {' '}
                       ({cash.gain_pct > 0 ? '+' : ''}
-                      {cash.gain_pct.toFixed(2)}%)
+                      {fmtNum(cash.gain_pct, 2)}%)
                     </span>
                   )}
                 </>
@@ -122,7 +116,7 @@ export default function CashPanel({ hide }: { hide: boolean }) {
               className={tone(cash.gain)}
               hint={
                 cash.annual_return_pct != null
-                  ? `${cash.annual_return_pct > 0 ? '+' : ''}${cash.annual_return_pct.toFixed(1)}% a year, money-weighted`
+                  ? `${cash.annual_return_pct > 0 ? '+' : ''}${fmtNum(cash.annual_return_pct, 1)}% a year, money-weighted`
                   : `Net deposits ${money(cash.net_deposits)}`
               }
             />

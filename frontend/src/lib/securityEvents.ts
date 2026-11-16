@@ -18,6 +18,10 @@ const LABELS: Record<SecurityEventKind, string> = {
   account_enabled: 'Account enabled',
   role_changed: 'Role changed',
   session_unlocked: 'Unlocked after inactivity',
+  name_changed: 'Name changed',
+  email_change_requested: 'Email change requested',
+  email_changed: 'Email changed',
+  portfolio_cleared: 'Portfolio cleared',
 }
 
 /** "Signed in (new device)", "Two-factor turned off (email codes)". */
@@ -31,6 +35,7 @@ const WORTH_A_LOOK = new Set<SecurityEventKind>([
   'two_factor_disabled',
   'two_factor_reset',
   'account_disabled',
+  'email_changed',
 ])
 
 /** Entries to check if they weren't you: highlighted in the lists. */

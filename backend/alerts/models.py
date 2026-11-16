@@ -6,7 +6,7 @@ Tables for alerts. Conventions: models.py.
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, Double, ForeignKey, Index, String
+from sqlalchemy import Boolean, Double, ForeignKey, Index, String, false
 from sqlalchemy.orm import Mapped, mapped_column
 
 from alerts.schemas import AlertType
@@ -50,6 +50,11 @@ class AlertEvent(Base):
     triggered_at: Mapped[datetime] = created_at_column()
     value: Mapped[float | None] = mapped_column(Double, nullable=True)
     message: Mapped[str] = mapped_column(String(255), nullable=False)
+    # Waiting to be emailed (the user has alert emails on); cleared once sent,
+    # or when it's too old to be worth sending (alerts/emails.py).
+    email_pending: Mapped[bool] = mapped_column(
+        Boolean, default=False, server_default=false(), nullable=False
+    )
 
     def __repr__(self) -> str:  # pragma: no cover - debug helper
         return f"<AlertEvent {self.ticker} {self.triggered_at}>"

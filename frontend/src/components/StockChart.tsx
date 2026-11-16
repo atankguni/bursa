@@ -18,7 +18,7 @@ import {
 } from 'lightweight-charts'
 import type { PricePoint } from '../api'
 import { baseChartOptions, chartColors } from '../lib/chartTheme'
-import { fmtPct, fmtVolume, parseServerTime } from '../lib/format'
+import { fmtDay, fmtNum, fmtPct, fmtVolume, parseServerTime } from '../lib/format'
 import { useSettings } from '../lib/settings'
 import { rsi, sma, toTime } from '../lib/indicators'
 
@@ -47,16 +47,8 @@ const MAS = [
   ['ma200', 200],
 ] as const
 
-// Daily bars are stored at midnight UTC of their trading date; minute bars are instants.
-const dayFmt = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-})
+// Minute bars are instants, shown in exchange time (WIB).
 const minuteFmt = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
   hour: '2-digit',
   minute: '2-digit',
   timeZone: 'Asia/Jakarta',
@@ -389,17 +381,14 @@ export default function StockChart({
   }, [themeKey, times, visibleFrom])
 
   // --- Legend ---------------------------------------------------------------
-  const num = useMemo(
-    () =>
-      new Intl.NumberFormat('en-US', {
-        minimumFractionDigits: precision,
-        maximumFractionDigits: precision,
-      }),
-    [precision],
-  )
+  const num = { format: (v: number) => fmtNum(v, precision) }
+  // Daily bars are stored at midnight UTC of their trading date.
   const when = (p: PricePoint) => {
     const d = parseServerTime(p.timestamp)
-    return d ? (intraday ? minuteFmt : dayFmt).format(d) : ''
+    if (!d) return ''
+    return intraday
+      ? `${fmtDay(d, { year: false, timeZone: 'Asia/Jakarta' })} ${minuteFmt.format(d)}`
+      : fmtDay(d, { timeZone: 'UTC' })
   }
   const tone = (v: number) =>
     !settings.colorizeChanges ? 'text-ink' : v >= 0 ? 'text-bull' : 'text-bear'

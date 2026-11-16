@@ -1,10 +1,11 @@
-import { lazy, Suspense } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { lazy, Suspense, useEffect, useRef } from 'react'
+import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
 import Footer from './components/Footer'
 import NavBar from './components/NavBar'
 import WeakPasswordBanner from './components/WeakPasswordBanner'
 import { useAuth } from './lib/auth'
 import { useIdleLock } from './lib/idleLock'
+import { useSettings } from './lib/settings'
 import { usePreferences } from './hooks'
 import Home from './pages/Home'
 import Login from './pages/auth/Login'
@@ -26,10 +27,11 @@ const ChangeWeakPassword = lazy(() => import('./pages/auth/ChangeWeakPassword'))
 const AcceptInvite = lazy(() => import('./pages/auth/AcceptInvite'))
 const ResetPassword = lazy(() => import('./pages/auth/ResetPassword'))
 const ForgotPassword = lazy(() => import('./pages/auth/ForgotPassword'))
+const ConfirmEmail = lazy(() => import('./pages/auth/ConfirmEmail'))
 
 const loading = <div className="w-full px-3 py-6 text-sm text-subtle">Loading…</div>
 
-// Every page needs a signed-in user; invite / reset links work signed out.
+// Every page needs a signed-in user; invite / reset / email links work signed out.
 export default function App() {
   const { user, isAdmin } = useAuth()
 
@@ -38,6 +40,7 @@ export default function App() {
       <Routes>
         <Route path="/invite/:token" element={<AcceptInvite />} />
         <Route path="/reset/:token" element={<ResetPassword />} />
+        <Route path="/confirm-email/:token" element={<ConfirmEmail />} />
         <Route
           path="/forgot"
           element={user ? <Navigate to="/" replace /> : <ForgotPassword />}
@@ -65,11 +68,29 @@ export default function App() {
   )
 }
 
+/**
+ * Settings → Display → Start page: opening Bursa at "/" goes there instead. Only
+ * on arrival (the Home link still goes home), and also when the account's
+ * settings arrive a moment after the first render.
+ */
+function useStartPage() {
+  const { settings } = useSettings()
+  const location = useLocation()
+  const navigate = useNavigate()
+  const arrival = useRef(location.key)
+  const { startPage } = settings
+  useEffect(() => {
+    if (location.key !== arrival.current || location.pathname !== '/') return
+    if (startPage !== 'home') void navigate(`/${startPage}`, { replace: true })
+  }, [startPage, location.key, location.pathname, navigate])
+}
+
 // App shell: persistent top nav + footer, routed pages (full-width layout).
 function Shell({ isAdmin }: { isAdmin: boolean }) {
   const { lock } = useAuth()
   const { lockMinutes, loaded } = usePreferences()
   useIdleLock(loaded ? lockMinutes : 0, lock)
+  useStartPage()
   return (
     <div className="flex min-h-full flex-col bg-app pb-[calc(3.5rem+env(safe-area-inset-bottom))] text-ink lg:pb-0 print:pb-0">
       <NavBar />

@@ -53,6 +53,10 @@ export type Preferences = Schemas['PreferencesOut']
 export type PreferencesInput = Schemas['PreferencesIn']
 /** Broker costs in percent (defaults: typical Indonesian online broker). */
 export type TradingCosts = Schemas['TradingCosts-Output']
+export type QuietHours = Schemas['QuietHours-Output']
+export type RiskLimits = Schemas['RiskLimits-Output']
+export type Benchmark = Preferences['benchmark']
+export type EmailChange = Schemas['EmailChangeOut']
 export type MarketStatus = Schemas['MarketStatusOut']
 export type Status = Schemas['StatusOut']
 

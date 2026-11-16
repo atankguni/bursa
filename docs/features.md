@@ -97,6 +97,12 @@ backtest (see [Development](development.md#signal-backtest)).
   Settings → Security; admins 15 at most and never off) the app locks and asks for the
   password, without a 2FA code. Enforced by the server, shared by all tabs; **Lock
   now** is in the account menu.
+- **Profile** (Settings → Profile): change your name; change your email through a
+  link sent to the new address (it changes only when the link is opened, and the old
+  address is told). Shows your role and when you joined.
+- **Your data** (Settings → Your data): **clear my portfolio** (transactions, cash and
+  notes; the watchlist and alerts stay) or **delete my account**, each after your
+  password; deleting also asks you to type DELETE. The only admin can't delete theirs.
 - **Admins** also manage users (role, disable, delete, reset 2FA), start data syncs, track new
   symbols, and see data health, email and Telegram setup.
 
@@ -156,10 +162,12 @@ backtest (see [Development](development.md#signal-backtest)).
   marked provisional until 31 December. A worksheet from your recorded trades, not tax
   advice: check it against your broker's annual statement.
 - **Portfolio analytics**:
-  - **Return vs IHSG**, time-weighted so buys and sells don't count as gains, with
-    dividends (after tax) counted as income. IHSG itself is a price index (no dividends).
+  - **Return vs IHSG** (or LQ45 / JII, Settings → Investing), time-weighted so buys and
+    sells don't count as gains, with dividends (after tax) counted as income. The index
+    itself is price only (no dividends).
   - A **risk view**: diversification, sector exposure, beta vs IHSG, an "if IHSG
-    falls 10%" stress test and max drawdown.
+    falls 10%" stress test and max drawdown. It warns above your **limits** for one stock
+    (default 25%) and one sector (40%), set in Settings → Investing.
   - **Dividend income per month** (Income tab): net of tax, the last 12 months
     received and the next 6 expected, as a bar chart.
   - An **expected dividend calendar**, projected from last year's ex-dates.
@@ -169,7 +177,11 @@ backtest (see [Development](development.md#signal-backtest)).
   alerts). Rules are evaluated after each market sync. A dividend reminder fires once,
   N days (default 3) before the estimated **cum date** (the last day to buy and still get
   the dividend: the trading day before the ex-date), projected from last year's ex-date.
-- **Daily summary email** (opt-in, Settings → Investing; needs email set up): after the
+- **Alert emails** (opt-in, Settings → Notifications; needs email set up): triggered
+  alerts are emailed too, several at once in one email. Optional **quiet hours**
+  (Jakarta time, may cross midnight) hold them until the window ends; alerts waiting
+  more than a day aren't emailed.
+- **Daily summary email** (opt-in, Settings → Notifications; needs email set up): after the
   close on trading days, your portfolio's day and total return, the biggest moves among
   holdings and watchlist, signal changes, dividends expected in the next 10 days and how
   many alerts fired. "Send now" emails a preview.
@@ -233,12 +245,18 @@ elsewhere closes it). All of them are on one page, **What the numbers mean**
   (light / dark / system), Settings, Security, Users & invites for admins, and sign out. An
   amber dot on it means two-factor authentication is off.
 - **Settings** page (`/settings`, from the account menu or the `,` key), one section at a
-  time: Investing, Appearance, Display, Tables & indices, Security (password, two-factor,
-  remembered devices) and, for admins, Users & invites. It covers theme, accent colour, display **density** (compact/medium/large),
-  reduce motion, high contrast, default indices, chart defaults, auto-refresh, number format,
-  change coloring and per-table **column visibility**. Each section says where it is kept:
-  - **Your account** (follows you to every device): investing style, default indices, chart
-    defaults, auto-refresh, number format, change coloring and column visibility.
+  time: Profile, Investing, Notifications, Appearance, Display, Tables & indices, Security
+  (password, two-factor, remembered devices), Your data, Shortcuts and, for admins, Users &
+  invites. A **search box** finds a section by what's in it (Enter opens the first match).
+  It covers theme, accent colour, display **density** (compact/medium/large), reduce
+  motion, high contrast, default indices, chart defaults, auto-refresh, number format,
+  **number style** (1,234.5 or Indonesian 1.234,5), **dates** (16 Nov 2026 or 16/11/2026),
+  the **start page** (Home, Watchlist or Portfolio), **hide portfolio amounts on open**,
+  lots or shares in the trade form, change coloring and per-table **column visibility**.
+  Each section says where it is kept:
+  - **Your account** (follows you to every device): investing style, notifications,
+    benchmark and limits, default indices, chart defaults, auto-refresh, number and date
+    style, start page, change coloring and column visibility.
   - **This device** (each screen can differ): theme, accent, density, reduce motion, high
     contrast, and the portfolio's **hide values** toggle.
 

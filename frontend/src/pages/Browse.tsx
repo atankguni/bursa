@@ -5,7 +5,7 @@ import { setTracked, type CatalogRow } from '../api'
 import { useCatalog } from '../hooks'
 import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
-import { fmtPrice } from '../lib/format'
+import { fmtPct, fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
 import TickerName from '../components/TickerName'
 import Pagination from '../components/Pagination'
@@ -166,9 +166,7 @@ export default function Browse() {
                       {fmtPrice(r.last_price)}
                     </td>
                     <td className={`px-4 py-2 text-right tabular-nums ${tone}`}>
-                      {r.change_percent == null
-                        ? '—'
-                        : `${r.change_percent > 0 ? '+' : ''}${r.change_percent.toFixed(2)}%`}
+                      {r.change_percent == null ? '—' : fmtPct(r.change_percent)}
                     </td>
                     <td className="px-4 py-2 text-center">
                       <button

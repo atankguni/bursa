@@ -15,6 +15,7 @@ Jobs:
   * backfill_history              -> years of daily bars for stocks without them (startup + daily)
   * record_ratings                -> both styles' ratings at the close, for the live track record
   * send_digests                  -> the daily summary email to users who turned it on
+  * send_alert_emails             -> alert emails held back by quiet hours (every 15 min)
   * backup_db                     -> compressed SQLite backup, newest BACKUP_KEEP kept (nightly)
   * backup_catch_up               -> a backup when the newest is over a day old (hourly)
 
@@ -188,6 +189,13 @@ async def record_ratings() -> None:
 
     async with AsyncSessionLocal() as session:
         await record(session)
+
+
+async def send_alert_emails() -> None:
+    """Alert emails held back by quiet hours (or a failed send) go out here."""
+    from alerts.emails import send_alert_emails as send
+
+    await send()
 
 
 async def send_digests() -> None:
@@ -420,6 +428,16 @@ def start_scheduler() -> None:
     )
 
     # Daily summary email, after the close's ratings are recorded (17:15).
+    # Alert emails that waited for the end of someone's quiet hours.
+    scheduler.add_job(
+        send_alert_emails,
+        trigger=CronTrigger(minute="*/15"),
+        id="send_alert_emails",
+        replace_existing=True,
+        max_instances=1,
+        coalesce=True,
+    )
+
     scheduler.add_job(
         send_digests,
         trigger=CronTrigger(day_of_week="mon-fri", hour=17, minute=45),

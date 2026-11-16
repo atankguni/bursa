@@ -19,13 +19,14 @@ import {
   useNotes,
   usePortfolio,
   usePortfolioHistory,
+  benchmarkLabel,
   usePreferences,
   useStatus,
   useTransactions,
 } from '../hooks'
-import { useSettings } from '../lib/settings'
+import { useHideValuesOnOpen, useSettings } from '../lib/settings'
 import { estimateSale } from '../lib/sellEstimate'
-import { fmtMoney, fmtMoneySigned, fmtPrice } from '../lib/format'
+import { fmtMoney, fmtMoneySigned, fmtNum, fmtPrice } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
 import BuyCalculator from '../components/BuyCalculator'
 import NoteModal, { FLAG_TEXT } from '../components/NoteModal'
@@ -47,12 +48,12 @@ import { useToast } from '../lib/toast'
 const PortfolioChart = lazy(() => import('../components/PortfolioChart'))
 
 const signedPct = (v: number | null | undefined) =>
-  v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${Math.abs(v).toFixed(2)}%`
+  v == null ? '—' : `${v > 0 ? '+' : v < 0 ? '−' : ''}${fmtNum(Math.abs(v), 2)}%`
 
 // IDX lots: shares / lotSize (integer when whole).
 const lotsOf = (shares: number, lotSize: number) => {
   const v = shares / lotSize
-  return Number.isInteger(v) ? String(v) : v.toFixed(2)
+  return fmtNum(v, 0, 2)
 }
 
 /**
@@ -91,9 +92,11 @@ export default function Portfolio() {
   const setTab = (t: Tab) =>
     setParams(t === 'holdings' ? {} : { tab: t }, { replace: true })
 
-  const { tradingCosts } = usePreferences()
+  const { tradingCosts, benchmark } = usePreferences()
+  const bench = benchmarkLabel(benchmark)
   const qc = useQueryClient()
   const { settings, update } = useSettings()
+  useHideValuesOnOpen()
   const hide = settings.hidePortfolioValues
   const { data: pf, isLoading } = usePortfolio()
   const { data: txs = [] } = useTransactions()
@@ -123,7 +126,7 @@ export default function Portfolio() {
   }
 
   const [chartMode, setChartMode] = useState<'value' | 'return'>('value')
-  // Latest time-weighted return vs IHSG over the same period.
+  // Latest time-weighted return vs the benchmark over the same period.
   const lastPoint = [...history]
     .reverse()
     .flatMap((p) =>
@@ -270,7 +273,9 @@ export default function Portfolio() {
               <div className="flex min-w-0 flex-col p-4 sm:p-5">
                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                   <div className="section-title">
-                    {chartMode === 'value' ? 'Value over time' : 'Your return vs IHSG'}
+                    {chartMode === 'value'
+                      ? 'Value over time'
+                      : `Your return vs ${bench}`}
                   </div>
                   <div className="segmented" role="group" aria-label="Chart">
                     {(['value', 'return'] as const).map((m) => (
@@ -280,7 +285,7 @@ export default function Portfolio() {
                         aria-pressed={chartMode === m}
                         className="segment"
                       >
-                        {m === 'value' ? 'Value' : 'vs IHSG'}
+                        {m === 'value' ? 'Value' : `vs ${bench}`}
                       </button>
                     ))}
                   </div>
@@ -291,17 +296,17 @@ export default function Portfolio() {
                     <span className={`font-semibold ${tone(versus.mine)}`}>
                       {signedPct(versus.mine)}
                     </span>
-                    , IHSG{' '}
+                    , {bench}{' '}
                     <span className={`font-semibold ${tone(versus.ihsg)}`}>
                       {signedPct(versus.ihsg)}
                     </span>
                     : {versus.mine >= versus.ihsg ? 'ahead by' : 'behind by'}{' '}
                     <span className="font-semibold text-ink">
-                      {Math.abs(versus.mine - versus.ihsg).toFixed(2)} pts
+                      {fmtNum(Math.abs(versus.mine - versus.ihsg), 2)} pts
                     </span>
                     <span className="text-subtle">
                       {' '}
-                      · time-weighted, dividends included; IHSG is price only
+                      · time-weighted, dividends included; {bench} is price only
                     </span>
                   </p>
                 )}
@@ -465,7 +470,7 @@ export default function Portfolio() {
                                     {lotsOf(h.quantity, lotSize)}
                                   </span>
                                   <span className="block text-2xs text-subtle">
-                                    {h.quantity.toLocaleString('en-US')} sh
+                                    {fmtNum(h.quantity)} sh
                                   </span>
                                 </Secret>
                               </td>
@@ -503,7 +508,7 @@ export default function Portfolio() {
                                       />
                                     </span>
                                     <span className="text-muted tabular-nums">
-                                      {h.weight.toFixed(1)}%
+                                      {fmtNum(h.weight, 1)}%
                                     </span>
                                   </span>
                                 ) : (
@@ -638,7 +643,7 @@ export default function Portfolio() {
                                   <Secret hidden={hide}>
                                     {lotsOf(t.quantity, lotSize)}
                                     <span className="ml-1 text-2xs text-subtle">
-                                      ({t.quantity.toLocaleString('en-US')})
+                                      ({fmtNum(t.quantity)})
                                     </span>
                                   </Secret>
                                 </td>

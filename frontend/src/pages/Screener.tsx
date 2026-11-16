@@ -11,7 +11,7 @@ import { cancelScreenerSync, startScreenerSync, type ScreenerRow } from '../api'
 import { useMarketOverview, useScreener, useSyncStatus } from '../hooks'
 import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
-import { fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
+import { fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
 import TickerName from '../components/TickerName'
 import Pagination from '../components/Pagination'
@@ -313,9 +313,7 @@ export default function Screener() {
                           ) : (
                             <ArrowDownRight size={12} aria-hidden />
                           ))}
-                        {r.change_percent == null
-                          ? '—'
-                          : `${r.change_percent > 0 ? '+' : ''}${r.change_percent.toFixed(2)}%`}
+                        {r.change_percent == null ? '—' : fmtPct(r.change_percent)}
                       </span>
                     </td>
                     <td

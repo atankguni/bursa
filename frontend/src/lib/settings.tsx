@@ -13,11 +13,20 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { fetchPreferences, updatePreferences, type DisplaySettings } from '../api'
 import { queryKeys } from '../hooks/keys'
 import { useAuth } from './auth'
-import { setCompactNumbers } from './format'
+import {
+  setCompactNumbers,
+  setDateStyle,
+  setNumberLocale,
+  type DateStyle,
+  type NumberLocale,
+} from './format'
 
 export type Theme = 'system' | 'light' | 'dark'
 export type Density = 'compact' | 'medium' | 'large'
 export type NumberFormat = 'compact' | 'full'
+export type StartPage = 'home' | 'watchlist' | 'portfolio'
+export type TradeUnit = 'lots' | 'shares'
+export type { DateStyle, NumberLocale }
 /** UI accent colour; the shades live in index.css (`data-accent`). */
 export type Accent = 'blue' | 'indigo' | 'violet' | 'graphite'
 export const ACCENTS: { value: Accent; label: string }[] = [
@@ -44,6 +53,12 @@ export interface Settings {
   numberFormat: NumberFormat
   colorizeChanges: boolean
   hiddenColumns: { home: string[]; watchlist: string[] }
+  numberLocale: NumberLocale
+  dateStyle: DateStyle
+  startPage: StartPage
+  /** Portfolio amounts start hidden each time the page opens. */
+  hideValuesOnOpen: boolean
+  tradeUnit: TradeUnit
   // Privacy
   hidePortfolioValues: boolean
 }
@@ -62,6 +77,11 @@ export const DEFAULT_SETTINGS: Settings = {
   numberFormat: 'compact',
   colorizeChanges: true,
   hiddenColumns: { home: [], watchlist: [] },
+  numberLocale: 'en',
+  dateStyle: 'text',
+  startPage: 'home',
+  hideValuesOnOpen: false,
+  tradeUnit: 'lots',
   hidePortfolioValues: false,
 }
 
@@ -79,6 +99,11 @@ export const ACCOUNT_KEYS = [
   'numberFormat',
   'colorizeChanges',
   'hiddenColumns',
+  'numberLocale',
+  'dateStyle',
+  'startPage',
+  'hideValuesOnOpen',
+  'tradeUnit',
 ] as const satisfies readonly (keyof Settings & keyof DisplaySettings)[]
 
 const accountPart = (s: Settings): DisplaySettings => ({
@@ -90,6 +115,11 @@ const accountPart = (s: Settings): DisplaySettings => ({
   numberFormat: s.numberFormat,
   colorizeChanges: s.colorizeChanges,
   hiddenColumns: s.hiddenColumns,
+  numberLocale: s.numberLocale,
+  dateStyle: s.dateStyle,
+  startPage: s.startPage,
+  hideValuesOnOpen: s.hideValuesOnOpen,
+  tradeUnit: s.tradeUnit,
 })
 
 // A local copy of everything, so the page renders with the right settings at once.
@@ -167,6 +197,19 @@ export function fromStorage(base: Settings, stored: unknown): Settings {
       home: isStrings(home) ? home : base.hiddenColumns.home,
       watchlist: isStrings(watchlist) ? watchlist : base.hiddenColumns.watchlist,
     },
+    numberLocale: pick(
+      'numberLocale',
+      oneOf<NumberLocale>('en', 'id'),
+      base.numberLocale,
+    ),
+    dateStyle: pick('dateStyle', oneOf<DateStyle>('text', 'numeric'), base.dateStyle),
+    startPage: pick(
+      'startPage',
+      oneOf<StartPage>('home', 'watchlist', 'portfolio'),
+      base.startPage,
+    ),
+    hideValuesOnOpen: pick('hideValuesOnOpen', isBool, base.hideValuesOnOpen),
+    tradeUnit: pick('tradeUnit', oneOf<TradeUnit>('lots', 'shares'), base.tradeUnit),
     hidePortfolioValues: pick('hidePortfolioValues', isBool, base.hidePortfolioValues),
   }
 }
@@ -241,10 +284,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     el.toggleAttribute('data-high-contrast', settings.highContrast)
   }, [settings.accent, settings.density, settings.reduceMotion, settings.highContrast])
 
-  // Number format -> module-level formatter flag (keeps call sites unchanged).
-  useEffect(() => {
-    setCompactNumbers(settings.numberFormat === 'compact')
-  }, [settings.numberFormat])
+  // Number and date styles -> the formatters' module-level flags (keeps call
+  // sites unchanged). Set while rendering, so this render already uses them.
+  setCompactNumbers(settings.numberFormat === 'compact')
+  setNumberLocale(settings.numberLocale)
+  setDateStyle(settings.dateStyle)
 
   const value = useMemo<SettingsContextValue>(
     () => ({
@@ -356,4 +400,18 @@ export function useSettings(): SettingsContextValue {
   const ctx = useContext(SettingsContext)
   if (!ctx) throw new Error('useSettings must be used within SettingsProvider')
   return ctx
+}
+
+/**
+ * Settings → Display → "Hide portfolio amounts on open": hide them once each time
+ * a page showing them opens (also when the account's settings arrive a moment later).
+ */
+export function useHideValuesOnOpen() {
+  const { settings, update } = useSettings()
+  const done = useRef(false)
+  useEffect(() => {
+    if (done.current || !settings.hideValuesOnOpen) return
+    done.current = true
+    if (!settings.hidePortfolioValues) update({ hidePortfolioValues: true })
+  }, [settings.hideValuesOnOpen, settings.hidePortfolioValues, update])
 }

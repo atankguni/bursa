@@ -4,6 +4,113 @@
  */
 
 export interface paths {
+  '/api/account/clear-portfolio': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Clear Portfolio
+     * @description Delete your transactions, cash movements and holding notes. The watchlist,
+     *     alerts and settings stay.
+     */
+    post: operations['clear_portfolio_api_account_clear_portfolio_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/account/delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Delete Account
+     * @description Delete your account and everything it owns, and sign out.
+     */
+    post: operations['delete_account_api_account_delete_post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/account/email-change': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Pending Email Change
+     * @description A change waiting for its link to be opened, if any.
+     */
+    get: operations['pending_email_change_api_account_email_change_get']
+    put?: never
+    /**
+     * Request Email Change
+     * @description Email a confirmation link to the new address; nothing changes until it's opened.
+     */
+    post: operations['request_email_change_api_account_email_change_post']
+    /** Cancel Email Change */
+    delete: operations['cancel_email_change_api_account_email_change_delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/account/email-change/{token}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Check Email Change
+     * @description Public: what the confirmation link would change (for its page).
+     */
+    get: operations['check_email_change_api_account_email_change__token__get']
+    put?: never
+    /**
+     * Confirm Email Change
+     * @description Public: opening the link proves the new address works; switch to it.
+     */
+    post: operations['confirm_email_change_api_account_email_change__token__post']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/account/name': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    /** Change Name */
+    put: operations['change_name_api_account_name_put']
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
   '/api/admin/invites': {
     parameters: {
       query?: never
@@ -1736,6 +1843,10 @@ export interface components {
         | 'account_enabled'
         | 'role_changed'
         | 'session_unlocked'
+        | 'name_changed'
+        | 'email_change_requested'
+        | 'email_changed'
+        | 'portfolio_cleared'
       /** New Device */
       new_device: boolean
       /** User Email */
@@ -2088,6 +2199,11 @@ export interface components {
        */
       role: 'user' | 'assistant'
     }
+    /** ClearPortfolioIn */
+    ClearPortfolioIn: {
+      /** Password */
+      password: string
+    }
     /** CodeIn */
     CodeIn: {
       /** Code */
@@ -2143,6 +2259,16 @@ export interface components {
        */
       timezone_now: string
     }
+    /** DeleteAccountIn */
+    DeleteAccountIn: {
+      /**
+       * Confirm
+       * @constant
+       */
+      confirm: 'DELETE'
+      /** Password */
+      password: string
+    }
     /**
      * DerivedMetrics
      * @description Valuation ratios computed against the latest price.
@@ -2187,9 +2313,20 @@ export interface components {
        * @default true
        */
       colorizeChanges: boolean
+      /**
+       * Datestyle
+       * @default text
+       * @enum {string}
+       */
+      dateStyle: 'text' | 'numeric'
       /** Defaultindexes */
       defaultIndexes?: string[]
       hiddenColumns?: components['schemas']['HiddenColumns-Input']
+      /**
+       * Hidevaluesonopen
+       * @default false
+       */
+      hideValuesOnOpen: boolean
       /**
        * Numberformat
        * @default compact
@@ -2197,10 +2334,28 @@ export interface components {
        */
       numberFormat: 'compact' | 'full'
       /**
+       * Numberlocale
+       * @default en
+       * @enum {string}
+       */
+      numberLocale: 'en' | 'id'
+      /**
        * Refreshseconds
        * @default 60
        */
       refreshSeconds: number
+      /**
+       * Startpage
+       * @default home
+       * @enum {string}
+       */
+      startPage: 'home' | 'watchlist' | 'portfolio'
+      /**
+       * Tradeunit
+       * @default lots
+       * @enum {string}
+       */
+      tradeUnit: 'lots' | 'shares'
     }
     /**
      * DisplaySettings
@@ -2232,9 +2387,20 @@ export interface components {
        * @default true
        */
       colorizeChanges: boolean
+      /**
+       * Datestyle
+       * @default text
+       * @enum {string}
+       */
+      dateStyle: 'text' | 'numeric'
       /** Defaultindexes */
       defaultIndexes: string[]
       hiddenColumns: components['schemas']['HiddenColumns-Output']
+      /**
+       * Hidevaluesonopen
+       * @default false
+       */
+      hideValuesOnOpen: boolean
       /**
        * Numberformat
        * @default compact
@@ -2242,10 +2408,28 @@ export interface components {
        */
       numberFormat: 'compact' | 'full'
       /**
+       * Numberlocale
+       * @default en
+       * @enum {string}
+       */
+      numberLocale: 'en' | 'id'
+      /**
        * Refreshseconds
        * @default 60
        */
       refreshSeconds: number
+      /**
+       * Startpage
+       * @default home
+       * @enum {string}
+       */
+      startPage: 'home' | 'watchlist' | 'portfolio'
+      /**
+       * Tradeunit
+       * @default lots
+       * @enum {string}
+       */
+      tradeUnit: 'lots' | 'shares'
     }
     /**
      * DividendIncomeOut
@@ -2304,6 +2488,21 @@ export interface components {
       trailing_dps: number
       /** Yield Percent */
       yield_percent: number | null
+    }
+    /** EmailChangeIn */
+    EmailChangeIn: {
+      /** New Email */
+      new_email: string
+      /** Password */
+      password: string
+    }
+    /**
+     * EmailChangeOut
+     * @description A change waiting for its confirmation link to be opened.
+     */
+    EmailChangeOut: {
+      /** New Email */
+      new_email: string
     }
     /** EquityPoint */
     EquityPoint: {
@@ -2796,6 +2995,11 @@ export interface components {
     }
     /** MeOut */
     MeOut: {
+      /**
+       * Created At
+       * Format: date-time
+       */
+      created_at: string
       /** Email */
       email: string
       /** Has 2Fa */
@@ -2831,6 +3035,11 @@ export interface components {
       price: number | null
       /** Ticker */
       ticker: string
+    }
+    /** NameIn */
+    NameIn: {
+      /** Name */
+      name: string
     }
     /**
      * NotificationStatusOut
@@ -2906,8 +3115,12 @@ export interface components {
       last_day_portfolio_pct: number | null
       /** Max Drawdown Pct */
       max_drawdown_pct: number | null
+      /** Sector Limit Pct */
+      sector_limit_pct: number
       /** Sectors */
       sectors: components['schemas']['SectorWeightOut'][]
+      /** Stock Limit Pct */
+      stock_limit_pct: number
       /** Stress Ihsg Pct */
       stress_ihsg_pct: number
       /** Stress Portfolio Pct */
@@ -2964,12 +3177,16 @@ export interface components {
      * @description Partial update: only the fields that are sent change.
      */
     PreferencesIn: {
+      /** Alert Emails */
+      alert_emails?: boolean | null
       /** Alerts Seen At */
       alerts_seen_at?: string | null
       /** Assistant Personal Data */
       assistant_personal_data?: boolean | null
       /** Assistant Save Chats */
       assistant_save_chats?: boolean | null
+      /** Benchmark */
+      benchmark?: ('COMPOSITE' | 'LQ45' | 'JII') | null
       /** Daily Digest */
       daily_digest?: boolean | null
       display?: components['schemas']['DisplaySettings-Input'] | null
@@ -2977,6 +3194,8 @@ export interface components {
       investing_style?: ('investor' | 'trader') | null
       /** Lock Minutes */
       lock_minutes?: (0 | 5 | 15 | 30 | 60) | null
+      quiet_hours?: components['schemas']['QuietHours-Input'] | null
+      risk_limits?: components['schemas']['RiskLimits-Input'] | null
       trading_costs?: components['schemas']['TradingCosts-Input'] | null
     }
     /**
@@ -2984,6 +3203,11 @@ export interface components {
      * @description Server-side preferences of the signed-in user.
      */
     PreferencesOut: {
+      /**
+       * Alert Emails
+       * @default false
+       */
+      alert_emails: boolean
       /** Alerts Seen At */
       alerts_seen_at: string | null
       /**
@@ -2996,6 +3220,12 @@ export interface components {
        * @default true
        */
       assistant_save_chats: boolean
+      /**
+       * Benchmark
+       * @default COMPOSITE
+       * @enum {string}
+       */
+      benchmark: 'COMPOSITE' | 'LQ45' | 'JII'
       /**
        * Daily Digest
        * @default false
@@ -3013,6 +3243,8 @@ export interface components {
        * @default 15
        */
       lock_minutes: number
+      quiet_hours: components['schemas']['QuietHours-Output'] | null
+      risk_limits: components['schemas']['RiskLimits-Output']
       trading_costs: components['schemas']['TradingCosts-Output']
     }
     /**
@@ -3153,6 +3385,40 @@ export interface components {
       /** Price */
       price: string
     }
+    /**
+     * QuietHours
+     * @description No alert emails between `start` and `end` (Jakarta time; may cross midnight).
+     *     Emails due in that time wait and are sent together when it ends.
+     */
+    'QuietHours-Input': {
+      /**
+       * End
+       * @default 07:00
+       */
+      end: string
+      /**
+       * Start
+       * @default 22:00
+       */
+      start: string
+    }
+    /**
+     * QuietHours
+     * @description No alert emails between `start` and `end` (Jakarta time; may cross midnight).
+     *     Emails due in that time wait and are sent together when it ends.
+     */
+    'QuietHours-Output': {
+      /**
+       * End
+       * @default 07:00
+       */
+      end: string
+      /**
+       * Start
+       * @default 22:00
+       */
+      start: string
+    }
     /** RatingRecordOut */
     RatingRecordOut: {
       /** Beat */
@@ -3243,6 +3509,38 @@ export interface components {
     ResetRequestIn: {
       /** Email */
       email: string
+    }
+    /**
+     * RiskLimits
+     * @description The Risk tab warns when one stock / one sector is above these (% of the portfolio).
+     */
+    'RiskLimits-Input': {
+      /**
+       * Sector Pct
+       * @default 40
+       */
+      sector_pct: number
+      /**
+       * Stock Pct
+       * @default 25
+       */
+      stock_pct: number
+    }
+    /**
+     * RiskLimits
+     * @description The Risk tab warns when one stock / one sector is above these (% of the portfolio).
+     */
+    'RiskLimits-Output': {
+      /**
+       * Sector Pct
+       * @default 40
+       */
+      sector_pct: number
+      /**
+       * Stock Pct
+       * @default 25
+       */
+      stock_pct: number
     }
     /**
      * ScreenerPage
@@ -3363,6 +3661,10 @@ export interface components {
         | 'account_enabled'
         | 'role_changed'
         | 'session_unlocked'
+        | 'name_changed'
+        | 'email_change_requested'
+        | 'email_changed'
+        | 'portfolio_cleared'
       /** New Device */
       new_device: boolean
     }
@@ -3999,6 +4301,234 @@ export interface components {
 }
 export type $defs = Record<string, never>
 export interface operations {
+  clear_portfolio_api_account_clear_portfolio_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ClearPortfolioIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  delete_account_api_account_delete_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['DeleteAccountIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  pending_email_change_api_account_email_change_get: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EmailChangeOut'] | null
+        }
+      }
+    }
+  }
+  request_email_change_api_account_email_change_post: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['EmailChangeIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      202: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EmailChangeOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  cancel_email_change_api_account_email_change_delete: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+    }
+  }
+  check_email_change_api_account_email_change__token__get: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        token: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EmailChangeOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  confirm_email_change_api_account_email_change__token__post: {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        token: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['EmailChangeOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  change_name_api_account_name_put: {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NameIn']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MeOut']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   list_invites_api_admin_invites_get: {
     parameters: {
       query?: never

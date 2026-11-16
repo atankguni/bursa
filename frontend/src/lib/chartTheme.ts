@@ -11,6 +11,7 @@ import {
   type ChartOptions,
 } from 'lightweight-charts'
 import { readCssColor } from './settings'
+import { fmtNum } from './format'
 
 export interface ChartColors {
   background: string
@@ -66,9 +67,9 @@ export function baseChartOptions(c: ChartColors): DeepPartial<ChartOptions> {
 /** Axis labels for rupiah amounts: 24.2M, 1.35B, 950K. */
 export function compactAmount(v: number): string {
   const a = Math.abs(v)
-  if (a >= 1e12) return `${(v / 1e12).toFixed(2)}T`
-  if (a >= 1e9) return `${(v / 1e9).toFixed(2)}B`
-  if (a >= 1e6) return `${(v / 1e6).toFixed(1)}M`
-  if (a >= 1e3) return `${(v / 1e3).toFixed(0)}K`
-  return v.toFixed(0)
+  if (a >= 1e12) return `${fmtNum(v / 1e12, 2)}T`
+  if (a >= 1e9) return `${fmtNum(v / 1e9, 2)}B`
+  if (a >= 1e6) return `${fmtNum(v / 1e6, 1)}M`
+  if (a >= 1e3) return `${fmtNum(v / 1e3)}K`
+  return fmtNum(v)
 }
