@@ -2,7 +2,7 @@
 
 | Layer    | Stack |
 |----------|-------|
-| Backend  | Python 3.14, FastAPI, SQLAlchemy 2.0 (async) + aiosqlite, APScheduler, yfinance |
+| Backend  | Python 3.15, FastAPI, SQLAlchemy 2.1 (async) + aiosqlite, APScheduler, yfinance |
 | Database | SQLite by default (WAL mode, persisted on the host); PostgreSQL supported |
 | Frontend | React 19 + Vite, TypeScript, Tailwind CSS 4, TanStack Query, lightweight-charts, lucide-react |
 | Infra    | Docker Compose (single stack) + nginx |
@@ -304,7 +304,7 @@ the API 30 a second, answering 429 in the API's JSON error shape.
 Every container runs as an unprivileged user (backend uid 1000, nginx uid 101)
 with a read-only root filesystem (writable: `backend/data/` and `/tmp`), all
 Linux capabilities dropped and `no-new-privileges`. Base images are pinned to a
-language release and an Alpine release (`python:3.14-alpine3.24`); `make audit`
+language release and an Alpine release (`python:3.15-alpine3.24`); `make audit`
 (part of `make check`) checks the dependencies against the PyPI and npm advisory
 databases.
 

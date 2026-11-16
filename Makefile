@@ -18,7 +18,7 @@ OPENAPI_TS := npx -y -p typescript@5.9.3 -p openapi-typescript@7.13.0 openapi-ty
 API_TYPES := frontend/src/api/schema.gen.ts
 # Throwaway PostgreSQL for backend-pg: data in memory (tmpfs), so nothing is
 # left on disk; the container is removed afterwards, also on failure.
-PG_IMAGE := postgres:17-alpine
+PG_IMAGE := postgres:18-alpine
 PG_NAME := bursa-check-pg
 PG_URL := postgresql+asyncpg://postgres:test@$(PG_NAME)/bursa_test
 TMP := $(shell mktemp -d 2>/dev/null || echo /tmp/bursa-make)
@@ -43,7 +43,7 @@ backend-pg: backend-image
 	@docker network create $(PG_NAME) >/dev/null 2>&1 || true
 	@trap 'docker rm -fv $(PG_NAME) >/dev/null 2>&1; docker network rm $(PG_NAME) >/dev/null 2>&1' EXIT; \
 	docker run -d --name $(PG_NAME) --network $(PG_NAME) -e POSTGRES_PASSWORD=test \
-		-e POSTGRES_DB=bursa_test --tmpfs /var/lib/postgresql/data $(PG_IMAGE) >/dev/null; \
+		-e POSTGRES_DB=bursa_test --tmpfs /var/lib/postgresql $(PG_IMAGE) >/dev/null; \
 	for _ in $$(seq 60); do \
 		docker exec $(PG_NAME) pg_isready -q -U postgres -d bursa_test && break; sleep 1; \
 	done; \

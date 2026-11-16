@@ -1,9 +1,13 @@
 import { useEffect, useRef } from 'react'
 import {
+  LineSeries,
+  CandlestickSeries,
+  HistogramSeries,
   CrosshairMode,
   LineStyle,
   PriceScaleMode,
   createChart,
+  createSeriesMarkers,
   type CandlestickData,
   type HistogramData,
   type IChartApi,
@@ -75,7 +79,7 @@ export default function StockChart({
 
     let main: ISeriesApi<'Candlestick'> | ISeriesApi<'Line'>
     if (chartType === 'candle') {
-      const series = chart.addCandlestickSeries({
+      const series = chart.addSeries(CandlestickSeries, {
         priceFormat: { type: 'price', precision, minMove: 1 / 10 ** precision },
         upColor: c.bull,
         downColor: c.bear,
@@ -94,7 +98,7 @@ export default function StockChart({
       series.setData(bars)
       main = series
     } else {
-      const series = chart.addLineSeries({
+      const series = chart.addSeries(LineSeries, {
         color: accent,
         lineWidth: 2,
         priceFormat: { type: 'price', precision, minMove: 1 / 10 ** precision },
@@ -118,7 +122,8 @@ export default function StockChart({
         })
         .filter((m): m is { time: UTCTimestamp; text: string } => m != null)
         .sort((a, b) => a.time - b.time)
-      main.setMarkers(
+      createSeriesMarkers(
+        main,
         placed.map((m) => ({
           time: m.time,
           position: 'aboveBar' as const,
@@ -130,7 +135,7 @@ export default function StockChart({
     }
 
     if (ind?.volume) {
-      const vol = chart.addHistogramSeries({
+      const vol = chart.addSeries(HistogramSeries, {
         priceFormat: { type: 'volume' },
         priceScaleId: 'vol',
       })
@@ -145,7 +150,7 @@ export default function StockChart({
 
     if (compare && compare.points.length > 1) {
       chart.priceScale('right').applyOptions({ mode: PriceScaleMode.Percentage })
-      const bench = chart.addLineSeries({
+      const bench = chart.addSeries(LineSeries, {
         color: c.neutral,
         lineWidth: 2,
         lineStyle: LineStyle.Dashed,
@@ -159,7 +164,7 @@ export default function StockChart({
 
     if (ind?.ma20 || ind?.ma50 || ind?.ma200) {
       const add = (period: number, color: string) => {
-        const s = chart.addLineSeries({
+        const s = chart.addSeries(LineSeries, {
           color,
           lineWidth: 1,
           priceLineVisible: false,
@@ -199,7 +204,7 @@ export default function StockChart({
         height: 120,
         timeScale: { borderVisible: false, timeVisible: true, secondsVisible: false },
       })
-      const rsiSeries = rsiChart.addLineSeries({ color: accent, lineWidth: 1 })
+      const rsiSeries = rsiChart.addSeries(LineSeries, { color: accent, lineWidth: 1 })
       rsiSeries.setData(rsi(data, 14))
       const guide = {
         color: rc.border,

@@ -6,9 +6,9 @@
 #   test    : runtime + dev tools, for `docker build --target test` CI checks.
 
 # --- build ------------------------------------------------------------------
-# Python 3.14 on Alpine 3.24: patch releases come with each rebuild; moving to a
+# Python 3.15 on Alpine 3.24: patch releases come with each rebuild; moving to a
 # new Python or Alpine release is a deliberate edit here.
-FROM python:3.14-alpine3.24 AS build
+FROM python:3.15-alpine3.24 AS build
 
 # binutils -> `strip` for the compiled extensions.
 RUN apk add --no-cache binutils
@@ -25,7 +25,7 @@ RUN pip install --no-cache-dir --no-compile --prefix=/install -r requirements.tx
  && find /install -type f \( -name '*.pyx' -o -name '*.pxd' -o -name '*.c' -o -name '*.h' \) -delete
 
 # --- runtime ----------------------------------------------------------------
-FROM python:3.14-alpine3.24 AS runtime
+FROM python:3.15-alpine3.24 AS runtime
 
 # Prevent Python from writing .pyc files and enable unbuffered stdout/stderr
 # so FastAPI logs stream straight to the terminal.
@@ -42,7 +42,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 RUN apk add --no-cache tzdata age \
  && rm /usr/bin/age-inspect /usr/bin/age-plugin-batchpass \
  && python -m pip uninstall -y pip \
- && cd /usr/local/lib/python3.14 \
+ && cd /usr/local/lib/python3.15 \
  && rm -rf /root/.cache idlelib tkinter turtledemo pydoc_data lib-dynload/_tkinter*
 
 COPY --from=build /install /usr/local

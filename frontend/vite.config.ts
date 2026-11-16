@@ -11,14 +11,25 @@ export default defineConfig({
       output: {
         // Split large vendors into their own chunks for better caching and
         // a smaller initial load (charts only load when a modal opens).
-        manualChunks: {
-          react: ['react', 'react-dom', 'react-router-dom'],
-          query: ['@tanstack/react-query'],
-          charts: ['lightweight-charts'],
+        // (Function form: Vite 8's Rolldown no longer takes the object form.)
+        manualChunks(id: string) {
+          if (!id.includes('/node_modules/')) return undefined
+          if (
+            /\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(
+              id,
+            )
+          )
+            return 'react'
+          if (id.includes('/node_modules/@tanstack/')) return 'query'
+          if (/\/node_modules\/(lightweight-charts|fancy-canvas)\//.test(id))
+            return 'charts'
+          return undefined
         },
       },
     },
-    chunkSizeWarningLimit: 900,
+    // The largest chunk is the password-strength word lists (@zxcvbn-ts language
+    // packs, ~1.2 MB): loaded only on password screens, never on the main pages.
+    chunkSizeWarningLimit: 1300,
   },
   server: {
     host: '0.0.0.0',

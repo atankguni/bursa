@@ -66,7 +66,7 @@ To enable the AI assistant, email or Telegram alerts, copy `backend/.env.example
 
 ## Tech stack
 
-Python 3.14 · FastAPI · SQLAlchemy (async) + Alembic · SQLite / PostgreSQL · APScheduler · yfinance ·
+Python 3.15 · FastAPI · SQLAlchemy (async) + Alembic · SQLite / PostgreSQL · APScheduler · yfinance ·
 React 19 · Vite · TypeScript · Tailwind CSS · TanStack Query · Lightweight Charts · Docker + nginx
 
 ## License

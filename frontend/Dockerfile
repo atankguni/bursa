@@ -24,7 +24,7 @@ RUN npm run build
 # --- Stage 2: serve -------------------------------------------------------
 # The unprivileged nginx image: runs as uid 101, listens on 8080, keeps its pid
 # and temp files in /tmp (so the container filesystem can be read-only).
-FROM nginxinc/nginx-unprivileged:1.31-alpine3.24-slim
+FROM nginxinc/nginx-unprivileged:1.30-alpine3.24-slim
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 COPY security-headers.conf /etc/nginx/snippets/security-headers.conf
 COPY --from=build /app/dist /usr/share/nginx/html

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import {
+  LineSeries,
+  AreaSeries,
   LineStyle,
   createChart,
   type AreaData,
@@ -60,7 +62,7 @@ export default function PortfolioChart({
         type: 'custom' as const,
         formatter: (v: number) => `${v.toFixed(1)}%`,
       }
-      const mine = chart.addLineSeries({
+      const mine = chart.addSeries(LineSeries, {
         color: accent,
         lineWidth: 2,
         title: 'You',
@@ -71,7 +73,7 @@ export default function PortfolioChart({
           p.return_pct == null ? [] : [{ time: p.date, value: p.return_pct }],
         ),
       )
-      const bench = chart.addLineSeries({
+      const bench = chart.addSeries(LineSeries, {
         color: c.neutral,
         lineWidth: 2,
         lineStyle: LineStyle.Dashed,
@@ -85,7 +87,7 @@ export default function PortfolioChart({
         ),
       )
     } else {
-      const series = chart.addAreaSeries({
+      const series = chart.addSeries(AreaSeries, {
         lineColor: accent,
         topColor: `${accent}40`,
         bottomColor: `${accent}00`,
