@@ -89,7 +89,7 @@ dev servers directly (no separate compose file needed):
 ```bash
 # Backend (auto-reload)
 cd backend
-pip install -r requirements.txt
+pip install --group runtime        # pip 25.1 or later
 python prepare.py                  # migrations + seed (again after pulling changes)
 uvicorn main:app --reload --port 8000
 

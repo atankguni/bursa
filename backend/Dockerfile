@@ -13,13 +13,14 @@ FROM python:3.15-alpine3.24 AS build
 # binutils -> `strip` for the compiled extensions.
 RUN apk add --no-cache binutils
 
-COPY requirements.txt .
+# Only the package lists' file: a code change doesn't reinstall the packages.
+COPY pyproject.toml .
 # Optional async driver for PostgreSQL: --build-arg DB_DRIVER=asyncpg.
 # SQLite needs none.
 ARG DB_DRIVER=""
 # --no-compile: no .pyc at install time (Python compiles on import anyway).
 # All deps ship musllinux wheels, so no compiler/toolchain is required.
-RUN pip install --no-cache-dir --no-compile --prefix=/install -r requirements.txt $DB_DRIVER \
+RUN pip install --no-cache-dir --no-compile --prefix=/install --group runtime $DB_DRIVER \
  && find /install -depth -type d \( -name tests -o -name __pycache__ \) -exec rm -rf {} + \
  && find /install -type f \( -name '*.so' -o -name '*.so.*' \) -exec strip --strip-unneeded {} + \
  && find /install -type f \( -name '*.pyx' -o -name '*.pxd' -o -name '*.c' -o -name '*.h' \) -delete
@@ -76,11 +77,11 @@ FROM runtime AS test
 # checkout, so it stays root too (this image is never deployed).
 USER root
 # nodejs: pyright's runtime (the pip package uses the system node when present).
-# Dev tools come from requirements-dev.txt (its `-r requirements.txt` line is
-# already satisfied by the runtime layer); the PostgreSQL driver is extra.
-COPY requirements.txt requirements-dev.txt /tmp/reqs/
+# Dev tools are the `dev` group of pyproject.toml (its runtime part is already
+# satisfied by the runtime layer); the PostgreSQL driver is extra.
+COPY pyproject.toml /tmp/reqs/
 RUN apk add --no-cache nodejs npm \
  && python -m ensurepip \
- && python -m pip install --no-cache-dir -r /tmp/reqs/requirements-dev.txt \
+ && python -m pip install --no-cache-dir --group /tmp/reqs/pyproject.toml:dev \
     asyncpg
 CMD ["sh", "-c", "ruff check . && pyright && python -m pytest -q"]

@@ -37,8 +37,7 @@ bursa/
 │   ├── scheduler.py       # APScheduler jobs (prices, fundamentals, indices, retention); worker only
 │   ├── scripts/           # evaluate_signals.py (backtest), gen_idx_list.py
 │   ├── tests/             # pytest
-│   ├── pyproject.toml     # ruff, pyright and pytest config
-│   ├── requirements.txt · requirements-dev.txt
+│   ├── pyproject.toml     # packages (runtime, dev groups); ruff, pyright, pytest config
 │   └── Dockerfile         # multi-stage: runtime + test targets
 └── frontend/
     ├── index.html

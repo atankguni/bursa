@@ -1,4 +1,52 @@
-# Tool configuration (ruff / pyright / pytest). Runtime deps live in requirements.txt.
+# Bursa backend: its packages (two groups) and tool configuration (ruff /
+# pyright / pytest). Bursa is an app, not a library, so there is no [project]:
+# the images install a group, never the code as a package.
+#   runtime : what the server needs; the only group in the production image.
+#   dev     : test and check tools; only in the `test` image (Dockerfile).
+# Install: pip install --group runtime   (or --group dev, which includes runtime)
+# Versions are pinned and at least two weeks old when bumped.
+
+[dependency-groups]
+runtime = [
+  "fastapi==0.162.0",
+  # Plain uvicorn: the [standard] extras (uvloop, httptools, websockets,
+  # watchfiles, PyYAML) add ~19 MB and aren't needed for this small API.
+  "uvicorn==0.54.0",
+  # 2.1.x has cp314+ musllinux wheels (2.0.x has none); matches 2.0-style API.
+  "sqlalchemy==2.1.6",
+  "aiosqlite==0.22.1",
+  # Schema migrations (db/migrate.py, migrations/); works on every SQL dialect.
+  "alembic==1.20.1",
+  # yfinance >=1.0 is required: older 0.2.x builds fail with
+  # "Expecting value: line 1 column 1" against Yahoo's current API.
+  "yfinance==1.7.0",
+  # Browser impersonation transport; yfinance prefers it and it dodges
+  # Yahoo rate-limit / empty-response blocks that break plain requests.
+  "curl_cffi==0.17.0",
+  "apscheduler==3.11.3",
+  "pydantic==2.14.2",
+  # Password hashing (Argon2id) for accounts.
+  "argon2-cffi==25.1.0",
+  # Encrypts authenticator-app (TOTP) secrets at rest.
+  "cryptography==50.0.2",
+  # QR code (SVG) for adding Bursa to an authenticator app; pure Python.
+  "segno==1.6.6",
+  "zxcvbn==4.5.0",
+  "pydantic-settings==2.16.2",
+  "pandas==3.1.0",
+  # Async SQLAlchemy runtime dependency (kept explicit for musllinux wheels).
+  "greenlet==3.5.6",
+]
+dev = [
+  { include-group = "runtime" },
+  "pytest==9.2.0",
+  "pytest-asyncio==1.4.1",
+  "httpx==0.28.1",
+  "ruff==0.17.3",
+  "pyright==1.1.414",
+  "pandas-stubs==3.1.0.261029",
+  "pip-audit==2.10.1",
+]
 
 [tool.ruff]
 line-length = 100

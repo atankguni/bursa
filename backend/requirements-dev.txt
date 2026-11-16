@@ -1,9 +1,0 @@
-# Development / test dependencies (not installed in the production image).
--r requirements.txt
-pytest==9.2.0
-pytest-asyncio==1.4.1
-httpx==0.28.1
-ruff==0.17.3
-pyright==1.1.414
-pandas-stubs==3.1.0.261029
-pip-audit==2.10.1

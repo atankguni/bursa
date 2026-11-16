@@ -56,7 +56,7 @@ make api-types    # after changing a response/request model in backend/schemas.p
 
 ```bash
 cd backend
-pip install -r requirements-dev.txt
+pip install --group dev   # runtime + check tools (pip 25.1 or later)
 ruff check .            # lint
 pyright                 # type check
 python -m pytest -q     # tests
