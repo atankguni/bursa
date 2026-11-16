@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   LineSeries,
   AreaSeries,
@@ -7,10 +7,19 @@ import {
   type AreaData,
   type IChartApi,
   type LineData,
+  type MouseEventParams,
 } from 'lightweight-charts'
 import type { EquityPoint } from '../api'
 import { baseChartOptions, chartColors, compactAmount } from '../lib/chartTheme'
+import { fmtMoney, fmtPct } from '../lib/format'
 import { useSettings } from '../lib/settings'
+
+const dayFmt = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+})
 
 // The series colour is the user's accent, not bull green: a rising line
 // shouldn't look like a price signal.
@@ -33,6 +42,8 @@ export default function PortfolioChart({
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const { settings, resolvedTheme } = useSettings()
+  // The day under the cursor, for the legend (null: the latest day).
+  const [hover, setHover] = useState<string | null>(null)
 
   useEffect(() => {
     const el = ref.current
@@ -99,6 +110,9 @@ export default function PortfolioChart({
       series.setData(data.map((p): AreaData => ({ time: p.date, value: p.value })))
     }
     chart.timeScale().fitContent()
+    const onMove = (p: MouseEventParams) =>
+      setHover(typeof p.time === 'string' ? p.time : null)
+    chart.subscribeCrosshairMove(onMove)
 
     const observer = new ResizeObserver((entries) => {
       const e = entries[0]
@@ -120,16 +134,57 @@ export default function PortfolioChart({
   ])
 
   const last = data[data.length - 1]?.value ?? null
+  const point =
+    (hover != null ? data.find((p) => p.date === hover) : undefined) ??
+    data[data.length - 1]
+  const tone = (v: number) =>
+    !settings.colorizeChanges ? 'text-ink' : v >= 0 ? 'text-bull' : 'text-bear'
   return (
-    <div
-      ref={ref}
-      className="w-full"
-      role="img"
-      aria-label={
-        last != null && !hideValues
-          ? `Portfolio value chart over ${data.length} days; latest ${last}`
-          : 'Portfolio value chart'
-      }
-    />
+    <div className="w-full">
+      {point && (
+        <div className="flex min-h-5 flex-wrap items-baseline gap-x-3 pb-1.5 text-2xs tabular-nums">
+          <span className="font-medium text-ink">
+            {dayFmt.format(new Date(`${point.date}T00:00:00Z`))}
+          </span>
+          {mode === 'return' ? (
+            <>
+              {point.return_pct != null && (
+                <span className="text-subtle">
+                  You{' '}
+                  <span className={`font-medium ${tone(point.return_pct)}`}>
+                    {fmtPct(point.return_pct)}
+                  </span>
+                </span>
+              )}
+              {point.benchmark_pct != null && (
+                <span className="text-subtle">
+                  IHSG{' '}
+                  <span className="font-medium text-ink">
+                    {fmtPct(point.benchmark_pct)}
+                  </span>
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-subtle">
+              Value{' '}
+              <span className="font-medium text-ink">
+                {hideValues ? '•••' : `Rp ${fmtMoney(point.value)}`}
+              </span>
+            </span>
+          )}
+        </div>
+      )}
+      <div
+        ref={ref}
+        className="w-full"
+        role="img"
+        aria-label={
+          last != null && !hideValues
+            ? `Portfolio value chart over ${data.length} days; latest ${last}`
+            : 'Portfolio value chart'
+        }
+      />
+    </div>
   )
 }

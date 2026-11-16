@@ -9,15 +9,7 @@ import { fmtShortDateTime } from '../lib/format'
 import NotificationsCard from '../components/NotificationsCard'
 import { errorMessage } from '../api/client'
 import { useToast } from '../lib/toast'
-
-const TYPES: { value: AlertType; label: string }[] = [
-  { value: 'price_above', label: 'Price above' },
-  { value: 'price_below', label: 'Price below' },
-  { value: 'pct_change', label: '% change ≥' },
-  { value: 'rating_change', label: 'Signal change' },
-  { value: 'dividend_soon', label: 'Dividend coming up' },
-]
-const THRESHOLD_TYPES: AlertType[] = ['price_above', 'price_below', 'pct_change']
+import { ALERT_TYPES as TYPES, THRESHOLD_TYPES } from '../lib/alertTypes'
 
 const inputCls = 'input input-sm'
 

@@ -3,14 +3,14 @@ import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 
 /**
- * - large: content views (stock detail, charts), 75% of the screen.
+ * - large: content views (stock detail, charts), 85% of the screen.
  * - form: short forms (a few fields), compact width, as tall as the content.
  * Phones get the full screen either way.
  */
 export type ModalSize = 'large' | 'form'
 
 const PANEL: Record<ModalSize, string> = {
-  large: 'sm:h-[75vh] sm:w-[75vw] sm:max-w-[1600px]',
+  large: 'sm:h-[85vh] sm:w-[85vw] sm:max-w-[1600px]',
   form: 'sm:h-auto sm:max-h-[85vh] sm:w-full sm:max-w-md',
 }
 
@@ -20,9 +20,31 @@ const FOCUSABLE =
 // Open dialogs, innermost last: Escape closes only the top one.
 const stack: string[] = []
 
+// The browser's Back closes the top dialog (on phones, Back or a swipe would
+// otherwise leave the page). Each open dialog adds a history entry, marked with
+// its id; closing it another way takes that entry off again.
+const closers = new Map<string, () => void>()
+let ownBacks = 0 // our own history.back() calls, whose popstate isn't a user's Back
+const isRecord = (v: unknown): v is Record<string, unknown> =>
+  typeof v === 'object' && v !== null
+const entryOf = (id: string) => {
+  const state: unknown = window.history.state
+  return isRecord(state) && state['bursaDialog'] === id
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('popstate', () => {
+    if (ownBacks > 0) {
+      ownBacks--
+      return
+    }
+    const top = stack[stack.length - 1]
+    if (top) closers.get(top)?.()
+  })
+}
+
 /**
  * The one dialog shell of the app, so every pop-up behaves the same:
- * - closes with its ✕ button or Escape, never by clicking outside it
+ * - closes with its ✕ button, Escape or the browser's Back, never by clicking outside it
  *   (a stray click must not throw away what was typed);
  * - keeps keyboard focus inside while open, and returns it afterwards;
  * - the page behind doesn't scroll.
@@ -66,6 +88,12 @@ export default function Modal({
 
   useEffect(() => {
     stack.push(id)
+    closers.set(id, () => close.current())
+    // (Already there when React re-runs this effect in development.)
+    if (!entryOf(id)) {
+      const state: unknown = window.history.state
+      window.history.pushState({ ...(isRecord(state) ? state : {}), bursaDialog: id }, '')
+    }
     const opener =
       document.activeElement instanceof HTMLElement ? document.activeElement : null
     // Focus the dialog unless a field inside already took it (autoFocus).
@@ -102,7 +130,17 @@ export default function Modal({
     return () => {
       document.removeEventListener('keydown', onKey)
       stack.splice(stack.indexOf(id), 1)
+      closers.delete(id)
       if (stack.length === 0) body.overflow = overflow
+      // Closed by ✕, Escape or a form: drop its history entry. Checked a moment
+      // later: a re-run of the effect (development) or a link that navigated
+      // away leaves the entry as it is.
+      queueMicrotask(() => {
+        if (!stack.includes(id) && entryOf(id)) {
+          ownBacks++
+          window.history.back()
+        }
+      })
       opener?.focus?.()
     }
   }, [id])

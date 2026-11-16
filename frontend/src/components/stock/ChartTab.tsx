@@ -5,9 +5,9 @@ import { type ChartSpan } from '../../api'
 import { useHistory, useIndexHistory } from '../../hooks'
 import { useSettings } from '../../lib/settings'
 import { SPANS, spanStart } from '../../lib/spans'
-
 import { isBool, isFlags, useStoredState } from '../../lib/storedState'
 import type { Indicators } from '../StockChart'
+import IndicatorMenu from './IndicatorMenu'
 
 // lightweight-charts is heavy; load it only when a chart is actually shown.
 const StockChart = lazy(() => import('../StockChart'))
@@ -84,8 +84,17 @@ export default function ChartTab({
   )
   const visibleFrom = range === '1d' ? spanStart(span) : undefined
 
+  const skeleton = (
+    <div
+      className="skeleton min-h-0 flex-1"
+      aria-busy="true"
+      aria-label="Loading chart…"
+    />
+  )
+
   return (
-    <>
+    // Fills the tab: controls on top, the chart takes the rest (at least 340px).
+    <div className="flex min-h-[340px] flex-1 flex-col">
       <div className="mt-3 flex flex-wrap items-center gap-2">
         <div className="segmented">
           {(['1d', '1m'] as const).map((i) => (
@@ -108,84 +117,51 @@ export default function ChartTab({
             ))}
           </div>
         )}
-        <div className="segmented">
+        <div className="segmented" role="group" aria-label="Chart type">
           <button
             onClick={() => setChartType('line')}
+            aria-pressed={chartType === 'line'}
+            aria-label="Line"
+            title="Line"
             className={`flex items-center gap-1 ${seg(chartType === 'line')}`}
           >
-            <LineChart size={13} /> Line
+            <LineChart size={13} aria-hidden />
+            <span className="hidden sm:inline">Line</span>
           </button>
           <button
             onClick={() => setChartType('candle')}
+            aria-pressed={chartType === 'candle'}
+            aria-label="Candles"
+            title="Candles"
             className={`flex items-center gap-1 ${seg(chartType === 'candle')}`}
           >
-            <CandlestickChart size={13} /> Candle
+            <CandlestickChart size={13} aria-hidden />
+            <span className="hidden sm:inline">Candle</span>
           </button>
         </div>
-        <div className="flex flex-wrap gap-1">
-          {(
-            [
-              ['ma20', 'MA20'],
-              ['ma50', 'MA50'],
-              ['ma200', 'MA200'],
-              ['volume', 'Vol'],
-              ['rsi', 'RSI'],
-            ] as const
-          ).map(([key, label]) => (
-            <button
-              key={key}
-              onClick={() => setInd((s) => ({ ...s, [key]: !s[key] }))}
-              className={`rounded-sm px-2 py-1 text-2xs font-medium ring-1 transition ${
-                ind[key]
-                  ? 'bg-accent/15 text-accent ring-accent/30'
-                  : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-          {range === '1d' && (
-            <button
-              onClick={() => setVsIhsg((v) => !v)}
-              aria-pressed={vsIhsg}
-              title="Compare with IHSG: both lines in % change from the left edge of the chart"
-              className={`rounded-sm px-2 py-1 text-2xs font-medium ring-1 transition ${
-                vsIhsg
-                  ? 'bg-accent/15 text-accent ring-accent/30'
-                  : 'text-muted ring-line-strong hover:bg-panelalt hover:text-ink'
-              }`}
-            >
-              vs IHSG
-            </button>
-          )}
-        </div>
+        <IndicatorMenu
+          ind={ind}
+          setInd={setInd}
+          vsIhsg={range === '1d' ? vsIhsg : undefined}
+          setVsIhsg={range === '1d' ? setVsIhsg : undefined}
+        />
+        {history.isFetching && !history.isLoading && (
+          <span className="text-2xs text-subtle" aria-live="polite">
+            {span === '5y' || span === 'max'
+              ? 'Loading full price history (the first time takes a few seconds)…'
+              : 'Updating…'}
+          </span>
+        )}
       </div>
 
-      <div className="mt-3">
-        {history.isFetching && !history.isLoading && (
-          <p className="mb-1 text-2xs text-subtle" aria-live="polite">
-            {span === '5y' || span === 'max'
-              ? 'Loading full price history (first time can take a few seconds)…'
-              : 'Updating…'}
-          </p>
-        )}
+      <div className="mt-3 flex min-h-0 flex-1 flex-col">
         {history.isLoading ? (
-          <div
-            className="skeleton h-[400px]"
-            aria-busy="true"
-            aria-label="Loading chart…"
-          />
+          skeleton
         ) : history.data && history.data.points.length > 0 ? (
-          <Suspense
-            fallback={
-              <div
-                className="skeleton h-[400px]"
-                aria-busy="true"
-                aria-label="Loading chart…"
-              />
-            }
-          >
+          <Suspense fallback={skeleton}>
             <StockChart
+              fill
+              intraday={range === '1m'}
               data={history.data.points}
               chartType={chartType}
               indicators={ind}
@@ -195,11 +171,11 @@ export default function ChartTab({
             />
           </Suspense>
         ) : (
-          <div className="flex h-[400px] items-center justify-center text-muted">
+          <div className="flex flex-1 items-center justify-center text-muted">
             No price data yet for this interval.
           </div>
         )}
       </div>
-    </>
+    </div>
   )
 }

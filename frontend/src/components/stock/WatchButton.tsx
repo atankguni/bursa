@@ -29,7 +29,8 @@ export default function WatchButton({ ticker }: { ticker: string }) {
         ) : (
           <Star size={14} className={watched ? 'fill-current' : ''} aria-hidden />
         )}
-        {watched ? 'Watching' : 'Watch'}
+        {/* Icon only on phones, where the header is narrow. */}
+        <span className="sr-only sm:not-sr-only">{watched ? 'Watching' : 'Watch'}</span>
       </button>
     </span>
   )

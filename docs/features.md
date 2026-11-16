@@ -24,10 +24,20 @@
   (not your watchlist).
 - **Browse IDX**: the full IDX catalog (~960 listed stocks) with search, pagination and a
   Track toggle. Tracked stocks get intraday updates; clicking a row opens the detail modal.
+- **Stock pop-up**: price and change, then the latest day's open / high / low / volume and
+  a **52-week range** bar showing where the price sits. **Record trade** (the trade form
+  with the stock and price filled in) and **Alert** (a price, % move, signal or dividend
+  alert) open on top of it, next to Watch.
 - **Charts**: line (default) or candlestick, daily (1d) and intraday (1m), 1M–Max spans, an
   optional **vs IHSG** overlay (% change) and stock-split markers, via Lightweight Charts.
-- **Chart indicators**: MA(20/50/200) in amber / pink / cyan, volume, and RSI overlays on the
-  detail chart.
+  The chart fills the pop-up. A **legend** above it reads out the bar under the cursor
+  (date, open / high / low / close, change, volume, moving averages) or the latest one,
+  and the **change across what's on screen** (with IHSG's, when compared), updated as
+  you zoom or scroll. The Portfolio and index charts have the same legend.
+- **Chart indicators** (one **Indicators** menu, each with its colour): MA 20/50/200 in
+  amber / pink / cyan, volume, and RSI in its own pane below the price (it scrolls and
+  zooms with it; drag the line between them to resize). Turning one on or off keeps your
+  zoom.
 - **Relative valuation**: where current PBV/RoE sit within the stock's own history.
 - **Dividends**: dividend history, trailing yield, and projected annual income for holdings.
 - **Company**: a detail tab with the company description, sector/industry, employees,
@@ -203,7 +213,8 @@ elsewhere closes it). All of them are on one page, **What the numbers mean**
 - **Phones and tablets** (under 1024 px): a slim top bar (search opens below it) and
   the six sections in a **bottom tab bar**. On phones Home lists each stock as a
   two-line card (price, change, signal); other tables scroll sideways with the ticker
-  column pinned. Pop-up windows fill the screen. Form fields use 16 px text so iPhones
+  column pinned. Pop-up windows fill the screen, and the phone's **Back** (or swipe)
+  closes the top one instead of leaving the page (also in desktop browsers). Form fields use 16 px text so iPhones
   don't zoom in, and the layout keeps clear of the notch and home indicator.
 - **Laptops and wider** (1024 px and up): one top bar with the sections in it.
 - **Long tables** (Home, Screener, Browse, Watchlist) keep their column names in view

@@ -30,7 +30,7 @@ export default function TransactionModal({
 }: {
   onClose: () => void
   /** Pre-filled trade, e.g. from the sell calculator. */
-  initial?: { ticker: string; side: 'buy' | 'sell'; lots: number; price: number }
+  initial?: { ticker: string; side: 'buy' | 'sell'; lots?: number; price?: number | null }
 }) {
   const qc = useQueryClient()
   const { data: stocks = [] } = useStocks([])
@@ -41,8 +41,10 @@ export default function TransactionModal({
   const side = entry === 'sell' ? 'sell' : 'buy'
   const free = entry === 'bonus' // no price, no fees
   const [unit, setUnit] = useState<'lots' | 'shares'>('lots')
-  const [quantity, setQuantity] = useState(initial ? String(initial.lots) : '')
-  const [price, setPrice] = useState(initial ? String(initial.price) : '')
+  const [quantity, setQuantity] = useState(
+    initial?.lots != null ? String(initial.lots) : '',
+  )
+  const [price, setPrice] = useState(initial?.price != null ? String(initial.price) : '')
   // Fee follows Settings → Trading costs until the user types their own.
   const [fees, setFees] = useState<string | null>(null)
   const { tradingCosts } = usePreferences()

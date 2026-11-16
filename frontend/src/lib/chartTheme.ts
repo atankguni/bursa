@@ -53,6 +53,8 @@ export function baseChartOptions(c: ChartColors): DeepPartial<ChartOptions> {
       // The footer's "Charts by TradingView" link on every page is the
       // attribution the library's licence asks for, so the in-chart logo can go.
       attributionLogo: false,
+      // The line between price and an indicator pane (RSI); drag it to resize.
+      panes: { separatorColor: c.grid, separatorHoverColor: c.border },
     },
     grid: { vertLines: { visible: false }, horzLines: { color: c.grid } },
     rightPriceScale: { borderVisible: false },

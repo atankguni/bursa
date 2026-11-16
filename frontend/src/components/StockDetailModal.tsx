@@ -1,16 +1,23 @@
 import { useState } from 'react'
-import { ArrowDownRight, ArrowUpRight } from 'lucide-react'
+import { ArrowDownRight, ArrowLeftRight, ArrowUpRight, BellPlus } from 'lucide-react'
 import { useCompany, useRecommendation } from '../hooks'
 import { fmtChange, fmtPct, fmtPrice } from '../lib/format'
 import { useSettings } from '../lib/settings'
+import AlertModal from './AlertModal'
 import BoardBadge from './BoardBadge'
 import CompanyPanel from './CompanyPanel'
 import Modal from './Modal'
 import RecommendationPanel from './RecommendationPanel'
 import ChartTab, { useChartOptions } from './stock/ChartTab'
+import StockFacts from './stock/StockFacts'
 import FundamentalsTab, { type FinTab } from './stock/FundamentalsTab'
 import WatchButton from './stock/WatchButton'
 import SubTabs from './SubTabs'
+import TransactionModal from './TransactionModal'
+
+// The header's small outlined buttons (same look as Watch).
+const ACTION =
+  'flex items-center gap-1 rounded-sm px-2.5 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink'
 
 // Minimal shape needed to render the modal — both Stock and WatchlistItem fit.
 export interface StockLike {
@@ -45,6 +52,8 @@ export default function StockDetailModal({
   const [tab, setTab] = useState<Tab>(initialTab)
   const [finTab, setFinTab] = useState<FinTab>('financials')
   const [companyTab, setCompanyTab] = useState<CompanyTab>('overview')
+  // A form opened on top: record a trade, or add an alert.
+  const [sub, setSub] = useState<'trade' | 'alert' | null>(null)
   const { settings } = useSettings()
   // Each tab's choices live here, so they survive switching tabs.
   const chartOptions = useChartOptions()
@@ -89,9 +98,30 @@ export default function StockDetailModal({
               </span>
             )}
           </div>
+          <StockFacts ticker={stock.ticker} price={stock.last_price} />
         </div>
       }
-      actions={<WatchButton ticker={stock.ticker} />}
+      actions={
+        <>
+          <button
+            onClick={() => setSub('trade')}
+            title="Record a buy or sell"
+            className={ACTION}
+          >
+            <ArrowLeftRight size={14} aria-hidden />
+            <span className="sr-only sm:not-sr-only">Record trade</span>
+          </button>
+          <button
+            onClick={() => setSub('alert')}
+            title="Add a price or dividend alert"
+            className={ACTION}
+          >
+            <BellPlus size={14} aria-hidden />
+            <span className="sr-only sm:not-sr-only">Alert</span>
+          </button>
+          <WatchButton ticker={stock.ticker} />
+        </>
+      }
     >
       {/* Tabs */}
       <div className="shrink-0">
@@ -111,7 +141,9 @@ export default function StockDetailModal({
       </div>
 
       {/* Scrollable content region — header + tabs stay pinned */}
-      <div className="mt-3 min-h-0 flex-1 overflow-y-auto pr-1">
+      <div
+        className={`mt-3 min-h-0 flex-1 overflow-y-auto pr-1 ${tab === 'chart' ? 'flex flex-col' : ''}`}
+      >
         {tab === 'chart' && <ChartTab ticker={stock.ticker} options={chartOptions} />}
         {tab === 'fundamentals' && (
           <FundamentalsTab ticker={stock.ticker} finTab={finTab} setFinTab={setFinTab} />
@@ -148,6 +180,20 @@ export default function StockDetailModal({
           </div>
         )}
       </div>
+
+      {sub === 'trade' && (
+        <TransactionModal
+          initial={{ ticker: stock.ticker, side: 'buy', price: stock.last_price }}
+          onClose={() => setSub(null)}
+        />
+      )}
+      {sub === 'alert' && (
+        <AlertModal
+          ticker={stock.ticker}
+          price={stock.last_price}
+          onClose={() => setSub(null)}
+        />
+      )}
     </Modal>
   )
 }
