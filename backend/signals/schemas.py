@@ -66,6 +66,9 @@ class SyncStatusOut(Schema):
     last_error: str | None = None
     # Stocks that still have no fundamentals (across the whole universe).
     missing: int = 0
+    # Of those, the ones never attempted: what "Sync all" works through. The
+    # rest were tried and the provider had nothing; "Sync 40" retries them.
+    never_tried: int = 0
 
 
 class SyncStartOut(Schema):
@@ -75,6 +78,8 @@ class SyncStartOut(Schema):
     queued: int = 0
     total: int = 0
     remaining: int = 0
+    # Why nothing was queued (when `queued` is 0 and no run is going).
+    message: str | None = None
 
 
 # --------------------------------------------------------------------------- #

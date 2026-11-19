@@ -60,9 +60,13 @@
   **Trader** (swing, 1–4 weeks: price stability and setup near the 20-day high).
   Trader mode can rate liquid stocks without fundamentals. The choice is stored on the server.
 - **Screener**: rank/filter the tracked universe by score, PBV, RoE, sector, or
-  "Positive signals only", with pagination. **Sync missing** backfills fundamentals
-  (PBV/RoE/sector) in a capped, throttled background job. **Sync all** runs a paced job
-  over the whole catalog and can be cancelled.
+  "Positive signals only", with pagination. Stocks without a price in about the last
+  year (long suspended, or not served by Yahoo) aren't listed, and don't count as
+  missing data; they come back once prices arrive. Data health still counts them. **Sync missing** backfills fundamentals
+  (PBV/RoE/sector) in a capped, throttled background job (never-tried stocks first, then
+  the ones tried longest ago). **Sync all** runs a paced job over every stock never tried
+  and can be cancelled; once every missing stock has been tried (the provider had no
+  statements for them) it is off, the count says "(all tried)", and Sync 40 retries them.
 
 - **Track record**: the signal tab shows how often each rating beat the typical
   (median) stock over the next 3 months (investor) or 4 weeks (trader), 50% being a

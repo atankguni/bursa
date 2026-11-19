@@ -143,7 +143,7 @@ async def test_switching_style_resets_rating_alert_baselines(client):
     assert left == 0  # no spurious "rating changed" alerts after a style switch
 
 
-async def test_screener_paginates_whole_universe(client):
+async def test_screener_paginates_whole_universe(client, priced):
     first = (await client.get("/api/screener", params={"limit": 200})).json()
     total = first["total"]
     assert total > 200 and len(first["items"]) == 200
@@ -154,6 +154,15 @@ async def test_screener_paginates_whole_universe(client):
         assert page["total"] == total and page["offset"] == offset
         seen += [r["ticker"] for r in page["items"]]
     assert len(seen) == total == len(set(seen))  # every stock exactly once
+
+
+async def test_screener_hides_stocks_without_a_price(client):
+    from tests.conftest import price_stocks
+
+    assert (await client.get("/api/screener")).json()["total"] == 0  # no prices yet
+    await price_stocks(["BBCA", "TLKM"])
+    page = (await client.get("/api/screener")).json()
+    assert page["total"] == 2 and {r["ticker"] for r in page["items"]} == {"BBCA", "TLKM"}
 
 
 async def test_screener_total_counts_filtered_matches(client):

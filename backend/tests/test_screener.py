@@ -5,11 +5,12 @@ from signals.schemas import ScreenerRow
 from signals.screener import filter_rows
 
 ROWS = [
-    ScreenerRow(ticker="A", name="A", score=80, pbv=1.0, roe=0.20, rating="Strong Buy",
-                sector="Banks", change_percent=1.0),
-    ScreenerRow(ticker="B", name="B", score=50, pbv=3.0, roe=0.05, rating="Hold",
+    ScreenerRow(ticker="A", name="A", price=1000, score=80, pbv=1.0, roe=0.20,
+                rating="Strong Buy", sector="Banks", change_percent=1.0),
+    ScreenerRow(ticker="B", name="B", price=500, score=50, pbv=3.0, roe=0.05, rating="Hold",
                 sector="Banks", change_percent=-1.0),
-    ScreenerRow(ticker="C", name="C"),
+    ScreenerRow(ticker="C", name="C", price=100),
+    ScreenerRow(ticker="D", name="D"),  # no price: long suspended, never listed
 ]
 
 
@@ -17,7 +18,7 @@ def _keys(rows: list[ScreenerRow]) -> set[str]:
     return {r.ticker for r in rows}
 
 
-def test_no_filters_keeps_all():
+def test_no_filters_keeps_all_with_a_price():
     assert _keys(filter_rows(ROWS)) == {"A", "B", "C"}
 
 

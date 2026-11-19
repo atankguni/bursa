@@ -52,6 +52,7 @@ async def screener(
 async def _sync_status() -> SyncStatusOut:
     status = await sync_job.status()
     status.missing = await sync_job.missing_count()
+    status.never_tried = await sync_job.never_tried_count()
     return status
 
 
@@ -77,15 +78,24 @@ async def screener_sync(
     if all_missing:
         started = await sync_job.start_all()
         st = await sync_job.status()
+        message = None
+        if not started and not st.running:
+            missing = await sync_job.missing_count()
+            message = (
+                f"All {missing} stocks missing data were tried already and the provider "
+                "had no statements for them. Sync 40 tries them again."
+                if missing else "No stocks are missing data."
+            )
         return SyncStartOut(
             running=st.running, queued=st.total if started else 0,
-            total=st.total, remaining=st.remaining,
+            total=st.total, remaining=st.remaining, message=message,
         )
     missing = await sync_job.missing_tickers()
     cap = limit or settings.screener_sync_limit
     tickers = missing[:cap]
     if not tickers:
-        return SyncStartOut(running=False, queued=0, total=0, remaining=0)
+        return SyncStartOut(running=False, queued=0, total=0, remaining=0,
+                            message="No stocks are missing data.")
 
     started = await sync_job.start(tickers)
     st = await sync_job.status()

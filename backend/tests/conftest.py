@@ -26,7 +26,7 @@ os.environ["PASSWORD_BREACH_CHECK"] = "false"  # no network in tests
 
 import pytest_asyncio  # noqa: E402
 from httpx import ASGITransport, AsyncClient  # noqa: E402
-from sqlalchemy import insert, text  # noqa: E402
+from sqlalchemy import insert, select, text  # noqa: E402
 from sqlalchemy.ext.asyncio import AsyncSession  # noqa: E402
 
 from accounts import auth, crypto  # noqa: E402
@@ -68,6 +68,28 @@ async def add_daily_bars(session: AsyncSession, bars: list[dict[str, object]]) -
     the latest quotes, as the price sync does. Doesn't commit."""
     await session.execute(insert(DailyBar).values(bars))
     await refresh_quotes(session, sorted({str(b["ticker"]) for b in bars}))
+
+
+async def price_stocks(tickers: list[str] | None = None, close: float = 1000.0) -> None:
+    """Give stocks (default: all) a latest close today. The screener and the
+    fundamentals sync only consider stocks with a recent price."""
+    from clock import local_today
+    from market.models import Stock, StockQuote
+
+    async with AsyncSessionLocal() as s:
+        if tickers is None:
+            tickers = list((await s.execute(select(Stock.ticker))).scalars().all())
+        await s.execute(insert(StockQuote).values([
+            {"ticker": t, "day": local_today(), "close": close, "prev_close": close,
+             "volume": 1} for t in tickers
+        ]))
+        await s.commit()
+
+
+@pytest_asyncio.fixture
+async def priced(db):
+    """Every seeded stock has a price today."""
+    await price_stocks()
 
 
 async def signed_in(email: str) -> AsyncClient:

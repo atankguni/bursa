@@ -7,10 +7,16 @@ import {
   RefreshCw,
   SlidersHorizontal,
 } from 'lucide-react'
-import { cancelScreenerSync, startScreenerSync, type ScreenerRow } from '../api'
+import {
+  cancelScreenerSync,
+  errorMessage,
+  startScreenerSync,
+  type ScreenerRow,
+} from '../api'
 import { useMarketOverview, useScreener, useSyncStatus } from '../hooks'
 import { useAuth } from '../lib/auth'
 import { useSettings } from '../lib/settings'
+import { useToast } from '../lib/toast'
 import { fmtPct, fmtPercent, fmtPrice, fmtRatio } from '../lib/format'
 import BoardBadge from '../components/BoardBadge'
 import TickerName from '../components/TickerName'
@@ -75,9 +81,15 @@ export default function Screener() {
   // Background "sync missing data" job (admins start it; everyone sees progress).
   const { isAdmin } = useAuth()
   const { data: sync } = useSyncStatus()
+  const { toast } = useToast()
   const startSync = useMutation({
     mutationFn: (all: boolean) => startScreenerSync({ all }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['screener', 'sync'] }),
+    onSuccess: (r) => {
+      // Nothing to do: say so, rather than looking like it started and stopped.
+      if (!r.running && r.queued === 0 && r.message) toast(r.message)
+      return qc.invalidateQueries({ queryKey: ['screener', 'sync'] })
+    },
+    onError: (e) => toast(errorMessage(e, 'Could not start the sync'), 'error'),
   })
   const stopSync = useMutation({
     mutationFn: cancelScreenerSync,
@@ -100,6 +112,9 @@ export default function Screener() {
 
   // Universe-wide count from the backend (the table is filtered and capped).
   const missing = sync?.missing ?? 0
+  // "Sync all" works through stocks never tried; the others were tried and the
+  // provider had nothing, so only "Sync 40" (retries the oldest tries) helps.
+  const neverTried = sync?.never_tried ?? 0
 
   return (
     <main className="page">
@@ -171,7 +186,18 @@ export default function Screener() {
 
         <div className="ml-auto flex h-8 items-center gap-3 self-end">
           <span className="text-xs text-subtle">
-            {missing > 0 && <>{missing} missing · </>}
+            {missing > 0 && (
+              <>
+                {missing} missing
+                {sync && neverTried === 0 && (
+                  <span title="The provider had no statements for them when tried; Sync 40 tries them again">
+                    {' '}
+                    (all tried)
+                  </span>
+                )}{' '}
+                ·{' '}
+              </>
+            )}
             {isFetching ? 'Loading…' : `${total} matched`}
           </span>
           {sync?.running ? (
@@ -203,8 +229,8 @@ export default function Screener() {
               )}
               <button
                 onClick={() => startSync.mutate(false)}
-                disabled={startSync.isPending}
-                title="Fetch fundamentals for up to 40 stocks missing data"
+                disabled={startSync.isPending || missing === 0}
+                title="Fetch fundamentals for up to 40 stocks missing data (never-tried first, then the ones tried longest ago)"
                 className="flex items-center gap-1.5 rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
               >
                 <RefreshCw
@@ -215,8 +241,14 @@ export default function Screener() {
               </button>
               <button
                 onClick={() => startSync.mutate(true)}
-                disabled={startSync.isPending || missing === 0}
-                title="Work through every stock never synced, in batches of 40 with a pause between them. Runs in the background; you can leave this page or stop it."
+                disabled={startSync.isPending || neverTried === 0}
+                title={
+                  neverTried > 0
+                    ? `Work through the ${neverTried} stocks never synced, in batches of 40 with a pause between them. Runs in the background; you can leave this page or stop it.`
+                    : missing > 0
+                      ? `All ${missing} stocks missing data were tried already and the provider had no statements for them. Sync 40 tries them again.`
+                      : 'No stocks are missing data.'
+                }
                 className="rounded-sm px-3 py-1.5 text-xs font-medium text-muted ring-1 ring-line-strong transition hover:bg-panelalt hover:text-ink disabled:opacity-50"
               >
                 Sync all

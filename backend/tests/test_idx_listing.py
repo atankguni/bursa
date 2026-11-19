@@ -28,6 +28,9 @@ async def test_sync_applies_boards_and_adds_ipos(client, monkeypatch):
     assert bbca["board"] == "Watchlist"
     ipo = (await client.get("/api/stocks/NEWIPO")).json()  # auto-added to the catalog
     assert ipo["name"] == "Fresh Listing Tbk" and ipo["board"] == "Acceleration"
+    from tests.conftest import price_stocks
+
+    await price_stocks(["BBCA"])  # the screener lists stocks with a price
     page = (await client.get("/api/screener", params={"limit": 200})).json()
     assert any(r["ticker"] == "BBCA" and r["board"] == "Watchlist" for r in page["items"])
 

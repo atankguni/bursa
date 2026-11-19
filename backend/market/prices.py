@@ -5,7 +5,7 @@ from datetime import date, datetime, timedelta
 from statistics import median
 from typing import TypedDict
 
-from sqlalchemy import func, select
+from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clock import day_key, local_today
@@ -49,6 +49,13 @@ async def indices_map(
 TRADING_YEAR = 252
 
 
+def priced_tickers() -> Select[str]:
+    """Tickers with a close in about the last year: the ones `latest_daily` has a
+    price for. Stocks outside it (long suspended, or never served by the price
+    provider) have no data to show or rate."""
+    return select(StockQuote.ticker).where(StockQuote.day >= _since(TRADING_YEAR // 2 + 40))
+
+
 def _since(bars: int) -> date:
     """A lower date bound that surely holds the last `bars` daily bars (with room
     for holidays and short suspensions). Keeps the "last N bars" queries fast
@@ -67,7 +74,7 @@ async def latest_daily(
         await session.execute(
             select(StockQuote).where(
                 StockQuote.ticker.in_(tickers),
-                StockQuote.day >= _since(TRADING_YEAR // 2 + 40),  # ~1 year
+                StockQuote.day >= _since(TRADING_YEAR // 2 + 40),  # ~1 year (priced_tickers)
             )
         )
     ).scalars()

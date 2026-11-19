@@ -84,9 +84,13 @@ def filter_rows(
     sector: str | None = None,
     buy_only: bool = False,
 ) -> list[ScreenerRow]:
-    """Keep rows matching every provided criterion (missing data is excluded)."""
+    """Keep rows matching every provided criterion (missing data is excluded).
+    Stocks without a recent price (long suspended, or not served by the price
+    provider) are always left out: there is nothing to show or rate."""
 
     def keep(r: ScreenerRow) -> bool:
+        if r.price is None:
+            return False
         if min_score is not None and (r.score is None or r.score < min_score):
             return False
         if max_pbv is not None and (r.pbv is None or r.pbv > max_pbv):

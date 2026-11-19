@@ -20,7 +20,7 @@ import asyncio
 import logging
 from typing import Any, cast
 
-from sqlalchemy import ColumnElement, CursorResult, func, select, update
+from sqlalchemy import ColumnElement, CursorResult, and_, func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from clock import utcnow
@@ -29,6 +29,7 @@ from database import AsyncSessionLocal
 from db.upsert import upsert
 from market.fundamentals import sync_ticker
 from market.models import Fundamental, Stock, StockProfile
+from market.prices import priced_tickers
 from market.sync_state import done_column, is_done, mark_done
 from signals.recommendation import invalidate_cache
 from signals.schemas import SyncMode, SyncStatusOut
@@ -43,7 +44,13 @@ _WAITING = "Waiting for the worker…"
 
 
 def _missing_clause() -> ColumnElement[bool]:
-    return ~Stock.ticker.in_(select(Fundamental.ticker).distinct())
+    """No fundamentals yet, among stocks with a recent price. Stocks without one
+    (long suspended, or not served by the provider) are left out: the provider has
+    no statements for them either, and the screener doesn't list them."""
+    return and_(
+        ~Stock.ticker.in_(select(Fundamental.ticker).distinct()),
+        Stock.ticker.in_(priced_tickers()),
+    )
 
 
 async def missing_tickers() -> list[str]:
@@ -80,6 +87,17 @@ async def never_tried() -> list[str]:
             )
         ).scalars().all()
     return list(rows)
+
+
+async def never_tried_count() -> int:
+    async with AsyncSessionLocal() as session:
+        return (
+            await session.execute(
+                select(func.count())
+                .select_from(Stock)
+                .where(_missing_clause(), ~is_done("fundamentals"))
+            )
+        ).scalar_one()
 
 
 async def _with_data(tickers: list[str]) -> int:
@@ -151,8 +169,13 @@ async def start(tickers: list[str]) -> bool:
 
 
 async def start_all() -> bool:
-    """Queue 'sync all' (every never-tried stock). False if a run is already going."""
-    return await _request("all", len(await never_tried()), {})
+    """Queue 'sync all' (every never-tried stock). False if a run is already going,
+    or if every stock missing data was tried already (an empty run would only
+    start and stop at once)."""
+    total = await never_tried_count()
+    if total == 0:
+        return False
+    return await _request("all", total, {})
 
 
 async def cancel() -> bool:

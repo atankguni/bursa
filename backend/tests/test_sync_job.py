@@ -55,7 +55,7 @@ async def test_sync_many_passes_with_dividends_flag(monkeypatch):
     assert calls == [("A", False), ("B", False)]
 
 
-async def test_missing_tickers_rotates_tried_ones_to_the_back(client):
+async def test_missing_tickers_rotates_tried_ones_to_the_back(client, priced):
     # Regression: tickers the provider has no statements for used to stay at
     # the front (alphabetical), so every capped run retried the same ones.
     before = await sync_job.missing_tickers()
@@ -72,7 +72,7 @@ async def test_missing_tickers_rotates_tried_ones_to_the_back(client):
     assert await sync_job.missing_count() == len(before)
 
 
-async def test_status_endpoint_reports_missing(client):
+async def test_status_endpoint_reports_missing(client, priced):
     r = await client.get("/api/screener/sync/status")
     assert r.status_code == 200
     assert r.json()["missing"] > 0
@@ -165,7 +165,7 @@ async def _fake_sync_factory(monkeypatch, gives_data):
     return calls
 
 
-async def test_sync_all_works_through_every_never_tried_stock(client, monkeypatch):
+async def test_sync_all_works_through_every_never_tried_stock(client, priced, monkeypatch):
     from config import settings
 
     for k, v in {"screener_sync_limit": 300, "screener_sync_batch_pause": 0,
@@ -183,7 +183,7 @@ async def test_sync_all_works_through_every_never_tried_stock(client, monkeypatc
     assert await sync_job.never_tried() == []
 
 
-async def test_sync_all_stops_when_batches_come_back_empty(client, monkeypatch):
+async def test_sync_all_stops_when_batches_come_back_empty(client, priced, monkeypatch):
     from config import settings
 
     for k, v in {"screener_sync_limit": 5, "screener_sync_batch_pause": 0,
@@ -197,7 +197,7 @@ async def test_sync_all_stops_when_batches_come_back_empty(client, monkeypatch):
     assert "rate-limiting" in ((await sync_job.status()).last_error or "")
 
 
-async def test_sync_all_can_be_cancelled(client, monkeypatch):
+async def test_sync_all_can_be_cancelled(client, priced, monkeypatch):
     from config import settings
 
     for k, v in {"screener_sync_limit": 5, "screener_sync_batch_pause": 30,
@@ -282,3 +282,38 @@ async def test_history_backfill_marks_done_and_resumes(client, monkeypatch):
     second = await history.backfill_history()  # resumes with the rest only
     assert second == total - 400 and sum(n for n, _, _ in calls) == total - 400
     assert await history.backfill_history() == 0  # all done: no provider call
+
+
+async def test_sync_all_with_nothing_never_tried_queues_nothing(client, priced, monkeypatch):
+    # Regression: every missing stock had been tried, yet "Sync all" queued an
+    # empty run that the worker started and finished at once, silently.
+    calls = await _fake_sync_factory(monkeypatch, lambda t: True)
+    async with AsyncSessionLocal() as s:
+        await sync_state.mark_done(s, "fundamentals", await sync_job.missing_tickers())
+        await s.commit()
+    status = (await client.get("/api/screener/sync/status")).json()
+    assert status["missing"] > 0 and status["never_tried"] == 0
+
+    r = (await client.post("/api/screener/sync", params={"all": True})).json()
+    assert r["running"] is False and r["queued"] == 0
+    assert "tried already" in r["message"]
+    assert await sync_job.run_requested() is False and calls == []
+    # "Sync 40" still retries them.
+    assert (await client.post("/api/screener/sync")).json()["queued"] > 0
+
+
+async def test_status_counts_never_tried(client, priced):
+    status = (await client.get("/api/screener/sync/status")).json()
+    assert status["never_tried"] == status["missing"] > 0
+
+
+async def test_stocks_without_a_recent_price_are_not_missing(client):
+    # Long-suspended stocks (no price from the provider) have no statements
+    # either: they don't count as missing and no sync tries them.
+    from tests.conftest import price_stocks
+
+    assert await sync_job.missing_count() == 0 and await sync_job.never_tried() == []
+    await price_stocks(["BBCA"])
+    assert await sync_job.missing_tickers() == ["BBCA"]
+    status = (await client.get("/api/screener/sync/status")).json()
+    assert status["missing"] == status["never_tried"] == 1

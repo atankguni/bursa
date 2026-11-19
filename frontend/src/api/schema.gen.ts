@@ -3811,6 +3811,8 @@ export interface components {
      * @description Response of starting a screener sync.
      */
     SyncStartOut: {
+      /** Message */
+      message: string | null
       /**
        * Queued
        * @default 0
@@ -3852,6 +3854,11 @@ export interface components {
        * @enum {string}
        */
       mode: 'batch' | 'all'
+      /**
+       * Never Tried
+       * @default 0
+       */
+      never_tried: number
       /** Note */
       note: string | null
       /**
