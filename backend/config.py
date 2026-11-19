@@ -116,10 +116,8 @@ class Settings(BaseSettings):
     security_log_days: int = 180
     # Lock a signed-in browser after this many minutes without use (mouse,
     # keyboard, touch); unlocking needs the password, no 2FA code. Each user
-    # picks 0 (off), 5, 15, 30 or 60 in Settings; this is the default. Admins
-    # can't turn it off or go above lock_admin_max_minutes.
+    # picks 0 (off), 5, 15, 30 or 60 in Settings; this is the default.
     lock_default_minutes: int = 15
-    lock_admin_max_minutes: int = 15
     lock_max_attempts: int = 5  # wrong passwords on the lock screen before sign-out
 
     # Optional email (mail/ package). `mail_provider` picks the adapter:

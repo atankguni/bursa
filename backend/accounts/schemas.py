@@ -130,8 +130,7 @@ class PreferencesOut(Schema):
     alerts_seen_at: datetime | None = None
     trading_costs: TradingCosts = Field(default_factory=TradingCosts)
     daily_digest: bool = False  # the summary email after the close (opt-in)
-    # Lock this browser after this many minutes without use (0 = never). For
-    # admins, already capped at config.lock_admin_max_minutes.
+    # Lock this browser after this many minutes without use (0 = never).
     lock_minutes: int = 15
     # Email each triggered alert (opt-in), outside the quiet hours if set.
     alert_emails: bool = False

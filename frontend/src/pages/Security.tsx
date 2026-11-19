@@ -91,10 +91,7 @@ function PasswordCard() {
 const LOCK_OPTIONS = [0, 5, 15, 30, 60]
 
 function ScreenLockCard() {
-  const { isAdmin } = useAuth()
   const { lockMinutes, setLockMinutes, loaded } = usePreferences()
-  // Admins always lock, within 15 minutes (the server enforces it too).
-  const options = LOCK_OPTIONS.filter((m) => !isAdmin || (m > 0 && m <= 15))
   return (
     <section className="rounded-md bg-panelalt/40 p-4 ring-1 ring-line">
       <div className="mb-2 flex items-center gap-2">
@@ -108,12 +105,11 @@ function ScreenLockCard() {
           After this long without using Bursa (mouse, keyboard or touch), this browser
           locks and asks for your password again. No 2FA code is needed. All your tabs
           lock and unlock together; your other devices keep their own timer.
-          {isAdmin && ' Admin accounts always lock, after 15 minutes at most.'}
         </p>
         {loaded && (
           <Segmented<string>
             value={String(lockMinutes)}
-            options={options.map((m) => ({
+            options={LOCK_OPTIONS.map((m) => ({
               value: String(m),
               label: m === 0 ? 'Off' : `${m} min`,
             }))}

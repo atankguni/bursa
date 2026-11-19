@@ -98,7 +98,7 @@ backtest (see [Development](development.md#signal-backtest)).
   admins, optional for others. Security changes (password, 2FA, a recovery code used)
   are emailed to the user when email is set up.
 - **Screen lock**: after 15 minutes without use (choose Off, 5, 15, 30 or 60 in
-  Settings → Security; admins 15 at most and never off) the app locks and asks for the
+  Settings → Security, for every user including admins) the app locks and asks for the
   password, without a 2FA code. Enforced by the server, shared by all tabs; **Lock
   now** is in the account menu.
 - **Profile** (Settings → Profile): change your name; change your email through a

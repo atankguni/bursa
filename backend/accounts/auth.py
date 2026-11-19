@@ -222,19 +222,16 @@ async def session_for_token(
 _ACTIVE_INTERVAL = timedelta(seconds=30)
 
 
-def effective_lock_minutes(chosen: int | None, role: str) -> int:
-    """Minutes without use before a browser locks (0 = never). Admins always lock,
-    at lock_admin_max_minutes at most."""
+def effective_lock_minutes(chosen: int | None) -> int:
+    """Minutes without use before a browser locks (0 = never): the user's choice,
+    else the default. Every user, admins included, may turn it off."""
     minutes = settings.lock_default_minutes if chosen is None else chosen
-    if role == "admin":
-        cap = settings.lock_admin_max_minutes
-        return cap if minutes <= 0 else min(minutes, cap)
     return max(minutes, 0)
 
 
 async def lock_minutes(session: AsyncSession, user: User) -> int:
     row = await session.get(UserSettings, user.id)
-    return effective_lock_minutes(row.lock_minutes if row else None, user.role)
+    return effective_lock_minutes(row.lock_minutes if row else None)
 
 
 async def is_locked(session: AsyncSession, sess: UserSession, user: User) -> bool:

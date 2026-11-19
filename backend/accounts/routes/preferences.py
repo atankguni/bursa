@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import mail
-from accounts.auth import AuthError, lock_minutes
+from accounts.auth import lock_minutes
 from accounts.models import User
 from accounts.preferences import (
     get_alert_emails,
@@ -88,10 +88,7 @@ async def update_preferences(
     if payload.daily_digest is not None:
         await set_daily_digest(session, user.id, payload.daily_digest)
     if payload.lock_minutes is not None:
-        try:
-            await set_lock_minutes(session, user, payload.lock_minutes)
-        except AuthError as exc:
-            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        await set_lock_minutes(session, user, payload.lock_minutes)
     if payload.alert_emails is not None:
         await set_alert_emails(session, user.id, payload.alert_emails)
     if payload.quiet_hours_set:

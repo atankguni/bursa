@@ -203,7 +203,6 @@ an admin can reset a user's 2FA from the Users page.
 | `TRUSTED_DEVICE_DAYS` | `30` | How long "Remember this device" lasts |
 | `SECURITY_LOG_DAYS` | `180` | How long the account activity log is kept |
 | `LOCK_DEFAULT_MINUTES` | `15` | A browser locks after this many minutes without use, until the password is entered (no 2FA code). Each user can pick Off, 5, 15, 30 or 60 in Settings → Security |
-| `LOCK_ADMIN_MAX_MINUTES` | `15` | Admin accounts can't turn the lock off or set a longer time |
 | `LOCK_MAX_ATTEMPTS` | `5` | Wrong passwords on the lock screen before that browser is signed out |
 
 ### Screen lock

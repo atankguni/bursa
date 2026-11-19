@@ -96,10 +96,14 @@ async def test_users_can_turn_it_off_or_lengthen_it(user):
     assert (await user.put("/api/preferences", json={"lock_minutes": 7})).status_code == 422
 
 
-async def test_admins_always_lock_within_the_cap(client):
+async def test_admins_may_turn_the_lock_off_too(client):
     r = await client.put("/api/preferences", json={"lock_minutes": 0})
-    assert r.status_code == 400 and "15 minutes or less" in r.json()["detail"]
-    assert (await client.put("/api/preferences", json={"lock_minutes": 60})).status_code == 400
+    assert r.status_code == 200 and r.json()["lock_minutes"] == 0
+    await _idle(600)
+    assert (await client.get("/api/admin/users")).status_code == 200  # never locks
+    await _idle(0)  # back at the keyboard (the page reports activity)
+    r = await client.put("/api/preferences", json={"lock_minutes": 60})
+    assert r.json()["lock_minutes"] == 60
     r = await client.put("/api/preferences", json={"lock_minutes": 5})
     assert r.json()["lock_minutes"] == 5
     await _idle(6)
@@ -116,9 +120,6 @@ async def test_other_browsers_are_independent(user):
 def test_effective_minutes():
     from accounts.auth import effective_lock_minutes
 
-    assert effective_lock_minutes(None, "user") == 15
-    assert effective_lock_minutes(0, "user") == 0
-    assert effective_lock_minutes(60, "user") == 60
-    assert effective_lock_minutes(0, "admin") == 15  # stored before becoming admin
-    assert effective_lock_minutes(60, "admin") == 15
-    assert effective_lock_minutes(5, "admin") == 5
+    assert effective_lock_minutes(None) == 15  # the default
+    assert effective_lock_minutes(0) == 0  # off
+    assert effective_lock_minutes(60) == 60
