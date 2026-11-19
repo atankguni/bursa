@@ -109,9 +109,9 @@ export default function RiskPanel({ enabled }: { enabled: boolean }) {
                 >
                   {s.sector}
                 </span>
-                <div className="h-2 flex-1 overflow-hidden rounded-full bg-panelalt">
+                <div className="h-2 flex-1 overflow-hidden rounded-xs bg-panelalt">
                   <div
-                    className={`h-full rounded-full ${s.weight > r.sector_limit_pct ? 'bg-amber-500' : 'bg-accent'}`}
+                    className={`h-full rounded-xs ${s.weight > r.sector_limit_pct ? 'bg-amber-500' : 'bg-accent'}`}
                     style={{ width: `${Math.max(s.weight, 2)}%` }}
                   />
                 </div>

@@ -67,7 +67,7 @@ export default function Browse() {
               : `${from}–${to} of ${total}${isFetching ? ' · updating…' : ''} · track a stock for live prices`}
           </p>
         </div>
-        <div className="flex items-center gap-2 rounded-full bg-panel py-1.5 pr-3 pl-3 text-xs ring-1 ring-line-strong transition-shadow focus-within:ring-2 focus-within:ring-accent">
+        <div className="flex items-center gap-2 rounded-sm bg-panel py-1.5 pr-3 pl-3 text-xs ring-1 ring-line-strong transition-shadow focus-within:ring-2 focus-within:ring-accent">
           <Search size={13} className="text-muted" />
           <input
             value={q}

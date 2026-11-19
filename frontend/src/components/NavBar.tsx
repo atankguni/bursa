@@ -29,7 +29,7 @@ const SECTIONS: { to: string; label: string; icon: LucideIcon; end: boolean }[] 
 ]
 
 const linkClass = ({ isActive }: { isActive: boolean }) =>
-  `rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+  `rounded-sm px-3 py-1.5 text-xs font-medium transition-colors ${
     isActive ? 'bg-panelalt text-ink' : 'text-muted hover:text-ink'
   }`
 

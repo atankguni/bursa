@@ -126,7 +126,7 @@ export default function DividendIncomeChart({ hideValues }: { hideValues: boolea
                   <div className="relative mx-auto flex h-full w-full max-w-7 flex-col justify-end">
                     {e > 0 && (
                       <div
-                        className="rounded-t-[4px]"
+                        className="rounded-t-xs"
                         style={{
                           height: `${e}%`,
                           minHeight: 2,
@@ -136,7 +136,7 @@ export default function DividendIncomeChart({ hideValues }: { hideValues: boolea
                     )}
                     {r > 0 && (
                       <div
-                        className={`bg-accent ${e > 0 ? 'mt-[2px]' : 'rounded-t-[4px]'}`}
+                        className={`bg-accent ${e > 0 ? 'mt-[2px]' : 'rounded-t-xs'}`}
                         style={{ height: `${r}%`, minHeight: 2 }}
                       />
                     )}

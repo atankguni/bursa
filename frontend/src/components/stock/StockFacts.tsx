@@ -57,13 +57,13 @@ export default function StockFacts({
             {`: low ${fmtPrice(lo)}, high ${fmtPrice(hi)}, now ${Math.round(at * 100)}% of the way up`}
           </span>
         </div>
-        <div className="relative mt-1 h-1.5 rounded-full bg-panelalt" aria-hidden>
+        <div className="relative mt-1 h-1.5 rounded-xs bg-panelalt" aria-hidden>
           <div
-            className="absolute inset-y-0 left-0 rounded-full bg-accent/30"
+            className="absolute inset-y-0 left-0 rounded-xs bg-accent/30"
             style={{ width: `${at * 100}%` }}
           />
           <div
-            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-accent ring-2 ring-panel"
+            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-xs bg-accent ring-2 ring-panel"
             style={{ left: `${at * 100}%` }}
           />
         </div>

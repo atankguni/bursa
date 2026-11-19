@@ -42,7 +42,7 @@ function AccentPicker({
             title={a.label}
             onClick={() => onChange(a.value)}
             style={{ backgroundColor: color, color }}
-            className={`flex h-6 w-6 items-center justify-center rounded-full transition ${
+            className={`flex h-6 w-6 items-center justify-center rounded-sm transition ${
               selected
                 ? 'ring-2 ring-current ring-offset-2 ring-offset-panel'
                 : 'opacity-80 hover:opacity-100'

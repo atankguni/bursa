@@ -162,7 +162,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className={`pointer-events-auto flex animate-fade-in items-center gap-4 rounded-full py-2 pr-2 pl-4 text-xs font-medium shadow-pop ${
+            className={`pointer-events-auto flex animate-fade-in items-center gap-4 rounded-sm py-2 pr-2 pl-4 text-xs font-medium shadow-pop ${
               t.tone === 'error' ? 'bg-bear text-white' : 'bg-ink text-app'
             } ${t.undoKey ? '' : 'pr-4'}`}
           >
@@ -170,7 +170,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {t.undoKey && (
               <button
                 onClick={() => t.undoKey && undo(t.id, t.undoKey)}
-                className="rounded-full bg-app/15 px-3 py-1 font-semibold transition hover:bg-app/25"
+                className="rounded-sm bg-app/15 px-3 py-1 font-semibold transition hover:bg-app/25"
               >
                 Undo
               </button>

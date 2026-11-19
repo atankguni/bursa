@@ -115,7 +115,7 @@ export default function SearchBox({
 
   return (
     <div ref={ref} className={`relative ${full ? 'w-full' : ''}`}>
-      <div className="flex items-center gap-2 rounded-full bg-panelalt py-1.5 pr-2 pl-3 text-xs transition-shadow focus-within:bg-panel focus-within:ring-2 focus-within:ring-accent">
+      <div className="flex items-center gap-2 rounded-sm bg-panelalt py-1.5 pr-2 pl-3 text-xs transition-shadow focus-within:bg-panel focus-within:ring-2 focus-within:ring-accent">
         <Search size={14} className="text-muted" />
         <input
           ref={input}

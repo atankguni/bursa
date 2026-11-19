@@ -19,7 +19,7 @@ export default function PasswordStrength({ strength }: { strength: Strength | nu
           {[0, 1, 2, 3].map((i) => (
             <span
               key={i}
-              className={`h-1 flex-1 rounded-full ${i < filled ? bar : 'bg-active'}`}
+              className={`h-1 flex-1 rounded-xs ${i < filled ? bar : 'bg-active'}`}
             />
           ))}
         </span>

@@ -92,7 +92,7 @@ export default function GettingStarted() {
         </button>
       </div>
       <div
-        className="mt-3 h-1 overflow-hidden rounded-full bg-panelalt"
+        className="mt-3 h-1 overflow-hidden rounded-xs bg-panelalt"
         role="progressbar"
         aria-valuemin={0}
         aria-valuemax={steps.length}
@@ -100,7 +100,7 @@ export default function GettingStarted() {
         aria-label="Getting started progress"
       >
         <div
-          className="h-full rounded-full bg-accent transition-[width]"
+          className="h-full rounded-xs bg-accent transition-[width]"
           style={{ width: `${(doneCount / steps.length) * 100}%` }}
         />
       </div>
@@ -115,7 +115,7 @@ export default function GettingStarted() {
               }`}
             >
               <span
-                className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full ${
+                className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-xs ${
                   s.done ? 'bg-accent text-accent-ink' : 'ring-1 ring-line-strong'
                 }`}
                 aria-hidden

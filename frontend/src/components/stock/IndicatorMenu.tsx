@@ -59,7 +59,7 @@ export default function IndicatorMenu({
         <SlidersHorizontal size={13} aria-hidden />
         Indicators
         {count > 0 && (
-          <span className="rounded-full bg-accent/15 px-1.5 text-2xs font-semibold text-accent">
+          <span className="rounded-sm bg-accent/15 px-1.5 text-2xs font-semibold text-accent">
             {count}
           </span>
         )}

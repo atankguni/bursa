@@ -138,7 +138,7 @@ function BreadthCard({ up, down, flat }: { up: number; down: number; flat: numbe
         <div className="text-2xs text-subtle">{fmtNum(total)} stocks traded</div>
       </div>
       <div
-        className="mt-3 flex h-2 overflow-hidden rounded-full bg-panelalt"
+        className="mt-3 flex h-2 overflow-hidden rounded-xs bg-panelalt"
         role="img"
         aria-label={`${up} advancing, ${down} declining, ${flat} unchanged`}
       >

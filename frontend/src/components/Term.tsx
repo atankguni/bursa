@@ -41,7 +41,7 @@ export default function Term({ id, children }: { id: GlossaryId; children?: Reac
         aria-expanded={open}
         aria-controls={popId}
         aria-label={`What is ${entry.term}?`}
-        className="rounded-full p-0.5 text-subtle transition hover:text-ink"
+        className="rounded-sm p-0.5 text-subtle transition hover:text-ink"
       >
         <CircleHelp size={11} />
       </button>

@@ -78,7 +78,7 @@ export default function AccountMenu() {
         onClick={() => setOpen((v) => !v)}
         aria-label={attention ? `Account (${attention})` : 'Account'}
         aria-expanded={open}
-        className="relative ml-1 flex h-8 w-8 items-center justify-center rounded-full bg-accent/15 text-xs font-semibold text-accent transition hover:bg-accent/25"
+        className="relative ml-1 flex h-8 w-8 items-center justify-center rounded-md bg-accent/15 text-xs font-semibold text-accent transition hover:bg-accent/25"
       >
         {initial}
         {attention && (

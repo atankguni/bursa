@@ -204,7 +204,7 @@ export default function Portfolio() {
                 />
                 <div className="mt-3 flex flex-wrap gap-2 text-xs font-medium tabular-nums">
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${pill(totals?.day_change)}`}
+                    className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 ${pill(totals?.day_change)}`}
                   >
                     {moneySigned(totals?.day_change)}
                     <span className="opacity-80">
@@ -212,7 +212,7 @@ export default function Portfolio() {
                     </span>
                   </span>
                   <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 ${pill(totals?.total_return)}`}
+                    className={`inline-flex items-center gap-1 rounded-sm px-2.5 py-1 ${pill(totals?.total_return)}`}
                     title="P/L after selling costs + realized + dividends"
                   >
                     {moneySigned(totals?.total_return)}
@@ -501,9 +501,9 @@ export default function Portfolio() {
                               <td className="px-4 py-3">
                                 {h.weight != null ? (
                                   <span className="flex items-center gap-2">
-                                    <span className="h-1.5 w-14 overflow-hidden rounded-full bg-panelalt">
+                                    <span className="h-1.5 w-14 overflow-hidden rounded-xs bg-panelalt">
                                       <span
-                                        className="block h-full rounded-full bg-accent/70"
+                                        className="block h-full rounded-xs bg-accent/70"
                                         style={{ width: `${Math.min(h.weight, 100)}%` }}
                                       />
                                     </span>
@@ -628,7 +628,7 @@ export default function Portfolio() {
                                 <td className="px-4 py-2.5 font-semibold">{t.ticker}</td>
                                 <td className="px-4 py-2.5">
                                   <span
-                                    className={`rounded-full px-2 py-0.5 text-2xs font-medium capitalize ${
+                                    className={`rounded-sm px-2 py-0.5 text-2xs font-medium capitalize ${
                                       t.kind !== 'trade'
                                         ? 'bg-accent/10 text-accent'
                                         : t.side === 'buy'

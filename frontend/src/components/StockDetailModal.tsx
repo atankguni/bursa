@@ -77,7 +77,7 @@ export default function StockDetailModal({
             {stock.indices.map((idx) => (
               <span
                 key={idx}
-                className="rounded-full bg-panelalt px-2 py-0.5 text-2xs font-medium text-muted"
+                className="rounded-sm bg-panelalt px-2 py-0.5 text-2xs font-medium text-muted"
               >
                 {idx}
               </span>

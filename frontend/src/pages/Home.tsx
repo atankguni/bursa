@@ -207,7 +207,7 @@ export default function Home() {
                 <span className="text-bear">{summary.losers}</span>
               </div>
               <div
-                className="mt-2 flex h-1.5 overflow-hidden rounded-full bg-panelalt"
+                className="mt-2 flex h-1.5 overflow-hidden rounded-xs bg-panelalt"
                 role="img"
                 aria-label={`${summary.gainers} up, ${summary.losers} down, ${summary.unchanged} flat`}
               >
